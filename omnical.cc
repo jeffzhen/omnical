@@ -103,8 +103,8 @@ void updateadditive(vector<vector<float> >* additiveresult, vector<vector<vector
 void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module){
 	int nant = info->nAntenna;
 	int nubl = info->nUBL;
-	int nbl = nant * (nant + 1) / 2;
-	int ncross = nbl - nant;
+	int nbl = info->nBaseline;
+	int ncross = info->nCross;
 	
 	////read in amp and args
 	for (int b = 0; b < ncross; b++){
@@ -115,7 +115,7 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	////rewrap args
 	for(int i = 0; i < nubl; i ++){
 		for(int j = 0; j < (module->ublgrp1)[i].size(); j ++){
-			(module->ublgrp1)[i][j] = module->pha1[info->ublindex[i][j][2] - info->ublindex[i][j][0] - 1];
+			(module->ublgrp1)[i][j] = module->pha1[info->ublindex[i][j][2]];
 		}
 	}
 	for (int i = 0; i < nubl; i++){
@@ -178,11 +178,13 @@ vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >*
 }
 
 void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
+
 	////initialize data and g0 ubl0
 	for (int b = 0; b < (module->cdata1).size(); b++){
 		module->cdata1[b][0] = data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0];
 		module->cdata1[b][1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1];
 	}
+
 	float amptmp;
 	int cbl;
 	float stepsize2 = 1 - stepsize;
@@ -195,29 +197,42 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		module->ubl0[u][0] = calpar->at(3 + 2 * info->nAntenna + 2 * u);
 		module->ubl0[u][1] = calpar->at(3 + 2 * info->nAntenna + 2 * u + 1);
 	}
+
+
 	
 	////start iterations
 	int iter = 0;
 	float componentchange = 100;
 	while(iter < maxiter and componentchange > convergethresh){
 		iter++;
-		
+		//cout << "iteration #" << iter << endl; cout.flush();
 		////calpar g
+
 		for (int a3 = 0; a3 < module->g3.size(); a3++){////g3 will be containing the final dg, g1, g2 will contain a and b as in the cost function LAMBDA = ||a + b*g||^2
 			for (int a = 0; a < a3; a++){
-				cbl = info->bl1dmatrix[a3][a] - a - 1;
-				module->g1[a] = module->cdata1[cbl];
-				module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
-				module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+				cbl = info->bl1dmatrix[a3][a];
+				if (cbl < 0 or cbl > module->cdata1.size()){//badbl
+					module->g1[a] = vector<float>(2,0);
+					module->g2[a] = vector<float>(2,0);
+				}else{
+					module->g1[a] = module->cdata1[cbl];
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+				}
 			}
 			(module->g1)[a3] = vector<float>(2,0);
 			(module->g2)[a3] = (module->g1)[a3];
 			for (int a = a3 + 1; a < module->g3.size(); a++){
-				cbl = info->bl1dmatrix[a3][a] - a3 - 1;
-				module->g1[a][0] = module->cdata1[cbl][0];
-				module->g1[a][1] = -module->cdata1[cbl][1];////vij needs to be conjugated
-				module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
-				module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+				cbl = info->bl1dmatrix[a3][a];
+				if (cbl < 0 or cbl > module->cdata1.size()){//badbl
+					module->g1[a] = vector<float>(2,0);
+					module->g2[a] = vector<float>(2,0);
+				}else{
+					module->g1[a][0] = module->cdata1[cbl][0];
+					module->g1[a][1] = -module->cdata1[cbl][1];////vij needs to be conjugated
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+				}
 			}
 			module->g3[a3] = minimizecomplex(&(module->g1), &(module->g2));
 			//if(a3 == module->g3.size() - 2) printvv(&(module->g1));
@@ -225,11 +240,11 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		}
 		//printvv(&(module->g0),0,10);
 		//printvv(&(module->g3),0,10);
-		
+			
 		////ubl M
 		for (int u = 0; u < info->nUBL; u++){
 			for (int i = 0; i < module->ubl2dgrp1[u].size(); i++){
-				cbl = info->ublindex[u][i][2] - info->ublindex[u][i][0] - 1;
+				cbl = info->ublindex[u][i][2];
 				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
 				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
 				module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
@@ -238,16 +253,12 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			
 			module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
 		}
-		//printvv(&(module->ubl3));
-		//printvv(&(module->ubl2dgrp1[35]));
-		//printvv(&(module->ubl2dgrp2[35]));
-		//printv(&(module->ubl3[35]));
+
 		
 		////compute fractional change and then update g and ubl
 		componentchange = 0;
 		float fraction;
-		//printvv(&(module->ubl0),0,5);
-		//printvv(&(module->ubl3),0,5);
+
 		for (int a = 0; a < module->g3.size(); a++){
 			fraction = amp(module->g3[a][0] - module->g0[a][0], module->g3[a][1] - module->g0[a][1]) / amp(module->g0[a][0], module->g0[a][1]);
 			if (fraction > componentchange){
@@ -256,6 +267,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			
 			module->g0[a][0] = stepsize2 * module->g0[a][0] + stepsize * module->g3[a][0];
 			module->g0[a][1] = stepsize2 * module->g0[a][1] + stepsize * module->g3[a][1];
+
 		}
 		for (int u = 0; u < module->ubl3.size(); u++){
 			fraction = amp(module->ubl3[u][0] - module->ubl0[u][0], module->ubl3[u][1] - module->ubl0[u][1]) / amp(module->ubl0[u][0], module->ubl0[u][1]);
@@ -278,8 +290,8 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		calpar->at(tmp + 2 * u) = module->ubl0[u][0];
 		calpar->at(tmp + 2 * u + 1) = module->ubl0[u][1];
 	}
+
 	////compute Ax and chisq
-	
 	float gre, gim;
 	int a1, a2;
 	float chisq = 0;
@@ -293,12 +305,9 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		chisq += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
 		//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
 	}
-	//string opname = "/mnt/hgfs/data/x5/tmp.dat";
-	//outputAscii(&(module->g0), opname, 0);
-	//outputAscii(&(module->ubl0), opname);
-	//outputAscii(&(module->cdata2), opname);
-	//printvv(&(module->ubl0),0,10);
-	//printvv(&(module->cdata2),0,10);
+	//printvv(&(module->cdata1), 0, 10);
+	//printvv(&(module->cdata2), 0, 10);
+	calpar->at(0) = iter;
 	calpar->at(2) = chisq;
 	//cout << chisq << endl;
 	return;
@@ -318,81 +327,41 @@ void loadGoodVisibilities(vector<vector<vector<vector<float> > > > * rawdata, ve
 
 int main(int argc, char *argv[]){
 	string METHODNAME = "main";
-	if (argc ! = 4){
-		cout << "##" << FILENAME << "##" << METHODNAME << "FALTAL ERROR: Incorrect input format! Expecting data path, info path, time count, frequency count." << endl;
+	if (argc != 6){
+		//cout << argc << endl;
+		cout << "##" << FILENAME << "##" << METHODNAME << ": FALTAL ERROR: Incorrect input format! Expecting data path, info path, time count, frequency count, total number of antenna contained in the data." << endl;
 		return 0;
 	}
-	string visin = "/rawcal_visibilities";
-	string visoutXX = "/redcal_visibilitiesXX";
-	string calparoutXX = "/redcalparXX";
-	string visoutYY = "/redcal_visibilitiesYY";
-	string calparoutYY = "/redcalparYY";
-	string addoutXX = "/additiveXX.dat";
-	string addoutYY = "/additiveYY.dat";
-	vector<string> odfSet = parseLines(exec("cat logcal_todoq4A.txt"));
-	
-	string infopathx = "redundantinfo_q4x.txt";
-	string infopathy = "redundantinfo_q4y.txt";
-
-	if (odfSet.size() < 1 ) exit(1);
+	clock_t tStart = clock();	
+	string visin(argv[1]);
+	string calparout = visin + ".omnical";
+	string infopath(argv[2]);
+	int nInt = atoi(argv[3]);
+	int nFreq = atoi(argv[4]);
+	int nAnt = atoi(argv[5]);
+	cout << "##" << FILENAME << "##" << METHODNAME << ": Starting " << visin << " " << nInt << " by " << nFreq << endl; 
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Reading redundant baseline information and pre-computed matrices:" << endl;//generated from 16. additive noise investigation _from_17.nb
-	redundantinfo infoXX, infoYY;
-	readredundantinfo(infopathx, &infoXX);
-	readredundantinfo(infopathy, &infoYY);
-	cout << "XX: Good antenna count: " << infoXX.nAntenna << ". UBL count: " << infoXX.nUBL << "." << endl;
-	cout << "YY: Good antenna count: " << infoYY.nAntenna << ". UBL count: " << infoYY.nUBL << "." << endl;
+	redundantinfo info;
+	readredundantinfo(infopath, &info);
+
+	cout << "Good antenna count: " << info.nAntenna << ". UBL count: " << info.nUBL << "." << endl;
 	cout.flush();
 	
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Reading header.txt from first odf" << endl;
-	string outputPath, outputRawPath, outputcalparPath, odfaPath;
-
-	odfheader header;
-	string odfPath = odfSet[0];
-	odfaPath = odfPath;
-	size_t found = odfaPath.find(".odf");
-	odfaPath.replace(found, 4, ".odfa");
-	cout << odfPath << endl << odfaPath << endl;
-	if (!readODFHeader(odfPath, &header)){
-		cout << "##" << FILENAME << "##" << METHODNAME << ": FATAL ERROR: Unable to read header in " << odfPath << ". Exiting!: " << endl;
-		return 0;
-	}
-	int nBaseline = header.nChannel * (header.nChannel + 1) / 2;
-	int nCross = header.nChannel * (header.nChannel -1) / 2;
 	
-	////////////////read antloc and generate antlocx and antlocy with bad ant removed 
-	vector<vector<float> > antloc (header.nChannel, vector<float> (3, 0));
-	vector<vector<float> > cablelen (2, vector<float> (header.nChannel, 0));
-	readAntloc((odfaPath + "/antlocx5.dat").c_str(), &antloc, &cablelen, header.nChannel);
-
-	vector<vector<float> > antlocXX, antlocYY;
-	for (int i = 0; i < infoXX.subsetant.size(); i++){
-		antlocXX.push_back(antloc[infoXX.subsetant[i]]);
-	}
-	for (int i = 0; i < infoYY.subsetant.size(); i++){
-		antlocYY.push_back(antloc[infoYY.subsetant[i]]);
-	}	
-
-
+	int nBaseline = nAnt * (nAnt + 1) / 2;
+	int nCross = nAnt * (nAnt - 1) / 2;
+	
 
 	////allocate big memories for calibration operations
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Allocating big memories for calibration operations...";
 	cout.flush();
-	vector<vector<vector<vector<float> > > > rawdata(4, vector<vector<vector<float> > >(header.nIntegration, vector<vector<float> >(header.nFrequency, vector<float>(2 * nBaseline, 0))));
-	vector<vector<vector<vector<float> > > > dataXX(header.nIntegration, vector<vector<vector<float> > >(header.nFrequency, vector<vector<float> >(infoXX.subsetbl.size(), vector<float>(2, 0))));
-	vector<vector<vector<float> > > calparXX(header.nIntegration, vector<vector<float> >(header.nFrequency, vector<float>(3 + 2*(infoXX.nUBL + infoXX.nAntenna), 0)));
-	vector<vector<vector<vector<float> > > > dataYY(header.nIntegration, vector<vector<vector<float> > >(header.nFrequency, vector<vector<float> >(infoYY.subsetbl.size(), vector<float>(2, 0))));
-	vector<vector<vector<float> > > calparYY(header.nIntegration, vector<vector<float> >(header.nFrequency, vector<float>(3 + 2*(infoYY.nUBL + infoYY.nAntenna), 0)));
-	int nchunk = round(header.nIntegration * header.integrationTime / 300);
-	int chunksize = header.nIntegration / nchunk;////No. of time slices to average for additive
-
-	vector<vector<vector<float> > > additiveXX(chunksize, vector<vector<float> >(dataXX[0][0].size(), vector<float>(dataXX[0][0][0].size(), 0)));////no frequency dimension, reused memory for holding additive term before averaging
-	vector<vector<vector<float> > > additiveresultXX(nchunk, vector<vector<float> >(dataXX[0][0].size(), vector<float>(dataXX[0][0][0].size(), 0)));
-	vector<vector<vector<float> > > additiveYY(chunksize, vector<vector<float> >(dataYY[0][0].size(), vector<float>(dataYY[0][0][0].size(), 0)));////no frequency dimension, reused memory for holding additive term before averaging
-	vector<vector<vector<float> > > additiveresultYY(nchunk, vector<vector<float> >(dataYY[0][0].size(), vector<float>(dataYY[0][0][0].size(), 0)));
-	
-	calmemmodule moduleXX, moduleYY;////memory module to be reused in order to avoid redeclaring all sorts of long vectors
-	initcalmodule(&moduleXX, infoXX.nAntenna, &(infoXX.ublcount));
-	initcalmodule(&moduleYY, infoYY.nAntenna, &(infoYY.ublcount));
+	vector<vector<vector<vector<float> > > > rawdata(1, vector<vector<vector<float> > >(nInt, vector<vector<float> >(nFreq, vector<float>(2 * nBaseline, 0))));
+	vector<vector<vector<vector<float> > > > data(nInt, vector<vector<vector<float> > >(nFreq, vector<vector<float> >(info.subsetbl.size(), vector<float>(2, 0))));
+	vector<vector<vector<float> > > calpar(nInt, vector<vector<float> >(nFreq, vector<float>(3 + 2*(info.nUBL + info.nAntenna), 0)));
+	vector<vector<float> >additiveplaceholder(data[0][0].size(), vector<float>(data[0][0][0].size(), 0));
+	vector<vector<float> >additiveplaceholder2(data[0][0].size(), vector<float>(data[0][0][0].size(), 0));
+	calmemmodule module;////memory module to be reused in order to avoid redeclaring all sorts of long vectors
+	initcalmodule(&module, &info);
 	cout << "Done." << endl;
 	cout.flush();
 
@@ -400,82 +369,29 @@ int main(int argc, char *argv[]){
 
 
 	////////////Start calibration///////////
-	for (int o = 0; o < odfSet.size(); o++){
-		clock_t tStart = clock();
-		odfPath = odfSet[o];
-		odfaPath = odfPath;
-		size_t found = odfaPath.find(".odf");
-		odfaPath.replace(found, 4, ".odfa");
-		if (!readODFHeader(odfPath, &header)){
-			cout << "##" << FILENAME << "##" << METHODNAME << ": FATAL ERROR: Unable to read header in " << odfPath << ". Exiting!: " << endl;
-			return 0;
-		}
-		odfheader_print(&header);
-		if (rawdata[0].size() != header.nIntegration){
-			for (int i = 0; i < 10; i++) cout << "FATAL ERROR_";
-			cout << endl << "##" << FILENAME << "##" << METHODNAME << ": FATAL ERROR: Number of integrations changed from " << rawdata[0].size() << " to " << header.nIntegration << ". Exiting!: " << endl;
-		}
-		readBinaryVisibilityLarge((odfPath + visin).c_str(), &rawdata, 4, header.nIntegration, header.nFrequency, nBaseline);
-		loadGoodVisibilities(&rawdata, &dataXX, &infoXX, 0);
-		loadGoodVisibilities(&rawdata, &dataYY, &infoYY, 3);
 
-		for (int f = 0; f < dataXX[0].size(); f++){
-			for (int c = 0; c < nchunk; c++){
-				////initialize
-				fill(additiveresultXX[c].begin(), additiveresultXX[c].end(), vector<float>(2, 0));
-				////compute
-				for (int t = c * chunksize; t < (c + 1) * chunksize; t++){
-					logcaladd(&(dataXX[t][f]), &(additiveresultXX[c]), &infoXX, &(calparXX[t][f]), &(additiveXX[t - c * chunksize]), 0, &moduleXX);
-				}
-				////update the average
-				updateadditive(&(additiveresultXX[c]), &additiveXX, &infoXX, &moduleXX);
-				////subtract average and logcal again
-				for (int t = c * chunksize; t < (c + 1) * chunksize; t++){
-					logcaladd(&(dataXX[t][f]), &(additiveresultXX[c]), &infoXX, &(calparXX[t][f]), &(additiveXX[t - c * chunksize]), 1, &moduleXX);
-				}
-				//////update the average again
-				//updateadditive(&(additiveresult[c]), &additiveXX, &info, &module);
-				
-				////lincal
-				for (int t = c * chunksize; t < (c + 1) * chunksize; t++){
-					lincal(&(dataXX[t][f]), &(additiveresultXX[c]), &infoXX, &(calparXX[t][f]), &moduleXX, 0.05, 3, 0.5);
-				}
-			}
-			outputAscii(&additiveresultXX, odfaPath + addoutXX, f, false);//f=0 then overwrite
-		
-		}
-		for (int f = 0; f < dataYY[0].size(); f++){
-			for (int c = 0; c < nchunk; c++){
-				////initialize
-				fill(additiveresultYY[c].begin(), additiveresultYY[c].end(), vector<float>(2, 0));
-				////compute
-				for (int t = c * chunksize; t < (c + 1) * chunksize; t++){
-					logcaladd(&(dataYY[t][f]), &(additiveresultYY[c]), &infoYY, &(calparYY[t][f]), &(additiveYY[t - c * chunksize]), 0, &moduleYY);
-				}
-				////update the average
-				updateadditive(&(additiveresultYY[c]), &additiveYY, &infoYY, &moduleYY);
-				////subtract average and logcal again
-				for (int t = c * chunksize; t < (c + 1) * chunksize; t++){
-					logcaladd(&(dataYY[t][f]), &(additiveresultYY[c]), &infoYY, &(calparYY[t][f]), &(additiveYY[t - c * chunksize]), 1, &moduleYY);
-				}
-				//////update the average again
-				//updateadditive(&(additiveresult[c]), &additiveYY, &info, &module);
-				
-				////lincal
-				for (int t = c * chunksize; t < (c + 1) * chunksize; t++){
-					lincal(&(dataYY[t][f]), &(additiveresultYY[c]), &infoYY, &(calparYY[t][f]), &moduleYY, 0.05, 3, 0.5);
-				}
-			}
-			outputAscii(&additiveresultYY, odfaPath + addoutYY, f, false);
-		}
 
-		
-		outputCalparSP(&calparXX, odfaPath + calparoutXX, false, antlocXX.size());
-		//outputHeader(1, odfPath + calparoutXX, 2, &antlocXX);
-		outputCalparSP(&calparYY, odfaPath + calparoutYY, false, antlocYY.size());
-		//outputHeader(1, odfPath + calparoutYY, 2, &antlocYY);
 
-		printf("Time taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
+	readBinaryVisibilityLarge((visin).c_str(), &rawdata, 1, nInt, nFreq, nBaseline);
+	loadGoodVisibilities(&rawdata, &data, &info, 0);
+	//printvv(&(data[5][50]));
+	//return 0;
+	//logcaladd(&(data[5][50]), &(additiveplaceholder), &info, &(calpar[5][50]), &(additiveplaceholder), 1, &module);
+	//lincal(&(data[5][50]), &(additiveplaceholder2), &info, &(calpar[5][50]), &module, 0.01, 10, 0.3);
+	//printv(&(calpar[5][50]), 0,10);
+	//return 0;	
+	for (int t = 0; t < data.size(); t++){
+		for (int f = 0; f < data[0].size(); f++){
+			logcaladd(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module);
+			lincal(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &module, 0.01, 10, 0.3);
+			if (f==50) cout << calpar[t][f][0] << " " << calpar[t][f][1] << " " << calpar[t][f][2] << endl;
+		}
 	}
+	
+	outputCalparSP(&calpar, calparout, false, info.nAntenna);
+
+
+	printf("Time taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
+
 	return 0;
 }
