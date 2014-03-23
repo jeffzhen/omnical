@@ -32,6 +32,9 @@ const float MAX_POW_10 = 10;
 /******************************************************/
 /******************************************************/
 
+/******************************************************/
+/******************************************************/
+
 
 int main(int argc, char *argv[]){
 	string METHODNAME = "main";
@@ -92,7 +95,8 @@ int main(int argc, char *argv[]){
 		for (int f = 0; f < data[0].size(); f++){
 			logcaladd(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module);
 			lincal(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &module, 0.01, 10, 0.3);
-			if (f==50) cout << calpar[t][f][0] << " " << calpar[t][f][1] << " " << calpar[t][f][2] << endl;
+			//if (f==50) cout << calpar[t][f][0] << " " << calpar[t][f][1] << " " << calpar[t][f][2] << endl;
+			removeDegen(&(calpar[t][f]), &info, &module);
 		}
 	}
 	

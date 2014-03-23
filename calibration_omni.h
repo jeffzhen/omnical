@@ -17,27 +17,6 @@
 #include <functional>
 #include <numeric>
 using namespace std;
-struct odfheader{
-	int nFrequency;
-	int nChannel;
-	int nIntegration;
-	float integrationTime;
-	string endTime;//UTC
-	string endDate;//2012/05/24
-	string startTime;
-	string startDate;
-	bool swapped;
-	float startFrequency;
-	float endFrequency;
-	float LOFrequency;
-	float elevation;
-	float longitude;
-	float latitude;
-	vector<vector<float> > antennaPosition;
-};
-
-void odfheader_print(const odfheader* header);//print header in command line output
-void odfheader_write(const odfheader* header, vector<vector<float> > *antloc, string filepath);//write header as ascii file header.txt
 
 struct redundantinfo{
 	int nAntenna;//number of good antennas among all (64) antennas, same as the length of subsetant
@@ -45,6 +24,7 @@ struct redundantinfo{
 	int nBaseline;
 	int nCross;
 	vector<int> subsetant;//the index of good antennas in all (64) antennas, currently not used
+	vector<vector<float> > antloc;//3d antloc for each good antenna. strongly recommend using idealized antloc rather than literal ones
 	vector<int> subsetbl;//the index of good baselines (auto included) in all baselines
 	vector<vector<float> > ubl;//unique baseline vectors
 	vector<int> bltoubl;//cross bl number to ubl index
@@ -56,6 +36,7 @@ struct redundantinfo{
 	vector<int> ublcount;//for each ubl, the number of good cross bls corresponding to it
 	vector<vector<vector<int> > > ublindex;//for each ubl, the vector<int> contains (ant1, ant2, autobl)
 	vector<vector<int> > bl1dmatrix;//a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index counting auto corr
+	vector<vector<float> > degenM;//degenM.(phase calibrations as a vector of nAnt) will generate a vector of length (nAnt + nUBL) which, when added to the existing calibration parameters' phases, will remove the linear phase field 
 	vector<vector<int> > A;//A matrix for logcal amplitude
 	vector<vector<int> > B;//B matrix for logcal phase
 	vector<vector<int> > Atsparse;//At matrix for logcal amplitude, in sparse form, all entries are one
@@ -155,10 +136,6 @@ vector<string> cmdLs(string options);// options such as "-A ../test.odf". will r
 void cmdMove(string a, string b);
 
 void cmdCopy(string a, string b);
-
-bool readODFHeader(string filename, odfheader *headerInfo);//modified from Josh Dillon's code from ODFsplitter.cpp
-
-void outputInfo(odfheader *header, string antlocFilepath, string filepath);//outputs an info.txt at filepath (usually under the same folder as the header.txt, usually inside .odf). Info.txt is used by omniconverter to convert ascii files into odf. it needs an antloc.dat file to be appended to the info.txt, so antlocFilepath should look like xx/xx/antloc.dat
 
 void readBinaryVisibility(const char* inputfilename, vector<vector<vector<vector<vector<float> > > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
 
@@ -354,6 +331,8 @@ void substractComplexPhase(vector<float> *a, vector<float> *b, float angle);
 
 void rotateCalpar(vector<float> *originalPhase, vector<float> *rotatedPhase, vector<vector<float> > *originalUBLcor, vector<vector<float> > *rotatedUBLcor, vector<vector<float> > *antloc, vector<vector<float> > * listUBL, float theta, float phi, float freq);//theta in [0, PI/2] (rotating z axis down), phi [0, 2PI), freq in MHz, ONLY WORKS FOR ROTATING POINT SOURCE STRAIGHT ABOVE *TO* THETA AND PHI 
 
+bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
+bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
 ///////////////REDUNDANT BASELINE CALIBRATION STUFF///////////////////
 /////////////////////////////////////////////
 
@@ -362,7 +341,6 @@ void vecmatmul(vector<vector<float> > * Afitting, vector<float> * v, vector<floa
 void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module);
 void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, calmemmodule* module, float convergethresh, int maxiter, float stepsize);
 void loadGoodVisibilities(vector<vector<vector<vector<float> > > > * rawdata, vector<vector<vector<vector<float> > > >* receiver, redundantinfo* info, int xy);
+void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* module);//forces the calibration parameters to have average 1 amp, and no shifting the image in phase. Note: 1) If you have not absolute calibrated the data, there's no point in running this, because this can only ensure that the calpars don't screw up already absolute calibrated data. 2) the antloc and ubl stored in redundant info must be computed from idealized antloc, otherwise the error in antloc from perfect redundancy will roll into this result, in an unknown fashion.
 
-bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
-bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
 #endif

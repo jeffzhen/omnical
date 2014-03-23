@@ -36,83 +36,6 @@ const float DEF_LATITUDE = 45.297728;
 const float DEF_ELEVATION = 171;
 const int NUM_OBJECTS = 30;//Number of satellites we have in tracked_bodies_X4.tle;
 
-
-/*struct odfheader{
-	int nFrequency;
-	int nChannel;
-	int nIntegration;
-	float integrationTime;
-	string endTime;//UTC
-	string endDate;//2012/05/24
-	bool swapped;
-	float startFrequency;
-	float endFrequency;
-	float elevation;
-	float longitude;
-	float latitude;
-	vector<vector<float> > antennaPosition;	
-};*/
-
-void odfheader_print(const odfheader* header){
-	string METHODNAME = "odfheader_print";
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": nFrequency - " << header->nFrequency << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": nChannel - " << header->nChannel << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": nIntegration - " << header->nIntegration << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": integrationTime - " << header->integrationTime << " seconds" << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": startTime - " << header->startTime << endl;//UTC
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": startDate - " << header->startDate << endl;//2012/05/24
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": endTime - " << header->endTime << endl;//UTC
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": endDate - " << header->endDate << endl;//2012/05/24
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": swapped - " << header->swapped << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": startFrequency - " << header->startFrequency << "MHz" << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": endFrequency - " << header->endFrequency << "MHz" << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": LOFrequency - " << header->LOFrequency << "MHz" << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": elevation - " << header->elevation << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": longitude - " << header->longitude << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": latitude - " << header->latitude << endl;
-	return;
-}
-
-void odfheader_write(const odfheader* header, vector<vector<float> > *antloc, string filepath){//write header as ascii file header.txt
-	string METHODNAME = "odfheader_write";
-	string output_name = filepath + "/header.txt";
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Writing " << output_name << "...";
-	//cout.flush();
-	//cout << " test1 ";
-	FILE * myFile = fopen(output_name.c_str(), "w");
-	if(myFile == NULL){
-		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << output_name << " FAILED! Check if the path directory exists!" << endl;
-		return;
-	}
-	fprintf(myFile, "startDate         %s\n", pyOdfDate(header->startDate, header->startTime).c_str());
-	fprintf(myFile, "nIntegrations     %d\n", header->nIntegration);
-	fprintf(myFile, "antennaPositions  array([[%.3f, %.3f, %.3f]", antloc->at(0)[0], antloc->at(0)[1], antloc->at(0)[2]);
-	for (int i = 1; i < antloc->size(); i++) fprintf(myFile, ", [%.3f, %.3f, %.3f]", antloc->at(i)[0], antloc->at(i)[1], antloc->at(i)[2]);
-	fprintf(myFile, "])\n");
-	fprintf(myFile, "elevation         %f\n", header->elevation);
-	fprintf(myFile, "format_version    '0.2'\n");
-	fprintf(myFile, "nChannels         %d\n", header->nFrequency);
-	fprintf(myFile, "JeffianDate       '%s %s'\n", (header->endDate).c_str(), (header->endTime).c_str());
-	fprintf(myFile, "startFreq         %f\n", header->startFrequency);
-	fprintf(myFile, "LOFreq            %f\n", header->LOFrequency);
-	fprintf(myFile, "longitude         %f\n", header->longitude);
-	fprintf(myFile, "nAntennas         %d\n", header->nChannel);
-	if(header->swapped){
-		fprintf(myFile, "Swapped?          'Yes'\n");
-	} else{
-		fprintf(myFile, "Swapped?          'No'\n");
-	}
-	fprintf(myFile, "latitude          %f\n", header->latitude);
-	fprintf(myFile, "endFreq           %f\n", header->endFrequency);
-	fprintf(myFile, "integrationTime   %f\n", header->integrationTime);
-	fclose (myFile);
-
-	//cout << " test3 ";
-
-	cout << "DONE!" << endl;
-	return;
-}
-
 bool readredundantinfo(string filepath, redundantinfo* info){//data file generated from 16. additive noise investigation _from_17.nb
 	string METHODNAME = "readredundantinfo";
 	int parser = 0;
@@ -140,6 +63,16 @@ bool readredundantinfo(string filepath, redundantinfo* info){//data file generat
 		(info->subsetant)[i] = rawinfo[parser];//the index of good antennas in all (64) antennas
 		parser++;
 	}
+	(info->antloc).resize(info->nAntenna);
+	for (int i = 0; i < info->nAntenna; i++){
+		(info->antloc)[i].resize(3);
+		for (int j = 0; j < 3; j++){
+			(info->antloc)[i][j] = rawinfo[parser];//antloc vectors
+			parser++;
+		}
+	}	
+	
+	
 	(info->subsetbl).resize(nbl);
 	for (int i = 0; i < nbl; i++){
 		(info->subsetbl)[i] = rawinfo[parser];//the index of good baselines (auto included) in all baselines
@@ -216,6 +149,15 @@ bool readredundantinfo(string filepath, redundantinfo* info){//data file generat
 	}
 
 	//matrices
+	(info->degenM).resize(info->nAntenna + info->nUBL);
+	for (int i = 0; i < info->nAntenna + info->nUBL; i++){
+		(info->degenM)[i].resize(info->nAntenna);
+		for (int j = 0; j < info->nAntenna; j++){
+			(info->degenM)[i][j] = rawinfo[parser];//A matrix for logcal amplitude
+			parser++;
+		}
+	}
+
 	(info->A).resize(ncross);
 	for (int i = 0; i < ncross; i++){
 		(info->A)[i].resize(info->nUBL + info->nAntenna);
@@ -728,96 +670,6 @@ void cmdCopy(string a, string b){
 }
 
 
-bool readODFHeader(string filename, odfheader *headerInfo){
-	//Read ODFin header
-	string METHODNAME = "readODFHeader";
-	string headerFile = "/header.txt";
-	ifstream header((filename + headerFile).c_str(), ifstream::in);
-
-	if (!header.good()){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Could not load header!" << endl;
-		header.close();
-		return false;
-	}
-	string line;
-	string swapped;
-
-	while (!header.eof()){
-		header >> line;
-		//cout << line << endl;
-		if (line.compare("nChannels")==0) header >> (headerInfo->nFrequency);
-		if (line.compare("nAntennas")==0) header >> (headerInfo->nChannel);
-		if (line.compare("nIntegrations")==0) header >> (headerInfo->nIntegration);
-		if (line.compare("integrationTime")==0) header >> (headerInfo->integrationTime);
-		if (line.compare("startFreq")==0) header >> (headerInfo->startFrequency);
-		if (line.compare("endFreq")==0) header >> (headerInfo->endFrequency);
-		if (line.compare("LOFreq")==0) header >> (headerInfo->LOFrequency);
-		if (line.compare("elevation")==0) header >> (headerInfo->elevation);
-		if (line.compare("longitude")==0) header >> (headerInfo->longitude);
-		if (line.compare("latitude")==0) header >> (headerInfo->latitude);
-		if (line.compare("Swapped?")==0) header >> swapped;
-		if (line.compare("JeffianDate")==0) header >> (headerInfo->endDate) >> (headerInfo->endTime);
-		if ( (swapped.find("Yes")) == string::npos){
-			headerInfo->swapped = false;
-		} else {
-			headerInfo->swapped = true;
-		}
-		//cout << headerInfo->nFrequency << endl;
-	}
-	header.close();
-	
-	if ( (headerInfo->endTime).size() > 0 and headerInfo->nChannel > 0){
-		(headerInfo->endDate).erase(0,1);	
-		(headerInfo->endTime).erase((headerInfo->endTime).end()-1, (headerInfo->endTime).end());
-		vector<string> startDT = pyTimeShift(headerInfo->endDate, headerInfo->endTime, - (headerInfo->nIntegration) * (headerInfo->integrationTime));
-		headerInfo->startTime = startDT[1];
-		headerInfo->startDate = startDT[0];
-	} else{
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Header file successfully opened but no valid information found!" << endl;
-		odfheader_print(headerInfo);
-		return false;
-	}
-
-	if(headerInfo->longitude == 0 and headerInfo->latitude == 0){
-		headerInfo->longitude = DEF_LONGITUDE;
-		headerInfo->latitude = DEF_LATITUDE;
-		headerInfo->elevation = DEF_ELEVATION;
-	}
-	return true;
-}
-
-void outputInfo(odfheader *header, string antlocFilepath, string filepath){
-	string METHODNAME = "outputInfo";
-	
-	string output_name = filepath + "/info.txt";
-	char buffer[2 * output_name.size()];
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Writing " << output_name << "...";
-	//cout.flush();
-	//cout << " test1 ";
-	FILE * myFile;
-	sprintf(buffer, output_name.c_str());
-	myFile = fopen(buffer,"w");
-	fprintf(myFile, "nAntennas %d\n", header->nChannel);
-	fprintf(myFile, "nPol      %d\n", 4);//info.txt is only used by omniconverter and we only use omniconverter when we have IQed and data is in 4 pols
-	fprintf(myFile, "nChans    %d\n", header->nFrequency);
-	fprintf(myFile, "StartFreq %f\n", header->startFrequency);
-	fprintf(myFile, "EndFreq   %f\n", header->endFrequency);
-	fprintf(myFile, "nObs      %d\n", header->nIntegration);
-	//cout << " test2 ";
-	string reformStartDate = strReplace(header->startDate, "/", "-");//omniconverter only takes yyyy-mm-dd
-	fprintf(myFile, "StartDate %s\n", reformStartDate.c_str());
-	fprintf(myFile, "StartTime %s\n", (header->startTime).c_str());
-	fprintf(myFile, "IntTime   %f\n", header->integrationTime);
-	fprintf(myFile, "Longitude %f\n", header->longitude);
-	fprintf(myFile, "Latitude  %f\n", header->latitude);
-	fprintf(myFile, "Elevation %f\n", header->elevation);
-	fclose (myFile);
-
-	//cout << " test3 ";
-	string appendAntloc = "cat " + antlocFilepath + " >> " + output_name; 
-	exec(appendAntloc); 
-	cout << "DONE!" << endl;
-}
 
 void readBinaryVisibility(const char* inputfilename, vector<vector<vector<vector<vector<float> > > > >* data, int nPol, int nIntegrations, int nFrequencies, int nBase){
 	string METHODNAME = "readBinaryVisibility";
@@ -2841,20 +2693,22 @@ float medianAngle (vector<float> *list){
 
 float mean (vector<float> *v, int start, int end){// take mean from start to end indices of vector v. 0 indexed
 	string METHODNAME = "mean";
+	int size = (int) (v->size());//size is originally unsigned
 
-	if (v-> size() <= 0){
+	if (size <= 0){
 		cout << "#!#" << FILENAME << "#!#" << METHODNAME << " !!WARNING!! mean of an empty array requested!!";
 		return 0;
 	}
 	
-	if (end > v->size() - 1 or start > v->size() - 1){
+
+	if (end > size - 1 or start > size - 1){
 		cout << "#!#" << FILENAME << "#!#" << METHODNAME << " !!WARNING!! start/end index requested at "<< start << "/" << end << " is out of array length of " << v->size() << "!!";
 	}
 	int a,b;
-	if (start < 0 or start > v->size() - 1) a = 0; else a = start;
-	if (end < 0 or end > v->size() - 1) b = v->size() - 1; else b = end;
+	if (start < 0 or start > size - 1) a = 0; else a = start;
+	if (end < 0 or end > size - 1) b = size - 1; else b = end;
 	float sum = accumulate(v->begin() + a, v->begin() + b, 0.0);
-	cout <<  start << " " << end << " " << a << " " << b << " " << sum << " " << endl;
+	//cout <<  start << " " << end << " " << a << " " << b << " " << sum << " " << endl;
 	//cout << sum << endl;
 	return sum / (b - a + 1);
 }
@@ -3518,6 +3372,45 @@ void loadGoodVisibilities(vector<vector<vector<vector<float> > > > * rawdata, ve
 				receiver->at(t)[f][bl][1] = rawdata->at(xy)[t][f][2 * info->subsetbl[bl] + 1];
 			}
 		}		
+	}
+	return;
+}
+
+
+void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* module){//forces the calibration parameters to have average 1 amp, and no shifting the image in phase. Note: 1) If you have not absolute calibrated the data, there's no point in running this, because this can only ensure that the calpars don't screw up already absolute calibrated data. 2) the antloc and ubl stored in redundant info must be computed from idealized antloc, otherwise the error in antloc from perfect redundancy will roll into this result, in an unknown fashion.
+	////load data
+	vector<float> pha1(info->nAntenna, 0);
+	for (int a = 0 ; a < info->nAntenna; a ++){
+		pha1[a] = calpar->at(3 + info->nAntenna + a);
+	}
+	for (int u = 0 ; u < info->nUBL; u ++){
+		module->ubl1[u][0] = amp(calpar->at(3 + 2 * info->nAntenna + 2 * u), calpar->at(3 + 2 * info->nAntenna + 2 * u + 1));
+		module->ubl1[u][1] = phase(calpar->at(3 + 2 * info->nAntenna + 2 * u), calpar->at(3 + 2 * info->nAntenna + 2 * u + 1));
+	}
+
+	////compute amp delta
+	float ampfactor = 0;//average |g|, divide ant calpar by this, multiply ublfit by square this
+	for (int a = 0 ; a < info->nAntenna; a ++){
+		ampfactor += pow10(calpar->at(3 + a));
+	}
+	ampfactor = ampfactor / info->nAntenna; 
+	//cout << ampfactor << endl;
+	
+	////compute phase delta	
+	vecmatmul(&(info->degenM), &(pha1), &(module->x1));//x1: add ant calpar and ubl fit by this
+	
+	////correct ant calpar
+	for (int a = 0 ; a < info->nAntenna; a ++){
+		calpar->at(3 + a) = calpar->at(3 + a) - log10(ampfactor);
+		calpar->at(3 + info->nAntenna + a) = phaseWrap(calpar->at(3 + info->nAntenna + a) + module->x1[a]);
+	}
+	
+	////correct ublfit
+	for (int u = 0 ; u < info->nUBL; u ++){
+		module->ubl2[u][0] = module->ubl1[u][0] * ampfactor * ampfactor;
+		module->ubl2[u][1] = module->ubl1[u][1] + module->x1[info->nAntenna + u];
+		calpar->at(3 + 2 * info->nAntenna + 2 * u) = module->ubl2[u][0] * cos(module->ubl2[u][1]);
+		calpar->at(3 + 2 * info->nAntenna + 2 * u + 1) = module->ubl2[u][0] * sin(module->ubl2[u][1]);
 	}
 	return;
 }

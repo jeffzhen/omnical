@@ -21,7 +21,7 @@ print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed"
  
 info = omni.read_redundantinfo('./redundantinfo_PSA32.txt')
 
-#print info['bl2d']
+#print info['degenM']
 #exit(1)
 
 ####get some info from the first uvfile
@@ -100,6 +100,7 @@ for pol in [-5, -6]:
 	command = "./omnical " + 'miriadextract_' + polstr[pol] + '_' + ano + " redundantinfo_PSA32.txt " + str(len(t)) + " " + str(nfreq) + " "  + str(nant)
 	print FILENAME + " MSG: System call: ",  command
 	os.system(command)
+	exit(1)
 
 
 

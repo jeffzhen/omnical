@@ -33,14 +33,17 @@ def read_redundantinfo(infopath):
 	nbl = int(rawinfo[infocount][0])
 	info['nbl'] = nbl
 	infocount += 1
-	ncross = nbl - info['nAntenna']
-	info['ncross'] = ncross
+
 
 	info['subsetant'] = rawinfo[infocount].astype(int) #the index of good antennas in all (64) antennas
 	infocount += 1
+	
+	info['antloc'] = rawinfo[infocount].reshape((info['nAntenna'],3)) #the index of good antennas in all (64) antennas
+	infocount += 1	
+	
 	info['subsetbl'] = rawinfo[infocount].astype(int) #the index of good baselines (auto included) in all baselines
 	infocount += 1
-	info['ubl'] = rawinfo[infocount].reshape((info['nUBL'],3)).astype(int) #unique baseline vectors
+	info['ubl'] = rawinfo[infocount].reshape((info['nUBL'],3)) #unique baseline vectors
 	infocount += 1
 	info['bltoubl'] = rawinfo[infocount].astype(int) #cross bl number to ubl index
 	infocount += 1
@@ -52,6 +55,8 @@ def read_redundantinfo(infopath):
 	infocount += 1
 	info['crossindex'] = rawinfo[infocount].astype(int)  #index of cross bls among good bls
 	infocount += 1
+	ncross = len(info['crossindex'])
+	info['ncross'] = ncross
 	info['bl2d'] = rawinfo[infocount].reshape(nbl, 2).astype(int) #from 1d bl index to a pair of antenna numbers
 	infocount += 1
 	info['ublcount'] = rawinfo[infocount].astype(int) #for each ubl, the number of good cross bls corresponding to it
@@ -70,6 +75,8 @@ def read_redundantinfo(infopath):
 	info['bl1dmatrix'] = rawinfo[infocount].reshape((info['nAntenna'], info['nAntenna'])).astype(int) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index counting auto corr
 	infocount += 1
 	#matrices
+	info['degenM'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'], info['nAntenna']))
+	infocount += 1	
 	info['A'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #A matrix for logcal amplitude
 	infocount += 1
 	info['B'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #B matrix for logcal amplitude
