@@ -14,10 +14,14 @@ with warnings.catch_warnings():
     import scipy.sparse as sps
     import scipy.linalg as la
 
+FILENAME = "calibration_omni.py"
+
 def read_redundantinfo(infopath):
 	with open(infopath) as f:
 		rawinfo = np.array([np.array([float(x) for x in line.split()]) for line in f])
 	METHODNAME = "read_redundantinfo"
+	print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
+
 	info = {}
 	infocount = 0;
 	info['nAntenna'] = int(rawinfo[infocount][0]) #number of good antennas among all (64) antennas, same as the length of subsetant
@@ -83,7 +87,7 @@ def read_redundantinfo(infopath):
 		info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
 		info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
 		info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
-
+	print "done. nAntenna, nUBL, nBaseline = ", len(info['subsetant']), info['nUBL'], info['nbl']
 	return info
 
 antlocvecX5 = np.array([[0.999973, -0.0105871, 0.00142779], [0.010705, 

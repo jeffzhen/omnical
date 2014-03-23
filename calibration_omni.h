@@ -44,13 +44,13 @@ struct redundantinfo{
 	int nUBL;//number of unique baselines
 	int nBaseline;
 	int nCross;
-	vector<int> subsetant;//the index of good antennas in all (64) antennas
+	vector<int> subsetant;//the index of good antennas in all (64) antennas, currently not used
 	vector<int> subsetbl;//the index of good baselines (auto included) in all baselines
 	vector<vector<float> > ubl;//unique baseline vectors
 	vector<int> bltoubl;//cross bl number to ubl index
 	vector<int> reversed;//cross only bl if reversed -1, otherwise 1
-	vector<int> reversedauto;//auto included bl if reversed -1, otherwise 1
-	vector<int> autoindex;//index of auto bls among good bls
+	vector<int> reversedauto;//auto included bl if reversed -1, otherwise 1, currently not used
+	vector<int> autoindex;//index of auto bls among good bls, currently not used
 	vector<int> crossindex;//index of cross bls among good bls
 	vector<vector<int> > bl2d;//from 1d bl to a pair of antenna numbers, (0,0), (0,1) (0,2) etc
 	vector<int> ublcount;//for each ubl, the number of good cross bls corresponding to it
@@ -69,7 +69,6 @@ struct redundantinfo{
 	vector<vector<float> > ImPA;//I-PA
 	vector<vector<float> > ImPB;//I-PB
 
-	
 };
 
 struct calmemmodule{//temporary memory modules for logcaladditive and lincal
@@ -183,8 +182,6 @@ void readAntloc(const char* inputfilename, vector<vector<float> > * antloc, vect
 
 void readSunpos(const char* inputfilename, vector<vector<float> > * sunpos);//read sunpos.dat from x5 odf (which is in alt/az, and return a list of pairs in k vector (x y z) or (S E U), note that this is technically -k vector since k vector should point inwards.
 
-void outputDummySdev(int numFreq, int numAnt, string output_name);
-
 void outputChiSqAscii(vector<float>  * data); //takes chi square for one time slice each freq each antenna and write a set of calibration parameters under current directory
 
 void outputPhaseCalParAscii(vector<vector<float> >  * phasecalpar, int numUBL, string output_name);
@@ -197,8 +194,6 @@ void outputAscii(vector<vector<vector<float> > >  * data, string output_name, in
 
 void outputDataAscii(vector<vector<vector<float> > >  * data, string output_name);
 
-void outputBLBadness(vector<vector<vector<float> > >  * data, string output_name, int nChannel);
-
 bool outputCalpar(vector<vector<vector<vector<float> > > > * data, string outputfilename, bool in_degree = true, int nAnt = -1);// outputs binary calpar file. in_degree means if phase calpar is in degree, default true
 bool outputCalparSP(vector<vector<vector<float> > > * data, string outputfilename, bool in_degree = true, int nAnt = -1);// outputs binary calpar file. in_degree means if phase calpar is in degree, default true
 
@@ -206,7 +201,6 @@ bool outputData(vector<vector<vector<vector<vector<float> > > > > * data, string
 
 bool outputDataLarge(vector<vector<vector<vector<float> > > > * data, string outputfilename);// outputs binary file Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
 
-void outputHeader(int pol, string path, int type, vector<vector<float> > *antloc);//outputs the short header such as visibilities_header.txt, not the big header.txt, which is done by void odfheader_write(); the path should be the file location of the corresponding binary file, suach as "xxx.odf/visibilities"; type 1 for VisibilityDataObject, type 2 for LogCalDataObject, type 3 for SdevDataObject
 ///////////////////////////////////////
 //Helper methods///////////////////////
 ///////////////////////////////////////
@@ -281,8 +275,6 @@ vector<float> matrixDotV(vector<vector<float> >* m, vector<float>* v);//m.v
 vector<vector<float> > rotationMatrix(float x, float y, float z);//approximation for a rotation matrix rotating around x,y,z axis, {{1, -z, y}, {z, 1, -x}, {-y, x, 1}}
 
 vector<vector<float> > rotationMatrixZ(float z);
-
-void rotateAntlocX4(vector<vector<float> >* r, vector<vector<float> >* antloc);//antlocx.dat for X4 has an unconventional left-handed coordinate system where the 3 numbers are (east, south, up), so to apply a conventional rotation matrix, i need to flip x and y first, multiply r, and flip back
 
 bool createAmatrix(vector<vector<int> > *receiverAmatrix, vector<vector<float> > *antloc);
 
@@ -365,19 +357,12 @@ void rotateCalpar(vector<float> *originalPhase, vector<float> *rotatedPhase, vec
 ///////////////REDUNDANT BASELINE CALIBRATION STUFF///////////////////
 /////////////////////////////////////////////
 
-void forPrepareCal(string antloc, int nAnt);
+void vecmatmul(vector<vector<double> > * Afitting, vector<float> * v, vector<float> * ampfit);
+void vecmatmul(vector<vector<float> > * Afitting, vector<float> * v, vector<float> * ampfit);
+void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module);
+void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, calmemmodule* module, float convergethresh, int maxiter, float stepsize);
+void loadGoodVisibilities(vector<vector<vector<vector<float> > > > * rawdata, vector<vector<vector<vector<float> > > >* receiver, redundantinfo* info, int xy);
 
-void forLogCal(string filename, string sdev, int nFreq, string antLoc, string opDataName, string opCalParName); //inouts has to be in the same directory as the fortran code, outputs dont have to
-
-
-///////////////GLOBAL BADNESS STUFF///////////////////
-/////////////////////////////////////////////
-float computeBadness(vector<float> *data);
-
-//X4 specific//
-void x4FixHeader(odfheader * headerInfo);//fix the time by X4_TIMESHIFT
-///////////////MAJOR STUFF ends///////////////////
-//////////////////////////////////////////////////
 bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
 bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
 #endif

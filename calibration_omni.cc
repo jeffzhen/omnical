@@ -1322,25 +1322,6 @@ void readSunpos(const char* inputfilename, vector<vector<float> > * sunpos){//re
 	return;
 }
 
-void outputDummySdev(int numFreq, int numAnt, string output_name) //takes phase corrections for one time slice each freq each antenna and write a set of calibration parameters under current directory
-{
- 	 string METHODNAME = "outputDummySdev";
-	 int numEntry = numAnt * (numAnt + 1);
-	 char buffer[2 * output_name.size()];
-	 cout << "##" << FILENAME << "##" << METHODNAME << ": Writing " << output_name << "...";
-	 cout.flush();
-	 FILE * myFile;
-	 sprintf(buffer, output_name.c_str());
-	 myFile = fopen(buffer,"w");
-	 for(int f = 0; f < numFreq; f++){
-	 	 for(int b = 0; b < numEntry; b++){
-			 fprintf(myFile, "%.5E ", 1.0);
-		 }
-	 	 fprintf(myFile, "\n");
-	 }
-	 fclose (myFile);
-	 cout << "DONE!" << endl;
-}
 
 void outputChiSqAscii(vector<float>  * data) //takes chi square for one time slice each freq each antenna and write a set of calibration parameters under current directory
 {
@@ -1517,45 +1498,6 @@ void outputDataAscii(vector<vector<vector<float> > >  * data, string output_name
 	cout << "DONE!" << endl;
 }
 
-void outputBLBadness(vector<vector<vector<float> > >  * data, string output_name, int nChannel){
-	string METHODNAME = "outputBLBadness";
-	int numBL = data->size();
-	int numFreq = (data->at(0)).size();
-	int nInt = (data->at(0))[0].size();
-	if (numBL != ( nChannel + 1 ) * nChannel / 2){
-		cout << "#!#" << FILENAME << "#!#" << METHODNAME << " !!ERROR!! Input array has " << numBL << " available baselines but the specified number of channels is " << nChannel << ". Exiting!" << endl;
-		return;
-	}
-	//char buffer[1000];
-	FILE * myFile;
-	string opName;
-	
-	
-	for(int b = 0; b < numBL; b++){
-		opName = output_name + "_" + itostr(get2DBL(b, nChannel)[0], 3) + "_" + itostr(get2DBL(b, nChannel)[1],3) + ".bl";//Actual output name;
-		cout << "##" << FILENAME << "##" << METHODNAME << ": Writing "<< opName << " baseline badness data...";
-		
-		myFile = fopen(opName.c_str(),"w");
-		if(myFile == NULL){
-			cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << opName << " FAILED! Check if the path directory exists!" << endl;
-			return;
-		}
-		for(int t = 0; t < nInt; t++){
-			for(int f = 0; f < numFreq; f++){
-
-				if ( f != ( numFreq - 1 ) ) {
-					fprintf(myFile, "%.5E ", (data->at(b))[f][t]);
-				} else{
-					fprintf(myFile, "%.5E", (data->at(b))[f][t]);
-				}
-			}
-			fprintf(myFile, "\n");
-		}
-		fclose (myFile);
-		cout << "DONE!" << endl;
-	}
-	return;
-}
 
 bool outputCalpar(vector<vector<vector<vector<float> > > > * data, string outputfilename, bool in_degree, int nAnt){// outputs binary calpar file. in_degree means if phase calpar is in degree, default true
 	string METHODNAME = "outputCalpar";
@@ -1753,60 +1695,6 @@ bool outputDataLarge(vector<vector<vector<vector<float> > > > * data, string out
 	return true;
 }
 
-void outputHeader(int pol, string path, int type, vector<vector<float> > *antloc){//outputs the short header such as visibilities_header.txt, not the big header.txt, which is done by void odfheader_write(); the path should be the file location of the corresponding binary file, suach as "xxx.odf/visibilities"; type 1 for VisibilityDataObject, type 2 for LogCalDataObject, type 3 for SdevDataObject
-	string METHODNAME = "outputHeader";
-	string opName = path + "_header.txt";//Actual output name;
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Writing "<< opName << "...";
-	FILE * myFile = fopen(opName.c_str(),"w");
-	if (myFile == NULL){
-		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << opName << " FAILED! Check if the path directory exists!" << endl;
-		return;
-	}
-	if( type == 2 ){
-		fprintf(myFile, "antenna_order	[0");
-		for (int i = 1; i < antloc->size(); i++) fprintf(myFile, ", %u", i);
-		fprintf(myFile, "]\n");
-
-	}
-	fprintf(myFile, "polarizations	['xx'");
-	if(pol > 1){
-		fprintf(myFile, ", 'xy'");
-		if(pol > 2){
-			fprintf(myFile, ", 'yx'");
-			if(pol > 3){
-				fprintf(myFile, ", 'yy'");
-			}
-		}
-	}
-	fprintf(myFile, "]\n");
-	switch (type){
-		case 1:
-			fprintf(myFile, "data_object_type    'VisibilityDataObject'\n");
-			break;
-		case 2:
-			{
-			fprintf(myFile, "data_object_type    'LogCalDataObject'\n");		
-			int nUniqueBL = countUBL(antloc);
-			vector<vector<float> > UBL (nUniqueBL, vector<float>(2,0));
-			computeUBL(antloc, &UBL);
-			fprintf(myFile, "baselines	[(%.1f, %.1f)", UBL[0][0], UBL[0][1]);
-			for (int i = 1; i < UBL.size(); i++) fprintf(myFile, ", (%.1f, %.1f)", UBL[i][0], UBL[i][1]);
-			fprintf(myFile, "]\n");
-			}			
-			break;
-		case 3:
-			fprintf(myFile, "data_object_type    'SdevDataObject'\n");
-			break;
-
-		default:
-			fprintf(myFile, "data_object_type    'VisibilityDataObject'\n");
-	}
-	
-	fprintf(myFile, "format_version	'0.2'");
-	fclose (myFile);
-	cout << "DONE!" << endl;
-	return;
-}
 
 vector<float> tp2xyz (vector<float> thephi){
 	vector<float> xyz(3,0);
@@ -2376,31 +2264,6 @@ Rz[rotz_] := {{Cos[rotz], -Sin[rotz], 0}, {Sin[rotz], Cos[rotz],
 	return r;
 }
 
-void rotateAntlocX4(vector<vector<float> >* r, vector<vector<float> >* antloc){//antlocx.dat for X4 has an unconventional left-handed coordinate system where the 3 numbers are (east, south, up), so to apply a conventional rotation matrix, i need to flip x and y first, multiply r, and flip back
-	string METHODNAME = "rotateAntlocX4";
-	int a = antloc->size();
-	int b = (antloc->at(0)).size();
-	if ( b != 3 ){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL INPUT MISMATCH! lengths of coordinate vectors of antloc is " << b << ", NOT expected 3! returned!!!" << endl;
-		return;
-	}
-	vector<vector<float> > altmp( a, vector<float> (b, 0) );
-	for ( int i = 0; i < a; i ++){
-			altmp[i][0] = (antloc->at(i))[1];
-			altmp[i][1] = (antloc->at(i))[0];
-			altmp[i][2] = (antloc->at(i))[2];
-	}
-	for ( int i = 0; i < a; i ++){
-			altmp[i] = matrixDotV(r, &(altmp[i]));
-	}
-	for ( int i = 0; i < a; i ++){
-			(antloc->at(i))[1] = altmp[i][0];
-			(antloc->at(i))[0] = altmp[i][1];
-			(antloc->at(i))[2] = altmp[i][2];
-
-	}
-	return;
-} 
 
 bool createAmatrix(vector<vector<int> > *receiverAmatrix, vector<vector<float> > *antloc){
 	string METHODNAME = "createAmatrix";
@@ -3190,45 +3053,6 @@ void rotateCalpar(vector<float> *originalPhase, vector<float> *rotatedPhase, vec
 	}
 }
 
-///////////////REDUNDANT BASELINE CALIBRATION STUFF///////////////////
-/////////////////////////////////////////////
-
-
-void forPrepareCal(string antloc, int nAnt){
-	int nCrossCor = nAnt * (nAnt - 1) / 2; 
-	string command = "tcsh call ./nonrectfindlogAB.x antIDlist.dat dims.dat " + antloc + " " + itostr(nAnt,floor(log10(nAnt))+1) + " " + itostr(nCrossCor,floor(log10(nCrossCor))+1) + " Amatrix.dat Bmatrix.dat conventions.dat 0.1 reversedBaselines.dat";
-	exec(command);
-	return;
-}
-
-void forLogCal(string filename, string sdev, int nFreq, string antLoc, string opDataName, string opCalParName){
-	string command = "tcsh call ./logcalmultifreq.x " + filename + " antIDlist.dat dims.dat " + itostr(nFreq, floor(log10(nFreq) + 1)) + " Amatrix.dat Bmatrix.dat logcal.dat logcalvis.dat ps_fiterrors.dat " + sdev + " 1 1 " + antLoc + " reversedBaselines.dat";
-
-	//cout << command << endl;
-	exec(command);
-	//cout << command << endl;
-	cmdMove("logcal.dat", opCalParName);
-	cmdMove("logcalvis.dat", opDataName);
-	return;
-}
-
-///////////////GLOBAL BADNESS STUFF///////////////////
-/////////////////////////////////////////////
-float computeBadness(vector<float> *data){
-	return stdevAngle(data)[1];
-};
-
-//X4 specific//
-void x4FixHeader(odfheader * headerInfo){//fix the time by X4_TIMESHIFT
-	vector<string> startDT = pyTimeShift(headerInfo->startDate, headerInfo->startTime, X4_TIMESHIFT);
-	headerInfo->startTime = startDT[1];
-	headerInfo->startDate = startDT[0];
-	vector<string> endDT = pyTimeShift(headerInfo->endDate, headerInfo->endTime, X4_TIMESHIFT);
-	headerInfo->endTime = endDT[1];
-	headerInfo->endDate = endDT[0];
-	return;
-}
-
 
 //Logcal functions
 
@@ -3396,4 +3220,304 @@ bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNin
 	//t2=clock();
 	//if(TIME) cout << ((float)t2-(float)t1) / CLOCKS_PER_SEC << "sec ";
 	return true;
+}
+
+
+
+///////////////REDUNDANT BASELINE CALIBRATION STUFF///////////////////
+/////////////////////////////////////////////
+
+
+/******************************************************/
+/******************************************************/
+void vecmatmul(vector<vector<double> > * Afitting, vector<float> * v, vector<float> * ampfit){
+	int i, j;
+	double sum;
+	int n = Afitting->size();//todo size check
+	int m = v->size();
+	for(i=0; i < n; i++){
+		sum = 0.0;
+		for(j = 0; j < m; j++){
+			sum = sum + (Afitting->at(i))[j] * (v->at(j));
+		}
+		(ampfit->at(i)) = sum;
+	}
+	return;
+}
+
+void vecmatmul(vector<vector<float> > * Afitting, vector<float> * v, vector<float> * ampfit){
+	int i, j;
+	double sum;
+	int n = Afitting->size();//todo size check
+	int m = v->size();
+	for(i=0; i < n; i++){
+		sum = 0.0;
+		for(j = 0; j < m; j++){
+			sum = sum + (Afitting->at(i))[j] * (v->at(j));
+		}
+		(ampfit->at(i)) = sum;
+	}
+	return;
+}
+
+void vecmatmul(vector<vector<int> > * A, vector<float> * v, vector<float> * yfit){
+	int i, j;
+	double sum;
+	int n = A->size();//todo size check
+	int m = v->size();
+	for(i=0; i < n; i++){
+		sum = 0.0;
+		for(j = 0; j < m; j++){
+			sum = sum + (A->at(i))[j] * (v->at(j));
+		}
+		(yfit->at(i)) = sum;
+	}
+	return;
+}
+
+
+/******************************************************/
+/******************************************************/
+
+
+void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module){
+	int nant = info->nAntenna;
+	int nubl = info->nUBL;
+	int nbl = info->nBaseline;
+	int ncross = info->nCross;
+	
+	////read in amp and args
+	for (int b = 0; b < ncross; b++){
+		module->amp1[b] = log10(amp(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]));
+		module->pha1[b] = phase(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]) * info->reversed[b];
+	}
+	
+	////rewrap args
+	for(int i = 0; i < nubl; i ++){
+		for(int j = 0; j < (module->ublgrp1)[i].size(); j ++){
+			(module->ublgrp1)[i][j] = module->pha1[info->ublindex[i][j][2]];
+		}
+	}
+	for (int i = 0; i < nubl; i++){
+		(module->ubl1)[i][1] = medianAngle(&((module->ublgrp1)[i]));
+	}
+	for (int b = 0; b < ncross; b++) {
+		module->pha1[b] = phaseWrap(module->pha1[b], (module->ubl1)[info->bltoubl[b]][1] - PI);
+	}
+	
+
+	fill(module->x3.begin(), module->x3.end(), 0);////At.y
+	for (int i = 0; i < info->Atsparse.size(); i++){
+		for (int j = 0; j < info->Atsparse[i].size(); j++){
+			module->x3[i] += module->amp1[info->Atsparse[i][j]];
+		}
+	}
+	fill(module->x4.begin(), module->x4.end(), 0);////Bt.y
+	for (int i = 0; i < info->Btsparse.size(); i++){
+		for (int j = 0; j < info->Btsparse[i].size(); j++){
+			module->x4[i] += module->pha1[info->Btsparse[i][j][0]] * info->Btsparse[i][j][1];
+		}
+	}
+	vecmatmul(&(info->AtAi), &(module->x3), &(module->x1));
+	vecmatmul(&(info->BtBi), &(module->x4), &(module->x2));
+	
+	for(int b = 0; b < ncross; b++) {
+		float amp = pow10(module->x1[nant + info->bltoubl[b]] + module->x1[info->bl2d[info->crossindex[b]][0]] + module->x1[info->bl2d[info->crossindex[b]][1]]);
+		float phase =  module->x2[nant + info->bltoubl[b]] * info->reversed[b] - module->x2[info->bl2d[info->crossindex[b]][0]] + module->x2[info->bl2d[info->crossindex[b]][1]];
+		additiveout->at(info->crossindex[b])[0] = data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0] - amp * cos(phase);
+		additiveout->at(info->crossindex[b])[1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1] - amp * sin(phase);
+	}
+	if(command == 0){////compute additive term only
+		calpar->at(0) = pow(norm(additiveout), 2);
+		//cout << norm(additiveout) << endl;
+		return;
+	} else if(command == 1){////compute full set of calpars
+		for(int a = 0; a < nant; a++){
+			calpar->at(3 + a) = module->x1[a];
+			calpar->at(3 + nant + a) = module->x2[a];
+		}
+		for(int u = 0; u < nubl; u++){
+			calpar->at(3 + 2 * nant + 2 * u) = pow10(module->x1[nant + u]) * cos(module->x2[nant + u]);
+			calpar->at(3 + 2 * nant + 2 * u + 1) = pow10(module->x1[nant + u]) * sin(module->x2[nant + u]);
+		}
+		calpar->at(1) = pow(norm(additiveout), 2);
+	}
+	return;
+}
+
+vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >* b){
+	vector<float> sum1(2, 0);
+	for(int i =0; i < a->size(); i++){
+		sum1[0] += a->at(i)[0] * b->at(i)[0] + a->at(i)[1] * b->at(i)[1];
+		sum1[1] += a->at(i)[1] * b->at(i)[0] - a->at(i)[0] * b->at(i)[1];
+	}
+	float sum2 = pow(norm(b), 2);
+	sum1[0] = sum1[0] / sum2;
+	sum1[1] = sum1[1] / sum2;
+	return sum1;
+}
+
+void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
+
+	////initialize data and g0 ubl0
+	for (int b = 0; b < (module->cdata1).size(); b++){
+		module->cdata1[b][0] = data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0];
+		module->cdata1[b][1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1];
+	}
+
+	float amptmp;
+	int cbl;
+	float stepsize2 = 1 - stepsize;
+	for (int a = 0; a < info->nAntenna; a++){
+		amptmp = pow10(calpar->at(3 + a));
+		module->g0[a][0] = amptmp * cos(calpar->at(3 + info->nAntenna + a));
+		module->g0[a][1] = amptmp * sin(calpar->at(3 + info->nAntenna + a));
+	}
+	for (int u = 0; u < info->nUBL; u++){
+		module->ubl0[u][0] = calpar->at(3 + 2 * info->nAntenna + 2 * u);
+		module->ubl0[u][1] = calpar->at(3 + 2 * info->nAntenna + 2 * u + 1);
+	}
+
+	float gre, gim, chisq, chisq2;
+	int a1, a2;
+	chisq = 0;
+	for (int b = 0; b < (module->cdata2).size(); b++){
+		a1 = info->bl2d[info->crossindex[b]][0];
+		a2 = info->bl2d[info->crossindex[b]][1];
+		gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
+		gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
+		module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
+		module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+		chisq += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
+		//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
+	}
+
+	
+	////start iterations
+	int iter = 0;
+	float componentchange = 100;
+	while(iter < maxiter and componentchange > convergethresh){
+		iter++;
+		//cout << "iteration #" << iter << endl; cout.flush();
+		////calpar g
+
+		for (int a3 = 0; a3 < module->g3.size(); a3++){////g3 will be containing the final dg, g1, g2 will contain a and b as in the cost function LAMBDA = ||a + b*g||^2
+			for (int a = 0; a < a3; a++){
+				cbl = info->bl1dmatrix[a3][a];
+				if (cbl < 0 or cbl > module->cdata1.size()){//badbl
+					module->g1[a] = vector<float>(2,0);
+					module->g2[a] = vector<float>(2,0);
+				}else{
+					module->g1[a] = module->cdata1[cbl];
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+				}
+			}
+			(module->g1)[a3] = vector<float>(2,0);
+			(module->g2)[a3] = (module->g1)[a3];
+			for (int a = a3 + 1; a < module->g3.size(); a++){
+				cbl = info->bl1dmatrix[a3][a];
+				if (cbl < 0 or cbl > module->cdata1.size()){//badbl
+					module->g1[a] = vector<float>(2,0);
+					module->g2[a] = vector<float>(2,0);
+				}else{
+					module->g1[a][0] = module->cdata1[cbl][0];
+					module->g1[a][1] = -module->cdata1[cbl][1];////vij needs to be conjugated
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+				}
+			}
+			module->g3[a3] = minimizecomplex(&(module->g1), &(module->g2));
+			//if(a3 == module->g3.size() - 2) printvv(&(module->g1));
+			//if(a3 == module->g3.size() - 2) printvv(&(module->g2));
+		}
+		//printvv(&(module->g0),0,10);
+		//printvv(&(module->g3),0,10);
+			
+		////ubl M
+		for (int u = 0; u < info->nUBL; u++){
+			for (int i = 0; i < module->ubl2dgrp1[u].size(); i++){
+				cbl = info->ublindex[u][i][2];
+				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
+				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+				module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
+				module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+			}
+			
+			module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
+		}
+
+		
+		////Update g and ubl
+		//float fraction;
+		for (int a = 0; a < module->g3.size(); a++){
+			//fraction = amp(module->g3[a][0] - module->g0[a][0], module->g3[a][1] - module->g0[a][1]) / amp(module->g0[a][0], module->g0[a][1]);
+			//if (fraction > componentchange){
+				//componentchange = fraction;
+			//}
+			
+			module->g0[a][0] = stepsize2 * module->g0[a][0] + stepsize * module->g3[a][0];
+			module->g0[a][1] = stepsize2 * module->g0[a][1] + stepsize * module->g3[a][1];
+
+		}
+		for (int u = 0; u < module->ubl3.size(); u++){
+			//fraction = amp(module->ubl3[u][0] - module->ubl0[u][0], module->ubl3[u][1] - module->ubl0[u][1]) / amp(module->ubl0[u][0], module->ubl0[u][1]);
+			//if (fraction > componentchange){
+				//componentchange = fraction;
+			//}
+			module->ubl0[u][0] = stepsize2 * module->ubl0[u][0] + stepsize * module->ubl3[u][0];
+			module->ubl0[u][1] = stepsize2 * module->ubl0[u][1] + stepsize * module->ubl3[u][1];
+		}
+
+		//compute chisq and decide convergence
+		chisq2 = 0;
+		for (int b = 0; b < (module->cdata2).size(); b++){
+			a1 = info->bl2d[info->crossindex[b]][0];
+			a2 = info->bl2d[info->crossindex[b]][1];
+			gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
+			gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
+			module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
+			module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+			chisq2 += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
+			//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
+		}
+		componentchange = (chisq - chisq2) / chisq;
+		chisq = chisq2;
+
+	}
+
+
+	////update calpar
+	if( componentchange> 0){
+		for (int a = 0; a < module->g0.size(); a++){
+			calpar->at(3 + a) = log10(amp(&(module->g0[a])));
+			calpar->at(3 + info->nAntenna + a) = phase(&(module->g0[a]));
+		}
+		int tmp = 3 + 2 * info->nAntenna;
+		for (int u = 0; u < module->ubl0.size(); u++){
+			calpar->at(tmp + 2 * u) = module->ubl0[u][0];
+			calpar->at(tmp + 2 * u + 1) = module->ubl0[u][1];
+		}
+
+		calpar->at(0) = iter;
+		calpar->at(2) = chisq;
+	}else{////if chisq didnt decrease, keep everything untouched
+		calpar->at(0) = 0;
+		calpar->at(2) = calpar->at(1);
+	}
+	
+	
+	return;
+}
+
+void loadGoodVisibilities(vector<vector<vector<vector<float> > > > * rawdata, vector<vector<vector<vector<float> > > >* receiver, redundantinfo* info, int xy){////0 for xx 3 for yy
+	for (int t = 0; t < receiver->size(); t++){
+		for (int f = 0; f < receiver->at(0).size(); f++){
+			for (int bl = 0; bl < receiver->at(0)[0].size(); bl++){
+				receiver->at(t)[f][bl][0] = rawdata->at(xy)[t][f][2 * info->subsetbl[bl]];
+				receiver->at(t)[f][bl][1] = rawdata->at(xy)[t][f][2 * info->subsetbl[bl] + 1];
+			}
+		}		
+	}
+	return;
 }
