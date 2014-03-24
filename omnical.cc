@@ -38,7 +38,7 @@ const float MAX_POW_10 = 10;
 
 int main(int argc, char *argv[]){
 	string METHODNAME = "main";
-	if (argc != 6){
+	if (argc != 7){
 		//cout << argc << endl;
 		cout << "##" << FILENAME << "##" << METHODNAME << ": FALTAL ERROR: Incorrect input format! Expecting data path, info path, time count, frequency count, total number of antenna contained in the data." << endl;
 		return 0;
@@ -50,6 +50,7 @@ int main(int argc, char *argv[]){
 	int nInt = atoi(argv[3]);
 	int nFreq = atoi(argv[4]);
 	int nAnt = atoi(argv[5]);
+	bool removedegen = atoi(argv[6]);
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Starting " << visin << " " << nInt << " by " << nFreq << endl; 
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Reading redundant baseline information and pre-computed matrices:" << endl;//generated from 16. additive noise investigation _from_17.nb
 	redundantinfo info;
@@ -97,7 +98,7 @@ int main(int argc, char *argv[]){
 			logcaladd(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module);
 			lincal(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &module, 0.01, 10, 0.3);
 			//if (f==50) cout << calpar[t][f][0] << " " << calpar[t][f][1] << " " << calpar[t][f][2] << endl;
-			removeDegen(&(calpar[t][f]), &info, &module);
+			if(removedegen) removeDegen(&(calpar[t][f]), &info, &module);
 		}
 	}
 
