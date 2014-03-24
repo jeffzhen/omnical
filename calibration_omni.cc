@@ -3174,7 +3174,7 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	vecmatmul(&(info->BtBi), &(module->x4), &(module->x2));
 	
 	for(int b = 0; b < ncross; b++) {
-		float amp = pow10(module->x1[nant + info->bltoubl[b]] + module->x1[info->bl2d[info->crossindex[b]][0]] + module->x1[info->bl2d[info->crossindex[b]][1]]);
+		float amp = pow(10, module->x1[nant + info->bltoubl[b]] + module->x1[info->bl2d[info->crossindex[b]][0]] + module->x1[info->bl2d[info->crossindex[b]][1]]);
 		float phase =  module->x2[nant + info->bltoubl[b]] * info->reversed[b] - module->x2[info->bl2d[info->crossindex[b]][0]] + module->x2[info->bl2d[info->crossindex[b]][1]];
 		additiveout->at(info->crossindex[b])[0] = data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0] - amp * cos(phase);
 		additiveout->at(info->crossindex[b])[1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1] - amp * sin(phase);
@@ -3189,8 +3189,8 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 			calpar->at(3 + nant + a) = module->x2[a];
 		}
 		for(int u = 0; u < nubl; u++){
-			calpar->at(3 + 2 * nant + 2 * u) = pow10(module->x1[nant + u]) * cos(module->x2[nant + u]);
-			calpar->at(3 + 2 * nant + 2 * u + 1) = pow10(module->x1[nant + u]) * sin(module->x2[nant + u]);
+			calpar->at(3 + 2 * nant + 2 * u) = pow(10, module->x1[nant + u]) * cos(module->x2[nant + u]);
+			calpar->at(3 + 2 * nant + 2 * u + 1) = pow(10, module->x1[nant + u]) * sin(module->x2[nant + u]);
 		}
 		calpar->at(1) = pow(norm(additiveout), 2);
 	}
@@ -3221,7 +3221,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 	int cbl;
 	float stepsize2 = 1 - stepsize;
 	for (int a = 0; a < info->nAntenna; a++){
-		amptmp = pow10(calpar->at(3 + a));
+		amptmp = pow(10, calpar->at(3 + a));
 		module->g0[a][0] = amptmp * cos(calpar->at(3 + info->nAntenna + a));
 		module->g0[a][1] = amptmp * sin(calpar->at(3 + info->nAntenna + a));
 	}
@@ -3389,7 +3389,7 @@ void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* modu
 	////compute amp delta
 	float ampfactor = 0;//average |g|, divide ant calpar by this, multiply ublfit by square this
 	for (int a = 0 ; a < info->nAntenna; a ++){
-		ampfactor += pow10(calpar->at(3 + a));
+		ampfactor += pow(10, calpar->at(3 + a));
 	}
 	ampfactor = ampfactor / info->nAntenna; 
 	//cout << ampfactor << endl;
