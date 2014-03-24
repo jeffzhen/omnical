@@ -8,15 +8,15 @@ FILENAME = "omnical.py"
 latP = -0.53619181096511903
 lonP = 0.37399448506783717
 
-ano = 'test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
-uvfiles = ['test.uv']
-wantpols = {'xx':-5, 'yy':-6}
+ano = 'lst_v007_fg'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
+uvfiles = commands.getoutput('ls /data4/paper/arp/lst_v007_fg/*.uv -d').split()
+wantpols = {'SI':1}
 
-infopaths = {'xx':'./redundantinfo_PSA32.txt', 'yy':'./redundantinfo_PSA32.txt'}
+infopaths = {'SI':'./redundantinfo_PSA32.txt'}
 
 removedegen = 1
 
-needrawcal = True #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
+needrawcal = False #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
 rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
 
 ############################################################
