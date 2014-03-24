@@ -1,6 +1,0 @@
-CORR-DACQ: created file.
-
-CORRECT: /usr/global/paper/capo/arp/scripts/correct_psa898.py zen.2455903.00836.uv
-/usr/global/paper/bin/xrfi_simple.py -a 1 --combine -t 20 -c 0_130,755_777,1540,1704,1827,1868,1885_2047 --df=6 zen.2455903.00836.uvc
-/usr/global/paper/bin/xrfi_simple.py -a all --combine -t 20 zen.2455903.00836.uvcR --from_npz=zen.2455903.00836.uvcRE.npz
-DDR FILTER, DDR:/usr/global/paper/capo/arp/scripts/ddr_filter_coarse.py -a all --clean=1e-4 --maxbl=300 --nsections=40 zen.2455903.00140.uvcR zen.2455903.00836.uvcRR zen.2455903.01532.uvcR

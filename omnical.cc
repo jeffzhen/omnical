@@ -91,6 +91,7 @@ int main(int argc, char *argv[]){
 	//lincal(&(data[5][50]), &(additiveplaceholder2), &info, &(calpar[5][50]), &module, 0.01, 10, 0.3);
 	//printv(&(calpar[5][50]), 0,10);
 	//return 0;	
+
 	for (int t = 0; t < data.size(); t++){
 		for (int f = 0; f < data[0].size(); f++){
 			logcaladd(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module);
@@ -99,6 +100,7 @@ int main(int argc, char *argv[]){
 			removeDegen(&(calpar[t][f]), &info, &module);
 		}
 	}
+
 	
 	outputCalparSP(&calpar, calparout, false, info.nAntenna);
 
