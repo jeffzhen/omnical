@@ -757,7 +757,7 @@ void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<v
 	float * fmemblock;
 	unsigned long  len;
 	size_t result;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename << endl;
+	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename;
 	
 	// Open file
 	file = fopen(inputfilename,"rb");
@@ -765,18 +765,18 @@ void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<v
 		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Reading " << inputfilename << " FAILED! Check if the file exists!" << endl;
 		return;
 	};
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Getting Length... ";
+	cout << ": Getting Length... ";
 	// Get length
 	fseek (file, 0, SEEK_END);
 	len = ftell (file);//Number of Bytes, where each float takes 4 Bytes (32bits), so number of floats is len / 4
 	rewind(file);
-	cout << len / 4 << " floats." << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Importing data into memory..."; cout.flush();
+	cout << len / 4 << " 32 bit floats. ";
+	cout << "Importing data into memory..."; cout.flush();
 	fmemblock = (float*) malloc (sizeof(float) * len / 4);
 	result = fread(fmemblock, sizeof(float), len / 4, file);
 	// Close file and clear buffer
 	fclose(file);
-	cout << " Done!" << endl;
+	
 
 	//Transfer data to vectors
 	//cout << len / 4 << " " << nPol << " " <<  nFrequencies << " " <<  nBase << endl; 
@@ -805,7 +805,7 @@ void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<v
 		default:
 			pol = "xx";
 		}
-		if(nPol > 1) cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Parsing polarization: " << pol << "\n";
+		if(nPol > 1) cout << " Parsing polarization: " << pol << "...";
 		for(int t = 0; t < nIntegrations; t++){	
 			for(int f=0; f < nFrequencies; f++){
 				for(int v = 0; v < nBase; v++){
@@ -817,11 +817,9 @@ void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<v
 			}
 		}
 	}
-	//printf("%e \n",data[0][0][1][0]);
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Done Reading Vector \n";
-	//delete[] memblock;
+
 	free (fmemblock);
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Deleted memblock \n";
+	cout << " All done!" << endl;
 }
 
 
