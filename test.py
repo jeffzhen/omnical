@@ -30,7 +30,7 @@ print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed"
 ####read redundant info
  
 info = [omni.read_redundantinfo(infopaths[key]) for key in wantpols.keys()]
-#print info['bl2d']
+#print info[0]['bl1dmatrix']
 #exit(1)
 
 ####get some info from the first uvfile
@@ -64,10 +64,8 @@ for uvfile in uvfiles:
 		print FILENAME + " MSG:",  timing[-1]#uv.nchan
 	#print FILENAME + " MSG:",  uv['nants']
 	currentpol = 0
-	bl = 0
 	for preamble, rawd in uv.all():
 		if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
-			bl = 0
 			t += [preamble[1]]
 			sa.date = preamble[1] - julDelta
 			#sun.compute(sa)
@@ -80,11 +78,11 @@ for uvfile in uvfiles:
 				#sunpos[len(t) - 1] = np.asarray([[sun.alt, sun.az]])
 		for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 			if wantpols[pol] == uv['pol']:
-				if currentpol != uv['pol']:
-					bl = 0
-					currentpol = uv['pol']
-				data[len(t) - 1, p, bl] = rawd.data.astype('complex64')
-				bl += 1
+				a1, a2 = preamble[2]
+				bl = info[p]['bl1dmatrix'][a1, a2]
+				if bl < info[p]['nbl']:
+					#print info[p]['subsetbl'][info[p]['crossindex'][bl]],
+					data[len(t) - 1, p, info[p]['subsetbl'][info[p]['crossindex'][bl]]] = rawd.data.astype('complex64')
 	del(uv)
 
 print FILENAME + " MSG:",  len(t), "slices read."
@@ -111,12 +109,12 @@ f.close()
 
 del(data)
 
+os.system("rm m*.omnical")
 for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 	command = "./omnical " + 'miriadextract_' + pol + '_' + ano + " " + infopaths[pol] + " " + str(len(t)) + " " + str(nfreq) + " "  + str(nant) + " " + str(removedegen)
 	print FILENAME + " MSG: System call: ",  command
 	os.system(command)
 	print np.fromfile('miriadextract_' + pol + '_' + ano + ".omnical", dtype = 'float32').reshape((len(t), nfreq, 3+2*(info[p]['nAntenna']+info[p]['nUBL'])))[:5,50,:3]
-
 
 newresult = np.fromfile("miriadextract_xx_test.omnical", dtype = 'float32')
 correctresult = np.fromfile("test.omnical", dtype = 'float32')

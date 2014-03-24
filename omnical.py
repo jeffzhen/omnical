@@ -8,15 +8,15 @@ FILENAME = "omnical.py"
 latP = -0.53619181096511903
 lonP = 0.37399448506783717
 
-ano = 'lst_v007_fg'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
-uvfiles = commands.getoutput('ls /data4/paper/arp/lst_v007_fg/*.uv -d').split()[:1]
-wantpols = {'SI':1}
+ano = 'test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
+uvfiles = ['test.uv']
+wantpols = {'xx':-5, 'yy':-6}
 
-infopaths = {'SI':'./redundantinfo_PSA32.txt'}
+infopaths = {'xx':'./redundantinfo_PSA32.txt', 'yy':'./redundantinfo_PSA32.txt'}
 
 removedegen = 1
 
-needrawcal = False #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
+needrawcal = True #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
 rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
 
 ############################################################
@@ -30,8 +30,8 @@ print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed"
 ####read redundant info
  
 info = [omni.read_redundantinfo(infopaths[key]) for key in wantpols.keys()]
-print info[0]['bl1dmatrix']
-exit(1)
+#print info[0]['bl1dmatrix']
+#exit(1)
 
 ####get some info from the first uvfile
 uv=ap.miriad.UV(uvfiles[0])
@@ -64,10 +64,8 @@ for uvfile in uvfiles:
 		print FILENAME + " MSG:",  timing[-1]#uv.nchan
 	#print FILENAME + " MSG:",  uv['nants']
 	currentpol = 0
-	bl = 0
 	for preamble, rawd in uv.all():
 		if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
-			bl = 0
 			t += [preamble[1]]
 			sa.date = preamble[1] - julDelta
 			#sun.compute(sa)
@@ -80,11 +78,11 @@ for uvfile in uvfiles:
 				#sunpos[len(t) - 1] = np.asarray([[sun.alt, sun.az]])
 		for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 			if wantpols[pol] == uv['pol']:
-				if currentpol != uv['pol']:
-					bl = 0
-					currentpol = uv['pol']
-				data[len(t) - 1, p, bl] = rawd.data.astype('complex64')
-				bl += 1
+				a1, a2 = preamble[2]
+				bl = info[p]['bl1dmatrix'][a1, a2]
+				if bl < info[p]['nbl']:
+					#print info[p]['subsetbl'][info[p]['crossindex'][bl]],
+					data[len(t) - 1, p, info[p]['subsetbl'][info[p]['crossindex'][bl]]] = rawd.data.astype('complex64')
 	del(uv)
 
 print FILENAME + " MSG:",  len(t), "slices read."
