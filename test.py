@@ -109,7 +109,7 @@ f.close()
 
 del(data)
 
-os.system("rm m*.omnical")
+os.system("rm miriadextract_xx_test.omnical")
 for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 	command = "./omnical " + 'miriadextract_' + pol + '_' + ano + " " + infopaths[pol] + " " + str(len(t)) + " " + str(nfreq) + " "  + str(nant) + " " + str(removedegen)
 	print FILENAME + " MSG: System call: ",  command
