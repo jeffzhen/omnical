@@ -1,8 +1,6 @@
 import aipy as ap
 import numpy as np
-import ephem
-import commands, os
-import time
+import commands, os, time, math, ephem
 import calibration_omni as omni
 FILENAME = "omnical.py"
 
@@ -56,6 +54,7 @@ data = np.zeros((deftime, 2, nant * (nant + 1) / 2, nfreq), dtype = 'complex64')
 #sunpos = np.zeros((deftime, 2))
 t = []
 timing = []
+lst = []
 
 ###start processing
 for uvfile in uvfiles:
@@ -70,6 +69,7 @@ for uvfile in uvfiles:
 			sa.date = preamble[1] - julDelta
 			#sun.compute(sa)
 			timing += [sa.date.__str__()]
+			lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
 			if len(t) > len(data):
 				print FILENAME + " MSG:",  "expanding number of time slices from", len(data), "to", len(data) + deftime
 				data = np.concatenate((data, np.zeros((deftime, 2, nant * (nant + 1) / 2, nfreq), dtype = 'complex64'))) 
@@ -95,9 +95,13 @@ for pol in [-5, -6]:
 
 #np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')	
 
-f = open('miriadextract_' + ano + "_timing.dat",'w')
+f = open('miriadextract_' + ano + "_localtime.dat",'w')
 for time in timing:
 	f.write("%s\n"%time)
+f.close()
+f = open('miriadextract_' + ano + "_lsthour.dat",'w')
+for l in lst:
+	f.write("%s\n"%l)
 f.close()
 
 #data = 0
