@@ -40,7 +40,7 @@ int main(int argc, char *argv[]){
 	string METHODNAME = "main";
 	if (argc != 7){
 		//cout << argc << endl;
-		cout << "##" << FILENAME << "##" << METHODNAME << ": FALTAL ERROR: Incorrect input format! Expecting data path, info path, time count, frequency count, total number of antenna contained in the data." << endl;
+		cout << "##" << FILENAME << "##" << METHODNAME << ": FALTAL ERROR: Incorrect input format! Expecting data path, info path, time count, frequency count, total number of antenna contained in the data, and whether or not to remove degeneracy(1 for yes)." << endl;
 		return 0;
 	}
 	clock_t tStart = clock();
