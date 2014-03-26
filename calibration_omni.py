@@ -158,7 +158,7 @@ def importuvs(uvfilenames, info, wantpols):
 		if not datapulled:
 			print FILENAME + METHODNAME + " MSG:",  "FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting."
 			exit(1)
-	return data, t, timing, lst
+	return data[:len(t)], t, timing, lst
 
 def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, ano):
 	METHODNAME = "*apply_omnical_uvs*"
@@ -187,7 +187,7 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, ano):
 
 
 
-#########start processing#######################
+	#########start processing#######################
 	t = []
 	timing = []
 	#datapulled = False
