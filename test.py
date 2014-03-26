@@ -83,12 +83,6 @@ for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 	if not keep_binary_data:
 		os.remove(oppath + 'miriadextract_' + pol + '_' + ano)
 
-#####apply calpar and create new uv##################################
-calparfilenames = [oppath + 'miriadextract_' + pol + '_' + ano + '.omnical' for p, pol in zip(range(len(wantpols)), wantpols.keys())]
-
-	
-print FILENAME + " MSG: Applying", calparfilenames
-omni.apply_omnical_uvs(uvfiles, calparfilenames, info, wantpols, ano)
 
 #########Test results############
 newresult = np.fromfile(oppath + "miriadextract_xx_test.omnical", dtype = 'float32')

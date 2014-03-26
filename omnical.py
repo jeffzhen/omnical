@@ -7,8 +7,8 @@ FILENAME = "omnical.py"
 ##############Config parameters###################################
 latP = -0.53619181096511903
 lonP = 0.37399448506783717
-ano = 'lst_v006_I'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
-uvfiles = commands.getoutput('ls /data4/paper/arp/lst_v006_I/*.uv -d').split()
+ano = 'lst_v007_fg'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
+uvfiles = commands.getoutput('ls /data4/paper/arp/lst_v007_fg/*.uv -d').split()
 wantpols = {'SI':1}
 
 infopaths = {'SI':'./redundantinfo_PSA32.txt'}
@@ -87,4 +87,7 @@ for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 		os.remove(oppath + 'miriadextract_' + pol + '_' + ano)
 
 
-
+#####apply calpar and create new uv##################################
+calparfilenames = [oppath + 'miriadextract_' + pol + '_' + ano + '.omnical' for p, pol in zip(range(len(wantpols)), wantpols.keys())]
+print FILENAME + " MSG: Applying", calparfilenames
+omni.apply_omnical_uvs(uvfiles, calparfilenames, info, wantpols, ano, oppath)

@@ -160,7 +160,7 @@ def importuvs(uvfilenames, info, wantpols):
 			exit(1)
 	return data[:len(t)], t, timing, lst
 
-def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, ano):
+def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano):
 	METHODNAME = "*apply_omnical_uvs*"
 
 	####get some info from the first uvfile
@@ -195,7 +195,7 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, ano):
 		uvi = ap.miriad.UV(uvfile)
 		if len(timing) > 0:	
 			print FILENAME + METHODNAME + "MSG:", uvfile + ' after', timing[-1]#uv.nchan
-		uvo = ap.miriad.UV(uvfile + ano + 'omnical', status='new')
+		uvo = ap.miriad.UV(oppath + os.path.basename(os.path.dirname(uvfile+'/')) + ano + 'omnical', status='new')
 		uvo.init_from_uv(uvi)
 		historystr = "Applied "
 		for cpfn in calparfilenames:
