@@ -17,7 +17,7 @@ removedegen = 1
 needrawcal = True #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
 rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
 
-keep_binary_data = True
+keep_binary_data = False
 ########Massage user parameters
 oppath += '/' 
 
