@@ -87,7 +87,7 @@ for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 #########Test results############
 newresult = np.fromfile(oppath + "miriadextract_xx_test.omnical", dtype = 'float32')
 correctresult = np.fromfile("test.omnical", dtype = 'float32')
-if newresult.all() == correctresult.all():
+if (len(newresult) == len(correctresult)) and ((newresult == newresult) | (np.isnan(newresult) & np.isnan(newresult))).all():
 	print "TEST PASSED!"
 else:
 	print "TEST FAILED :("
