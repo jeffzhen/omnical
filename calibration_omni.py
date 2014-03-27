@@ -180,7 +180,7 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano)
 			return
 		ttotal = len(calpar)/(nfreq *( 3 + 2 * (info[p]['nAntenna'] + info[p]['nUBL'])))
 		calpar = calpar.reshape((ttotal, nfreq, ( 3 + 2 * (info[p]['nAntenna'] + info[p]['nUBL']))))
-		calpar = (10**calpar[:,:,3:3+info[p]['nAntenna']])*np.exp(1.j*calpar[:,:,3+info[p]['nAntenna']:3+2*info[p]['nAntenna']])
+		calpar = (10**calpar[:,:,3:3+info[p]['nAntenna']])*np.exp(1.j * calpar[:,:,3+info[p]['nAntenna']:3+2*info[p]['nAntenna']] * math.pi / 180)
 		blcalpar.append(1 + np.zeros((ttotal, info[p]['nBaseline'], nfreq),dtype='complex64'))
 		for bl in range(info[p]['nBaseline']):
 			blcalpar[p][:, bl, :] *= (calpar[:, :, info[p]['bl2d'][bl,0]].conj() * calpar[:, :, info[p]['bl2d'][bl, 1]])
