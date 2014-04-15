@@ -338,8 +338,8 @@ bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNin
 
 void vecmatmul(vector<vector<double> > * Afitting, vector<float> * v, vector<float> * ampfit);
 void vecmatmul(vector<vector<float> > * Afitting, vector<float> * v, vector<float> * ampfit);
-void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module);
-void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, calmemmodule* module, float convergethresh, int maxiter, float stepsize);
+void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module);//option 0 only computes additive term and chi^2 but does not compute calibration parameters, option 1 does compute everything
+void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module, float convergethresh, int maxiter, float stepsize);//option does not do anything at the moment; additive term will only be updated if lincal can achieve a lower chi^2
 void loadGoodVisibilities(vector<vector<vector<vector<float> > > > * rawdata, vector<vector<vector<vector<float> > > >* receiver, redundantinfo* info, int xy);
 void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* module);//forces the calibration parameters to have average 1 amp, and no shifting the image in phase. Note: 1) If you have not absolute calibrated the data, there's no point in running this, because this can only ensure that the calpars don't screw up already absolute calibrated data. 2) the antloc and ubl stored in redundant info must be computed from idealized antloc, otherwise the error in antloc from perfect redundancy will roll into this result, in an unknown fashion.
 

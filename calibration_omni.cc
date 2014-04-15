@@ -1526,7 +1526,7 @@ bool outputDataLarge(vector<vector<vector<vector<float> > > > * data, string out
 		return false;
 	}
 	for(int p = 0; p < numPol; p++){
-		cout << "##" << FILENAME << "##" << METHODNAME << ": Writing polarization: " << p << '\n';
+		//cout << "##" << FILENAME << "##" << METHODNAME << ": Writing polarization: " << p << '\n';
 		for(int t = 0; t < numInt; t++){
 			for(int f = 0;f < numFreq; f++){
 				for(int b = 0; b < numBl; b++){
@@ -3209,7 +3209,7 @@ vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >*
 	return sum1;
 }
 
-void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
+void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
 
 	////initialize data and g0 ubl0
 	for (int b = 0; b < (module->cdata1).size(); b++){
@@ -3339,7 +3339,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 	}
 
 
-	////update calpar
+	////update calpar and additive term
 	if( componentchange> 0){
 		for (int a = 0; a < module->g0.size(); a++){
 			calpar->at(3 + a) = log10(amp(&(module->g0[a])));
@@ -3353,6 +3353,10 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 
 		calpar->at(0) = iter;
 		calpar->at(2) = chisq;
+		for (int b = 0; b < (module->cdata2).size(); b++){
+			additiveout->at(info->crossindex[b])[0] = module->cdata2[b][0] - module->cdata1[b][0];
+			additiveout->at(info->crossindex[b])[1] = module->cdata2[b][1] - module->cdata1[b][1];
+		}
 	}else{////if chisq didnt decrease, keep everything untouched
 		calpar->at(0) = 0;
 		calpar->at(2) = calpar->at(1);

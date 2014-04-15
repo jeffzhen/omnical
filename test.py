@@ -76,7 +76,7 @@ del(data)
 
 ####Call C++ omnical code################
 for p, pol in zip(range(len(wantpols)), wantpols.keys()):
-	command = "./omnical " + oppath + 'miriadextract_' + pol + '_' + ano + " " + infopaths[pol] + " " + str(len(t)) + " " + str(nfreq) + " "  + str(nant) + " " + str(removedegen)# + " " + oppath + 'miriadextract_' + pol + '_' + ano + ".omnical"
+	command = "./omnical " + oppath + 'miriadextract_' + pol + '_' + ano + " " + infopaths[pol] + " " + str(len(t)) + " " + str(nfreq) + " "  + str(nant) + " " + str(removedegen) + " 0 0"# + " " + oppath + 'miriadextract_' + pol + '_' + ano + ".omnical"
 	print FILENAME + " MSG: System call: ",  command
 	os.system(command)
 	print np.fromfile(oppath + 'miriadextract_' + pol + '_' + ano + ".omnical", dtype = 'float32').reshape((len(t), nfreq, 3+2*(info[p]['nAntenna']+info[p]['nUBL'])))[:5,50,:3]
@@ -87,7 +87,7 @@ for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 #########Test results############
 newresult = np.fromfile(oppath + "miriadextract_xx_test.omnical", dtype = 'float32')
 correctresult = np.fromfile("test.omnical", dtype = 'float32')
-if (len(newresult) == len(correctresult)) and ((newresult == newresult) | (np.isnan(newresult) & np.isnan(newresult))).all():
+if (len(newresult) == len(correctresult)) and ((newresult == correctresult) | (np.isnan(newresult) & np.isnan(correctresult))).all():
 	print "TEST PASSED!"
 else:
 	print "TEST FAILED :("
