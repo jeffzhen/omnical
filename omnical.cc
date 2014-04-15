@@ -86,17 +86,21 @@ int main(int argc, char *argv[]){
 
 	////////////Start calibration///////////
 
-
-
 	readBinaryVisibilityLarge((visin).c_str(), &rawdata, 1, nInt, nFreq, nBaseline);
+
+	cout << "##" << FILENAME << "##" << METHODNAME << ": Loading good visibilities...";
+	cout.flush();
 	loadGoodVisibilities(&rawdata, &data, &info, 0);
+	cout << "Done." << endl;
+	cout.flush();
 	//printvv(&(data[5][50]));
 	//return 0;
 	//logcaladd(&(data[5][50]), &(additiveplaceholder), &info, &(calpar[5][50]), &(additiveplaceholder), 1, &module);
 	//lincal(&(data[5][50]), &(additiveplaceholder2), &info, &(calpar[5][50]), &module, 0.01, 10, 0.3);
 	//printv(&(calpar[5][50]), 0,10);
 	//return 0;	
-
+	cout << "##" << FILENAME << "##" << METHODNAME << ": Calibrating...";
+	cout.flush();
 	for (int t = 0; t < data.size(); t++){
 		for (int f = 0; f < data[0].size(); f++){
 			logcaladd(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module);
@@ -105,10 +109,16 @@ int main(int argc, char *argv[]){
 			if(removedegen) removeDegen(&(calpar[t][f]), &info, &module);
 		}
 	}
-	if(removeadd) outputDataLarge(&additiveout, (visin + ".omniadd").c_str());
+	cout << "Done." << endl;
+	cout.flush();
 	
+	
+	cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing results...";
+	cout.flush();
+	if(removeadd) outputDataLarge(&additiveout, (visin + ".omniadd").c_str());
 	outputCalparSP(&calpar, calparout, false, info.nAntenna);
-
+	cout << "Done." << endl;
+	cout.flush();
 
 	printf("Time taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
 
