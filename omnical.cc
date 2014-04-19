@@ -106,7 +106,16 @@ int main(int argc, char *argv[]){
 			logcaladd(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module);
 			lincal(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveout[t][f]), 1, &module, 0.01, 10, 0.3);
 			//if (f==50) cout << calpar[t][f][0] << " " << calpar[t][f][1] << " " << calpar[t][f][2] << endl;
-			if(removedegen) removeDegen(&(calpar[t][f]), &info, &module);
+			if((not removeadd) and removedegen) removeDegen(&(calpar[t][f]), &info, &module);
+		}
+	}
+	if(removeadd){
+		runAverage(&additiveout, 0, additivePeriod);
+		for (int t = 0; t < data.size(); t++){
+			for (int f = 0; f < data[0].size(); f++){
+				lincal(&(data[t][f]), &(additiveout[t][f]), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module, 0.01, 10, 0.3);
+				if(removedegen) removeDegen(&(calpar[t][f]), &info, &module);
+			}
 		}
 	}
 	cout << "Done." << endl;

@@ -3416,3 +3416,109 @@ void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* modu
 	}
 	return;
 }
+
+void runAverage1d(vector<float> *in, vector<float> *out, int w){//compute running average with running length 2w+1. The first and last w elements are averaged with less elements.
+	string METHODNAME = "runAverage1d";
+	if(in->size() != out->size()){
+		printf("#!!#%s#!!#%s: FATAL ERROR: input and output arrays have different dimensions: %i vs %i. ABORT!\n", FILENAME.c_str(), METHODNAME.c_str(), in->size(), out->size());
+		return;
+	}
+	int l = in->size();
+	double sum = 0;
+	int n = 0;//number of items in sum
+	for (int i = 0; i < min(w, l); i++){
+		sum += in->at(i);
+		n++;
+	}
+	for (int i = 0; i < out->size(); i++){
+		if(i + w < l){
+			sum += in->at(i + w);
+			n++;
+		}
+		if(i - w -1 >= 0){
+			sum += -(in->at(i - w - 1));
+			n += -1;
+		}
+		out->at(i) = float(sum / n);
+	}
+}
+void runAverage(vector<vector<vector<vector<float> > > > *in, int dimension, int w){//compute running average along dimension with running length 2w+1. The first and last w elements are averaged with less elements. Input array is modified!
+	string METHODNAME = "runAverage";
+	//if(in->size() != out->size() or in->at(0).size() != out->at(0).size()){
+		//printf("#!!#%s#!!#%s: FATAL ERROR: input and output arrays have different dimensions: (%i, %i) vs (%i, %i). ABORT!\n", FILENAME, METHODNAME.c_str(), in->size(), in->at(0).size(), out->size(), out->at(0).size());
+		//return;
+	//}
+	vector<float> dummy, dummy2;
+	switch(dimension){
+		case 0:
+			dummy = vector<float>(in->size(), 0);
+			break;
+		case 1:
+			dummy = vector<float>(in->at(0).size(), 0);
+			break;
+		case 2:
+			dummy = vector<float>(in->at(0)[0].size(), 0);
+			break;
+		case 3:
+			dummy = vector<float>(in->at(0)[0][0].size(), 0);
+			break;
+		default:
+			printf("#!!#%s#!!#%s: FATAL ERROR: input array does not contain dimension %i. ABORT!\n", FILENAME.c_str(), METHODNAME.c_str(), dimension);
+			return;
+			break;
+	}
+	dummy2 = dummy;
+	
+	
+	for (int t = 0; t < in->size(); t++){
+		for (int f = 0; f < in->at(0).size(); f++){
+			for (int b = 0; b < in->at(0)[0].size(); b++){
+				for (int ri = 0; ri < in->at(0)[0][0].size(); ri++){
+					switch(dimension){
+						case 0:
+							for (int i = 0; i < dummy.size(); i ++){
+								dummy[i] = in->at(i)[f][b][ri];
+							}
+								runAverage1d(&dummy, &dummy2, w);
+							for (int i = 0; i < dummy.size(); i ++){
+								in->at(i)[f][b][ri] = dummy2[i];
+							}
+							break;
+						case 1:
+							for (int i = 0; i < dummy.size(); i ++){
+								dummy[i] = in->at(t)[i][b][ri];
+							}
+								runAverage1d(&dummy, &dummy2, w);
+							for (int i = 0; i < dummy.size(); i ++){								
+								in->at(t)[i][b][ri] = dummy2[i];
+							}
+							break;
+						case 2:
+							for (int i = 0; i < dummy.size(); i ++){
+								dummy[i] = in->at(t)[f][i][ri];
+							}
+								runAverage1d(&dummy, &dummy2, w);
+							for (int i = 0; i < dummy.size(); i ++){								
+								in->at(t)[f][i][ri] = dummy2[i];
+							}
+							break;
+						case 3:
+							for (int i = 0; i < dummy.size(); i ++){
+								dummy[i] = in->at(t)[f][b][i];
+							}
+								runAverage1d(&dummy, &dummy2, w);
+							for (int i = 0; i < dummy.size(); i ++){								
+								in->at(t)[f][b][i] = dummy2[i];
+							}
+							break;													
+					}
+					if (dimension == 3) break;
+				}
+				if (dimension == 2) break;
+			}
+			if (dimension == 1) break;
+		}
+		if (dimension == 0) break;
+	}
+		
+}
