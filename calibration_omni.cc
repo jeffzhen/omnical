@@ -3354,8 +3354,8 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		calpar->at(0) = iter;
 		calpar->at(2) = chisq;
 		for (int b = 0; b < (module->cdata2).size(); b++){
-			additiveout->at(info->crossindex[b])[0] = module->cdata2[b][0] - module->cdata1[b][0];
-			additiveout->at(info->crossindex[b])[1] = module->cdata2[b][1] - module->cdata1[b][1];
+			additiveout->at(info->crossindex[b])[0] = module->cdata1[b][0] - module->cdata2[b][0];
+			additiveout->at(info->crossindex[b])[1] = module->cdata1[b][1] - module->cdata2[b][1];
 		}
 	}else{////if chisq didnt decrease, keep everything untouched
 		calpar->at(0) = 0;
