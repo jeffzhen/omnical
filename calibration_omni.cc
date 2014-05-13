@@ -3225,11 +3225,24 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		module->g0[a][0] = amptmp * cos(calpar->at(3 + info->nAntenna + a));
 		module->g0[a][1] = amptmp * sin(calpar->at(3 + info->nAntenna + a));
 	}
-	for (int u = 0; u < info->nUBL; u++){
-		module->ubl0[u][0] = calpar->at(3 + 2 * info->nAntenna + 2 * u);
-		module->ubl0[u][1] = calpar->at(3 + 2 * info->nAntenna + 2 * u + 1);
+	if (command != 1){
+		for (int u = 0; u < info->nUBL; u++){
+			module->ubl0[u][0] = calpar->at(3 + 2 * info->nAntenna + 2 * u);
+			module->ubl0[u][1] = calpar->at(3 + 2 * info->nAntenna + 2 * u + 1);
+		}
+	} else{//if command is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input
+		for (int u = 0; u < info->nUBL; u++){
+			for (int i = 0; i < module->ubl2dgrp1[u].size(); i++){
+				cbl = info->ublindex[u][i][2];
+				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
+				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+				module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
+				module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+			}
+			
+			module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
+		}
 	}
-
 	float gre, gim, chisq, chisq2;
 	int a1, a2;
 	chisq = 0;

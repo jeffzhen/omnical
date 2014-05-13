@@ -38,9 +38,9 @@ const float MAX_POW_10 = 10;
 
 int main(int argc, char *argv[]){
 	string METHODNAME = "main";
-	if (argc != 9){
+	if (argc != 10){
 		//cout << argc << endl;
-		cout << "##" << FILENAME << "##" << METHODNAME << ": FALTAL ERROR: Incorrect input format! Expecting data path, info path, time count, frequency count, total number of antenna contained in the data, whether or not to remove degeneracy(1 for yes), and whether or not to remove additive term(1 for yes), with removal period." << endl;
+		cout << "##" << FILENAME << "##" << METHODNAME << ": FALTAL ERROR: Incorrect input format! Expecting data path, info path, time count, frequency count, total number of antenna contained in the data, whether or not to remove degeneracy(1 for yes), and whether or not to remove additive term(1 for yes), with removal period, and whether to use logcal before lincal." << endl;
 		return 0;
 	}
 	clock_t tStart = clock();
@@ -53,6 +53,7 @@ int main(int argc, char *argv[]){
 	bool removedegen = atoi(argv[6]);
 	bool removeadd = atoi(argv[7]);
 	int additivePeriod = atoi(argv[8]);
+	bool use_logcal = atoi(argv[9]);
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Starting " << visin << " " << nInt << " by " << nFreq << endl; 
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Reading redundant baseline information and pre-computed matrices:" << endl;//generated from 16. additive noise investigation _from_17.nb
 	redundantinfo info;
@@ -103,8 +104,12 @@ int main(int argc, char *argv[]){
 	cout.flush();
 	for (int t = 0; t < data.size(); t++){
 		for (int f = 0; f < data[0].size(); f++){
-			logcaladd(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module);
-			lincal(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveout[t][f]), 1, &module, 0.01, 10, 0.3);
+			if(use_logcal){
+				logcaladd(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module);
+				lincal(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveout[t][f]), 0, &module, 0.01, 50, 0.3);
+			} else{
+				lincal(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveout[t][f]), 1, &module, 0.01, 50, 0.3);
+			}
 			//if (f==50) cout << calpar[t][f][0] << " " << calpar[t][f][1] << " " << calpar[t][f][2] << endl;
 			if((not removeadd) and removedegen) removeDegen(&(calpar[t][f]), &info, &module);
 		}
@@ -113,7 +118,7 @@ int main(int argc, char *argv[]){
 		runAverage(&additiveout, 0, additivePeriod);
 		for (int t = 0; t < data.size(); t++){
 			for (int f = 0; f < data[0].size(); f++){
-				lincal(&(data[t][f]), &(additiveout[t][f]), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module, 0.01, 10, 0.3);
+				lincal(&(data[t][f]), &(additiveout[t][f]), &info, &(calpar[t][f]), &(additiveplaceholder2), 0, &module, 0.01, 50, 0.3);
 				if(removedegen) removeDegen(&(calpar[t][f]), &info, &module);
 			}
 		}
