@@ -4,7 +4,9 @@ import commands, os, time, math, ephem
 import calibration_omni as omni
 FILENAME = "omnical.py"
 
+######################################################################
 ##############Config parameters###################################
+######################################################################
 ano = 'test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 uvfiles = ['test.uv']
 wantpols = {'xx':-5, 'yy':-6}
@@ -19,7 +21,16 @@ needrawcal = True #if true, (generally true for raw data) you need to take care 
 rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
 
 keep_binary_data = False
-########Massage user parameters
+
+converge_percent = 0.01
+max_iter = 10
+step_size = .3
+
+######################################################################
+######################################################################
+######################################################################
+
+########Massage user parameters###################################
 oppath += '/' 
 
 ####read redundant info################
@@ -77,7 +88,7 @@ del(data)
 
 ####Call C++ omnical code################
 for p, pol in zip(range(len(wantpols)), wantpols.keys()):
-	command = "./omnical " + oppath + 'miriadextract_' + pol + '_' + ano + " " + infopaths[pol] + " " + str(len(t)) + " " + str(nfreq) + " "  + str(nant) + " " + str(removedegen) + " 0 0 " + str(use_logcal)# + " " + oppath + 'miriadextract_' + pol + '_' + ano + ".omnical"
+	command = "./omnical " + oppath + 'miriadextract_' + pol + '_' + ano + " " + infopaths[pol] + " " + str(len(t)) + " " + str(nfreq) + " "  + str(nant) + " " + str(removedegen) + " 0 0 " + str(use_logcal) + " " + str(converge_percent) + " " + str(max_iter) + " " + str(step_size)
 	print FILENAME + " MSG: System call: ",  command
 	os.system(command)
 	print np.fromfile(oppath + 'miriadextract_' + pol + '_' + ano + ".omnical", dtype = 'float32').reshape((len(t), nfreq, 3+2*(info[p]['nAntenna']+info[p]['nUBL'])))[:5,50,:3]
