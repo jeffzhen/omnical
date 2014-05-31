@@ -30,7 +30,7 @@ def read_redundantinfo(infopath):
 
 	info['nUBL'] = int(rawinfo[infocount][0]) #number of unique baselines
 	infocount += 1
-		
+
 	nbl = int(rawinfo[infocount][0])
 	info['nBaseline'] = nbl
 	infocount += 1
@@ -38,10 +38,10 @@ def read_redundantinfo(infopath):
 
 	info['subsetant'] = rawinfo[infocount].astype(int) #the index of good antennas in all (64) antennas
 	infocount += 1
-	
+
 	info['antloc'] = rawinfo[infocount].reshape((info['nAntenna'],3)) #the index of good antennas in all (64) antennas
-	infocount += 1	
-	
+	infocount += 1
+
 	info['subsetbl'] = rawinfo[infocount].astype(int) #the index of good baselines (auto included) in all baselines
 	infocount += 1
 	info['ubl'] = rawinfo[infocount].reshape((info['nUBL'],3)) #unique baseline vectors
@@ -71,13 +71,13 @@ def read_redundantinfo(infopath):
 		for j in range(len(info['ublindex'][i])):
 			info['ublindex'][i][j] = tmp[cnter]
 			cnter+=1
-	
-	
-	info['bl1dmatrix'] = rawinfo[infocount].reshape((info['nAntenna'], info['nAntenna'])).astype(int) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index counting auto corr
+
+
+	info['bl1dmatrix'] = rawinfo[infocount].reshape((info['nAntenna'], info['nAntenna'])).astype(int) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
 	infocount += 1
 	#matrices
 	info['degenM'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'], info['nAntenna']))
-	infocount += 1	
+	infocount += 1
 	info['A'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #A matrix for logcal amplitude
 	infocount += 1
 	info['B'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #B matrix for logcal amplitude
@@ -98,7 +98,7 @@ def read_redundantinfo(infopath):
 	print "done. nAntenna, nUBL, nBaseline = ", len(info['subsetant']), info['nUBL'], info['nBaseline']
 	return info
 
-antlocvecX5 = np.array([[0.999973, -0.0105871, 0.00142779], [0.010705, 
+antlocvecX5 = np.array([[0.999973, -0.0105871, 0.00142779], [0.010705,
   0.999799, -0.00475158], [-0.00263492, 0.0167222, -0.0178542]], dtype='float32')
 
 def importuvs(uvfilenames, info, wantpols):
@@ -125,12 +125,12 @@ def importuvs(uvfilenames, info, wantpols):
 	t = []
 	timing = []
 	lst = []
-	
+
 	###start processing
 	datapulled = False
 	for uvfile in uvfilenames:
 		uv = ap.miriad.UV(uvfile)
-		if len(timing) > 0:	
+		if len(timing) > 0:
 			print FILENAME + METHODNAME + "MSG:",  timing[-1]#uv.nchan
 		#print FILENAME + " MSG:",  uv['nants']
 		currentpol = 0
@@ -143,11 +143,11 @@ def importuvs(uvfilenames, info, wantpols):
 				lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
 				if len(t) > len(data):
 					print FILENAME + METHODNAME + " MSG:",  "expanding number of time slices from", len(data), "to", len(data) + deftime
-					data = np.concatenate((data, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64'))) 
+					data = np.concatenate((data, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')))
 					#sunpos = np.concatenate((sunpos, np.zeros((deftime, 2))))
 					#sunpos[len(t) - 1] = np.asarray([[sun.alt, sun.az]])
 			for p, pol in zip(range(len(wantpols)), wantpols.keys()):
-				if wantpols[pol] == uv['pol']:#//todo: use select() 
+				if wantpols[pol] == uv['pol']:#//todo: use select()
 					a1, a2 = preamble[2]
 					bl = info[p]['bl1dmatrix'][a1, a2]
 					if bl < info[p]['nBaseline']:
@@ -170,11 +170,11 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano)
 	startfreq = uv['sfreq']
 	dfreq = uv['sdf']
 	del(uv)
-	
+
 	####load calpar and check dimensions, massage calpar from txfx(3+2a+2u) to t*goodabl*f
 	blcalpar = []#calpar for each baseline, auto included
 	for p in range(len(wantpols)):
-		calpar = np.fromfile(calparfilenames[p], dtype='float32')	
+		calpar = np.fromfile(calparfilenames[p], dtype='float32')
 		if len(calpar)%(nfreq *( 3 + 2 * (info[p]['nAntenna'] + info[p]['nUBL']))) != 0:
 			print FILENAME + METHODNAME + " MSG:",  "FATAL ERROR: calpar input array " + calparfilenames[p] + " has length", calpar.shape, "which is not divisible by ", nfreq, 3 + 2 * (info[p]['nAntenna'] + info[p]['nUBL']), "Aborted!"
 			return
@@ -193,7 +193,7 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano)
 	#datapulled = False
 	for uvfile in uvfilenames:
 		uvi = ap.miriad.UV(uvfile)
-		if len(timing) > 0:	
+		if len(timing) > 0:
 			print FILENAME + METHODNAME + "MSG:", uvfile + ' after', timing[-1]#uv.nchan
 		uvo = ap.miriad.UV(oppath + os.path.basename(os.path.dirname(uvfile+'/')) + ano + 'omnical', status='new')
 		uvo.init_from_uv(uvi)

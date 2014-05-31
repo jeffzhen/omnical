@@ -35,8 +35,8 @@ struct redundantinfo{
 	vector<vector<int> > bl2d;//from 1d bl to a pair of antenna numbers, (0,0), (0,1) (0,2) etc
 	vector<int> ublcount;//for each ubl, the number of good cross bls corresponding to it
 	vector<vector<vector<int> > > ublindex;//for each ubl, the vector<int> contains (ant1, ant2, autobl)
-	vector<vector<int> > bl1dmatrix;//a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index counting auto corr
-	vector<vector<float> > degenM;//degenM.(phase calibrations as a vector of nAnt) will generate a vector of length (nAnt + nUBL) which, when added to the existing calibration parameters' phases, will remove the linear phase field 
+	vector<vector<int> > bl1dmatrix;//a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
+	vector<vector<float> > degenM;//degenM.(phase calibrations as a vector of nAnt) will generate a vector of length (nAnt + nUBL) which, when added to the existing calibration parameters' phases, will remove the linear phase field
 	vector<vector<int> > A;//A matrix for logcal amplitude
 	vector<vector<int> > B;//B matrix for logcal phase
 	vector<vector<int> > Atsparse;//At matrix for logcal amplitude, in sparse form, all entries are one
@@ -103,7 +103,7 @@ string itostr(int i, int len);//int to string of specified length len
 
 vector<float> strtovf(string in);
 
-//!!!!!!pyEphem always deals with UTC, i.e., Coordinated Universal Time, and never the time in any particular time zone. 
+//!!!!!!pyEphem always deals with UTC, i.e., Coordinated Universal Time, and never the time in any particular time zone.
 
 vector<float> pySunPosForks(string date, string time, float time_offset);//date and time in UTC such as ($python sunpos.py '2012/5/24' '12:22:56') and returns altitude(degree from horizon to north) and az (degree from north towards east)
 
@@ -143,9 +143,9 @@ void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<v
 
 void readBinaryVisibilityLargeConj(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
 
-void breakLarge(vector<float> *largeslice, vector<vector<float> > * smallslice);// breaks up the frequency slice in large format (1D of length 2*nBaseline) into small format(2D of nBaseline by re/im) 
+void breakLarge(vector<float> *largeslice, vector<vector<float> > * smallslice);// breaks up the frequency slice in large format (1D of length 2*nBaseline) into small format(2D of nBaseline by re/im)
 
-void padSmall(vector<vector<float> > *smallslice, vector<float> * largeslice);// pad the frequency slice in small format(2D of nBaseline by re/im) into large format (1D of length 2*nBaseline)   
+void padSmall(vector<vector<float> > *smallslice, vector<float> * largeslice);// pad the frequency slice in small format(2D of nBaseline by re/im) into large format (1D of length 2*nBaseline)
 
 void readBinaryCalparSP(const char* inputfilename, vector<vector<vector<float> > > * data, int nIntegrations, int nFrequencies, int nAnt, int nUBL);//read binary calpar single polarization, assumes chisqx3, log10(ampcalpar) x nant, phasecalpar degrees x nant, ubl fits in r/i r/i; //turn degree into rad when reading
 
@@ -329,7 +329,7 @@ void pointSourceCal(vector<vector<float> > *data, vector<float> *ampcalpar, vect
 
 void substractComplexPhase(vector<float> *a, vector<float> *b, float angle);
 
-void rotateCalpar(vector<float> *originalPhase, vector<float> *rotatedPhase, vector<vector<float> > *originalUBLcor, vector<vector<float> > *rotatedUBLcor, vector<vector<float> > *antloc, vector<vector<float> > * listUBL, float theta, float phi, float freq);//theta in [0, PI/2] (rotating z axis down), phi [0, 2PI), freq in MHz, ONLY WORKS FOR ROTATING POINT SOURCE STRAIGHT ABOVE *TO* THETA AND PHI 
+void rotateCalpar(vector<float> *originalPhase, vector<float> *rotatedPhase, vector<vector<float> > *originalUBLcor, vector<vector<float> > *rotatedUBLcor, vector<vector<float> > *antloc, vector<vector<float> > * listUBL, float theta, float phi, float freq);//theta in [0, PI/2] (rotating z axis down), phi [0, 2PI), freq in MHz, ONLY WORKS FOR ROTATING POINT SOURCE STRAIGHT ABOVE *TO* THETA AND PHI
 
 bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
 bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
