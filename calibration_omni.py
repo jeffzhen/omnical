@@ -98,8 +98,10 @@ def read_redundantinfo(infopath):
 	print "done. nAntenna, nUBL, nBaseline = ", len(info['subsetant']), info['nUBL'], info['nBaseline']
 	return info
 
-antlocvecX5 = np.array([[0.999973, -0.0105871, 0.00142779], [0.010705,
-  0.999799, -0.00475158], [-0.00263492, 0.0167222, -0.0178542]], dtype='float32')
+
+def write_redundantinfo(info, infopath):#todo write this function
+
+	return
 
 def importuvs(uvfilenames, info, wantpols):
 	METHODNAME = "*importuvs*"
@@ -159,6 +161,7 @@ def importuvs(uvfilenames, info, wantpols):
 			print FILENAME + METHODNAME + " MSG:",  "FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting."
 			exit(1)
 	return data[:len(t)], t, timing, lst
+
 
 def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano):
 	METHODNAME = "*apply_omnical_uvs*"
@@ -233,3 +236,94 @@ def stdmatrix(length, polydegree):#to find out the error in fitting y by a polyn
 	A = np.array([[i**j for j in range(polydegree + 1)] for i in range(length)], dtype='int')
 	At = A.transpose()
 	return np.identity(length) - A.dot(la.pinv(At.dot(A)).dot(At))
+
+
+
+
+class RedundantCalibrator:
+	className = '.RedundantCalibrator.'
+	def __init__(self, nTotalAnt, info = None):
+		methodName = '.__init__.'
+		self.nTotalAnt = nTotalAnt
+		self.nTotalBaselineAuto = (self.nTotalAnt + 1) * self.nTotalAnt / 2
+		self.nTotalBaselineCross = (self.nTotalAnt - 1) * self.nTotalAnt / 2
+		self.info = None
+		self.infoFileExist = False
+		self.infoPath = None
+		self.dataFileExist = False
+		self.keepData = False
+		self.tmpDataPath = './tmp_calibration_omni_data'
+		self.dataPath = self.tmpDataPath #complex128 type binary visibility file
+		self.keepCalpar = False
+		self.calparPath = None
+		self.nFrequency = -1
+		self.nTime = -1
+		self.removeDegeneracy = False
+		self.removeAdditive = False
+		self.removeAdditivePeriod = -1
+		self.convergePercent = 0.01 #convergence criterion in relative change of chi^2. By default it stops when reaches 0.01, namely 1% decrease in chi^2.
+		self.maxIteration = 50 #max number of iterations in lincal
+		self.stepSize = 0.3 #step size for lincal. (0, 1]. < 0.4 recommended.
+
+		if info != None:
+			if type(info) == type({}):
+				self.info = info
+			elif type(info) == type('a'):
+				self.info = read_redundantinfo(info)
+				self.infoFilePath = info
+				self.infoFileExist = True
+			else:
+				raise Exception(className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
+
+	def read_redundantinfo(self, infopath):
+		self.info = read_redundantinfo(infopath)
+
+	def write_redundantinfo(self, infopath = self.infoPath):
+		methodName = 'write_redundantinfo'
+		if (self.info != None) and (self.infoFileExist == False) and (infoPath != None):
+			write_redundantinfo(self.info, infopath)
+		else:
+			raise Exception(className + methodName + "Error: either 1) info does not yet exist for the current instance, or 2) an info file already exists on disk, or 3) no file path is ever specified.")
+
+
+	def readyForCpp(self, verbose = True):#todo check if all parameters are specified to call Cpp
+		return True
+
+	def loglincal(self, data, calpar = self.calparPath):#data can be either 3d numpy array or a binary file path
+		methodName = 'loglincal'
+		if type(data) == type(' '):
+			self.dataPath = data
+		elif type(data) == type(np.zeros(1)) and len(data.shape) == 3 and len(data[0,0]) == self.nTotalBaselineAuto and self.dataPath = self.tmpDataPath:
+			(self.nTime, self.nFrequency, _) = data.shape
+			data.tofile(self.tmpDataPath)
+		else:
+			raise Exception(className + methodName + "Error: data type must be a file path name to a binary file *OR* a 3D numpy array of dimensions (nTime, nFrequency, nTotalBaselineAuto). You have either 1) passed in the wrong type, or 2) passed in a correct data array but have mismatching self.dataPath and self.tmpDataPath (these paths will be overwritten if you pass in an array as data!).")
+
+		if self.readyForCpp(verbose = False):
+			command = "./omnical " + self.dataPath + " " + self.infoPath + " " + str(self.nTime) + " " + str(self.nFrequency) + " "  + str(self.nTotalAnt) + " " + str(int(removeDegeneracy)) + " " + str(int(removeDegeneracy)) + " " + str(int(removeAdditive)) + " " + str(removeAdditivePeriod) + " 1 " + str(self.convergePercent) + " " + str(self.maxIteration) + " " + str(self.stepSize)
+			os.system(command)
+
+			self.calparPath = self.dataPath + '.omnical'
+			self.rawCalpar = np.fromfile(self.calparPath, dtype = 'float32').reshape((self.nTime, self.nFrequency, 3 + 2 * (self.info['nAntenna'] + self.info['nUBL'])))
+			self.chisq = self.calpar[:, :, 2]
+			self.calpar = (10**(self.calpar[:, :, 3: (3 + self.info['nAntenna'])])) * np.exp(1.j * np.pi * self.calpar[:, :, (3 + self.info['nAntenna']): (3 + 2 * self.info['nAntenna'])] / 180)
+			self.bestfit = self.calpar[:, :, (3 + 2 * self.info['nAntenna']):: 2] + 1.j * self.calpar[:, :, (4 + 2 * self.info['nAntenna']):: 2]
+			if not self.keepCalpar:
+				os.remove(self.calparPath)
+			if not self.keepData:
+				os.remove(self.dataPath)
+		else:
+			raise Exception(className + methodName + "Error: function is called prematurely. The current instance failed the readyForCpp() check. Try instance.readyForCpp() for more info.")
+
+
+
+
+
+
+
+
+
+
+
+
+

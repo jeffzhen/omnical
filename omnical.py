@@ -22,7 +22,7 @@ keep_binary_data = False
 
 
 ########Massage user parameters################
-oppath += '/' 
+oppath += '/'
 
 ####read redundant info################
 info = [omni.read_redundantinfo(infopaths[key]) for key in wantpols.keys()]
@@ -53,18 +53,6 @@ print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
 data, t, timing, lst = omni.importuvs(uvfiles, info, wantpols)
 print FILENAME + " MSG:",  len(t), "slices read.",
 
-###reorder and dump the binary data from miriad################
-if not os.path.exists(oppath):
-	os.makedirs(oppath)
-
-reorder = (0,2,1)
-for p, pol in zip(range(len(wantpols)), wantpols.keys()):
-	print "Writing polarization: " + pol,  np.array(data[:len(t), p].shape)[np.array(reorder)]
-	if needrawcal:
-		(np.transpose(data[:len(t), p],reorder)/rawcorrection[p, np.newaxis,:,:]).tofile(oppath + 'miriadextract_' + pol + '_' + ano)
-	else:
-		np.transpose(data[:len(t), p],reorder).tofile(oppath + 'miriadextract_' + pol + '_' + ano)	
-
 ###Save various files read################
 #np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')
 f = open(oppath + 'miriadextract_' + ano + "_localtime.dat",'w')
@@ -76,6 +64,18 @@ for l in lst:
 	f.write("%s\n"%l)
 f.close()
 del(data)
+
+###reorder and dump the binary data from miriad################
+if not os.path.exists(oppath):
+	os.makedirs(oppath)
+
+reorder = (0,2,1)
+for p, pol in zip(range(len(wantpols)), wantpols.keys()):
+	print "Writing polarization: " + pol,  np.array(data[:len(t), p].shape)[np.array(reorder)]
+	if needrawcal:
+		(np.transpose(data[:len(t), p],reorder)/rawcorrection[p, np.newaxis,:,:]).tofile(oppath + 'miriadextract_' + pol + '_' + ano)
+	else:
+		np.transpose(data[:len(t), p],reorder).tofile(oppath + 'miriadextract_' + pol + '_' + ano)
 
 ####Call C++ omnical code################
 for p, pol in zip(range(len(wantpols)), wantpols.keys()):
