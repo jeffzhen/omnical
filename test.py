@@ -20,7 +20,7 @@ use_logcal = 1
 needrawcal = True #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
 rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
 
-keep_binary_data = False
+keep_binary_data = True
 
 converge_percent = 0.01
 max_iter = 10
@@ -31,7 +31,7 @@ step_size = .3
 ######################################################################
 
 ########Massage user parameters###################################
-oppath += '/' 
+oppath += '/'
 
 ####read redundant info################
 info = [omni.read_redundantinfo(infopaths[key]) for key in wantpols.keys()]
@@ -72,7 +72,7 @@ for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 	if needrawcal:
 		(np.transpose(data[:len(t), p],reorder)/rawcorrection[p, np.newaxis,:,:]).tofile(oppath + 'miriadextract_' + pol + '_' + ano)
 	else:
-		np.transpose(data[:len(t), p],reorder).tofile(oppath + 'miriadextract_' + pol + '_' + ano)	
+		np.transpose(data[:len(t), p],reorder).tofile(oppath + 'miriadextract_' + pol + '_' + ano)
 
 ###Save various files read################
 #np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')

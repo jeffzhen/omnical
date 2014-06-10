@@ -17,6 +17,9 @@ with warnings.catch_warnings():
 
 FILENAME = "calibration_omni.py"
 
+
+infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+
 def read_redundantinfo(infopath):
 	with open(infopath) as f:
 		rawinfo = np.array([np.array([float(x) for x in line.split()]) for line in f])
@@ -80,7 +83,7 @@ def read_redundantinfo(infopath):
 	infocount += 1
 	info['A'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #A matrix for logcal amplitude
 	infocount += 1
-	info['B'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #B matrix for logcal amplitude
+	info['B'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #B matrix for logcal phase
 	infocount += 1
 	##The sparse matrices are treated a little differently because they are not rectangular
 	with warnings.catch_warnings():
@@ -99,8 +102,31 @@ def read_redundantinfo(infopath):
 	return info
 
 
-def write_redundantinfo(info, infopath):#todo write this function
-
+def write_redundantinfo(info, infopath, overwrite = False):
+	METHODNAME = "*write_redundantinfo*"
+	if (not overwrite) and os.path.isfile(infopath):
+		raise Exception(fileName + methodName + "Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
+		return
+	if (overwrite) and os.path.isfile(infopath):
+		os.remove(infopath)
+	f_handle = open(infopath,'a')
+	for key in infokeys:
+		if key in ['antloc', 'ubl', 'degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:
+			np.savetxt(f_handle, [np.array(info[key]).flatten()])
+		elif key == 'ublindex':
+			np.savetxt(f_handle, [np.concatenate(info[key]).flatten()], fmt = '%d')
+		elif key in ['At','Bt']:
+			tmp = []
+			for i in range(info[key].shape[0]):
+				for j in range(info[key].shape[1]):
+					if info[key][i,j] != 0:
+						tmp += [i, j, info[key][i,j]]
+			np.savetxt(f_handle, [np.array(tmp).flatten()], fmt = '%d')
+		elif key in ['A','B']:
+			np.savetxt(f_handle, info[key].todense().flatten(), fmt = '%d')
+		else:
+			np.savetxt(f_handle, [np.array(info[key]).flatten()], fmt = '%d')
+	f_handle.close()
 	return
 
 def importuvs(uvfilenames, info, wantpols):
@@ -241,9 +267,10 @@ def stdmatrix(length, polydegree):#to find out the error in fitting y by a polyn
 
 
 class RedundantCalibrator:
-	className = '.RedundantCalibrator.'
+
 	def __init__(self, nTotalAnt, info = None):
 		methodName = '.__init__.'
+		self.className = '.RedundantCalibrator.'
 		self.nTotalAnt = nTotalAnt
 		self.nTotalBaselineAuto = (self.nTotalAnt + 1) * self.nTotalAnt / 2
 		self.nTotalBaselineCross = (self.nTotalAnt - 1) * self.nTotalAnt / 2
@@ -258,7 +285,7 @@ class RedundantCalibrator:
 		self.calparPath = None
 		self.nFrequency = -1
 		self.nTime = -1
-		self.removeDegeneracy = False
+		self.removeDegeneracy = True
 		self.removeAdditive = False
 		self.removeAdditivePeriod = -1
 		self.convergePercent = 0.01 #convergence criterion in relative change of chi^2. By default it stops when reaches 0.01, namely 1% decrease in chi^2.
@@ -270,56 +297,95 @@ class RedundantCalibrator:
 				self.info = info
 			elif type(info) == type('a'):
 				self.info = read_redundantinfo(info)
-				self.infoFilePath = info
+				self.infoPath = info
 				self.infoFileExist = True
 			else:
-				raise Exception(className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
+				raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
 
 	def read_redundantinfo(self, infopath):
+		self.infoPath = infopath
 		self.info = read_redundantinfo(infopath)
+		self.infoFileExist = True
 
-	def write_redundantinfo(self, infopath = self.infoPath):
-		methodName = 'write_redundantinfo'
+	def write_redundantinfo(self, infoPath = None):
+		methodName = '.write_redundantinfo.'
+		if infoPath == None:
+			infoPath = self.infoPath
 		if (self.info != None) and (self.infoFileExist == False) and (infoPath != None):
-			write_redundantinfo(self.info, infopath)
+			write_redundantinfo(self.info, infoPath)
+			self.infoFileExist = True
 		else:
-			raise Exception(className + methodName + "Error: either 1) info does not yet exist for the current instance, or 2) an info file already exists on disk, or 3) no file path is ever specified.")
+			raise Exception(self.className + methodName + "Error: either 1) info does not yet exist for the current instance, or 2) an info file already exists on disk, or 3) no file path is ever specified.")
 
 
 	def readyForCpp(self, verbose = True):#todo check if all parameters are specified to call Cpp
+		methodName = '.readyForCpp.'
+		if os.path.getsize(self.dataPath) / 8 != self.nTime * self.nFrequency * self.nTotalBaselineAuto:
+			if verbose:
+				print self.className + methodName + "Error: data size check failed. File on disk seems to contain " + str(os.path.getsize(self.dataPath) / 8) + " complex64 numbers, where as we expect " + str(self.nTime * self.nFrequency * self.nTotalBaselineAuto) + '.'
+			return False
+
+		if not self.infoFileExist :
+			if verbose:
+				print self.className + methodName + "Error: info file existence check failed. Call read_redundantinfo(self, infoPath) function to read in an existing redundant info text file or write_redundantinfo(self, infoPath) to write a new text file."
+			return False
+
+		if self.removeAdditive and self.removeAdditivePeriod <= 0:
+			if verbose:
+				print self.className + methodName + "Error: removeAdditive option is True but the removeAdditivePeriod parameter is negative (invalid)."
+			return False
+
+		if abs(self.convergePercent - 0.5) >= 0.5 or self.maxIteration <= 0 or abs(self.stepSize - 0.5) >= 0.5:
+			if verbose:
+				print self.className + methodName + "Error: lincal parameter check failed. convergePercent and stepSize should be between 0 and 1, and maxIteration has to be positive integer."
+			return False
+		if verbose:
+			print self.className + methodName + "Check passed."
 		return True
 
-	def loglincal(self, data, calpar = self.calparPath):#data can be either 3d numpy array or a binary file path
-		methodName = 'loglincal'
+	def cal(self, data, verbose = False):#data can be either 3d numpy array or a binary file path
+		methodName = '.cal.'
 		if type(data) == type(' '):
 			self.dataPath = data
-		elif type(data) == type(np.zeros(1)) and len(data.shape) == 3 and len(data[0,0]) == self.nTotalBaselineAuto and self.dataPath = self.tmpDataPath:
+		elif type(data) == type(np.zeros(1)) and len(data.shape) == 3 and len(data[0,0]) == self.nTotalBaselineAuto and self.dataPath == self.tmpDataPath:
 			(self.nTime, self.nFrequency, _) = data.shape
-			data.tofile(self.tmpDataPath)
+			np.array(data, dtype = 'complex64').tofile(self.tmpDataPath)
 		else:
-			raise Exception(className + methodName + "Error: data type must be a file path name to a binary file *OR* a 3D numpy array of dimensions (nTime, nFrequency, nTotalBaselineAuto). You have either 1) passed in the wrong type, or 2) passed in a correct data array but have mismatching self.dataPath and self.tmpDataPath (these paths will be overwritten if you pass in an array as data!).")
+			raise Exception(self.className + methodName + "Error: data type must be a file path name to a binary file *OR* a 3D numpy array of dimensions (nTime, nFrequency, nTotalBaselineAuto). You have either 1) passed in the wrong type, or 2) passed in a correct data array but have mismatching self.dataPath and self.tmpDataPath (these paths will be overwritten if you pass in an array as data!).")
 
 		if self.readyForCpp(verbose = False):
-			command = "./omnical " + self.dataPath + " " + self.infoPath + " " + str(self.nTime) + " " + str(self.nFrequency) + " "  + str(self.nTotalAnt) + " " + str(int(removeDegeneracy)) + " " + str(int(removeDegeneracy)) + " " + str(int(removeAdditive)) + " " + str(removeAdditivePeriod) + " 1 " + str(self.convergePercent) + " " + str(self.maxIteration) + " " + str(self.stepSize)
+			command = "./omnical " + self.dataPath + " " + self.infoPath + " " + str(self.nTime) + " " + str(self.nFrequency) + " "  + str(self.nTotalAnt) + " " + str(int(self.removeDegeneracy)) + " " + str(int(self.removeAdditive)) + " " + str(self.removeAdditivePeriod) + " " + self.calMode + " " + str(self.convergePercent) + " " + str(self.maxIteration) + " " + str(self.stepSize)
+			if verbose:
+				print self.className + methodName + "System call: " + command
 			os.system(command)
 
 			self.calparPath = self.dataPath + '.omnical'
 			self.rawCalpar = np.fromfile(self.calparPath, dtype = 'float32').reshape((self.nTime, self.nFrequency, 3 + 2 * (self.info['nAntenna'] + self.info['nUBL'])))
-			self.chisq = self.calpar[:, :, 2]
-			self.calpar = (10**(self.calpar[:, :, 3: (3 + self.info['nAntenna'])])) * np.exp(1.j * np.pi * self.calpar[:, :, (3 + self.info['nAntenna']): (3 + 2 * self.info['nAntenna'])] / 180)
-			self.bestfit = self.calpar[:, :, (3 + 2 * self.info['nAntenna']):: 2] + 1.j * self.calpar[:, :, (4 + 2 * self.info['nAntenna']):: 2]
+			if self.calMode == '0' or self.calMode == '1':
+				self.chisq = self.rawCalpar[:, :, 2]
+			elif self.calMode == '2':
+				self.chisq = self.rawCalpar[:, :, 1]
+			self.calpar = (10**(self.rawCalpar[:, :, 3: (3 + self.info['nAntenna'])])) * np.exp(1.j * np.pi * self.rawCalpar[:, :, (3 + self.info['nAntenna']): (3 + 2 * self.info['nAntenna'])] / 180)
+			self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.info['nAntenna']):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.info['nAntenna']):: 2]
 			if not self.keepCalpar:
 				os.remove(self.calparPath)
-			if not self.keepData:
+			if not self.keepData and self.dataPath == self.tmpDataPath:
 				os.remove(self.dataPath)
 		else:
-			raise Exception(className + methodName + "Error: function is called prematurely. The current instance failed the readyForCpp() check. Try instance.readyForCpp() for more info.")
+			raise Exception(self.className + methodName + "Error: function is called prematurely. The current instance failed the readyForCpp() check. Try instance.readyForCpp() for more info.")
 
 
+	def loglincal(self, data, verbose = False):
+		self.calMode = '1'
+		self.cal(data, verbose)
 
+	def lincal(self, data, verbose = False):
+		self.calMode = '0'
+		self.cal(data, verbose)
 
-
-
+	def logcal(self, data, verbose = False):
+		self.calMode = '2'
+		self.cal(data, verbose)
 
 
 
