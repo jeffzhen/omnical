@@ -274,6 +274,11 @@ class RedundantCalibrator:
 		self.nTotalAnt = nTotalAnt
 		self.nTotalBaselineAuto = (self.nTotalAnt + 1) * self.nTotalAnt / 2
 		self.nTotalBaselineCross = (self.nTotalAnt - 1) * self.nTotalAnt / 2
+		self.antennaLocation = np.zeros((self.nTotalAnt, 3))
+		self.antennaLocationTolerance = 10**(-6)
+		self.badAntenna = []
+		self.badUBL = []
+		self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(self.nTotalAnt)])#PAPER miriad convention by default
 		self.info = None
 		self.infoFileExist = False
 		self.infoPath = None
@@ -350,6 +355,7 @@ class RedundantCalibrator:
 		elif type(data) == type(np.zeros(1)) and len(data.shape) == 3 and len(data[0,0]) == self.nTotalBaselineAuto and self.dataPath == self.tmpDataPath:
 			(self.nTime, self.nFrequency, _) = data.shape
 			np.array(data, dtype = 'complex64').tofile(self.tmpDataPath)
+			self.dataPath = self.tmpDataPath
 		else:
 			raise Exception(self.className + methodName + "Error: data type must be a file path name to a binary file *OR* a 3D numpy array of dimensions (nTime, nFrequency, nTotalBaselineAuto). You have either 1) passed in the wrong type, or 2) passed in a correct data array but have mismatching self.dataPath and self.tmpDataPath (these paths will be overwritten if you pass in an array as data!).")
 
@@ -383,10 +389,13 @@ class RedundantCalibrator:
 		self.calMode = '0'
 		self.cal(data, verbose)
 
-	def logcal(self, data, verbose = False):
-		self.calMode = '2'
-		self.cal(data, verbose)
+	def logcal(self, data, verbose = False):#todo
+		raise Exception(self.className + "Error: logcal function is not yet implemented.")
+		#self.calMode = '2'
+		#self.cal(data, verbose)
 
+	def compute_info(self, configFilePath = None):#todo
+		raise Exception(self.className + "Error: compute_info function is not yet implemented.")
 
 
 
