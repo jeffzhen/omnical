@@ -24,7 +24,7 @@ calibrator.antennaLocationTolerance = .1
 calibrator.badAntenna = []
 calibrator.badUBL = [0, 1, 2]
 
-
+#1234
 #calibrator.antennaLocation = 
 
 calibrator.compute_info()
