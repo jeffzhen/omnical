@@ -188,7 +188,6 @@ def importuvs(uvfilenames, info, wantpols):
 			exit(1)
 	return data[:len(t)], t, timing, lst
 
-
 def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano):
 	METHODNAME = "*apply_omnical_uvs*"
 
@@ -267,7 +266,7 @@ def stdmatrix(length, polydegree):#to find out the error in fitting y by a polyn
 
 
 class RedundantCalibrator:
-
+#This class is the main tool for performing redundant calibration on data sets. For a given redundant configuration, say 32 antennas with 3 bad antennas, the user should create one instance of Redundant calibrator and reuse it for all data collected from that array. In general, upon creating an instance, the user need to create the info field of the instance by either computing it or reading it from a text file. readyForCpp(verbose = True) should be a very helpful function to provide information on what information is missing for running the calibration.
 	def __init__(self, nTotalAnt, info = None):
 		methodName = '.__init__.'
 		self.className = '.RedundantCalibrator.'
@@ -307,7 +306,7 @@ class RedundantCalibrator:
 			else:
 				raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
 
-	def read_redundantinfo(self, infopath):
+	def read_redundantinfo(self, infopath):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
 		self.infoPath = infopath
 		self.info = read_redundantinfo(infopath)
 		self.infoFileExist = True
@@ -322,8 +321,40 @@ class RedundantCalibrator:
 		else:
 			raise Exception(self.className + methodName + "Error: either 1) info does not yet exist for the current instance, or 2) an info file already exists on disk, or 3) no file path is ever specified.")
 
+	def read_arrayinfo(self, arrayinfopath, verbose = False):#array info is the minimum set of information to uniquely describe a redundant array, and is needed to compute redundant info. It includes, in each line, bad antenna indices, bad unique baseline indices, tolerance of error when checking redundancy, antenna locations, and visibility's antenna pairing conventions. Unlike redundant info which is a self-contained dictionary, items in array info each have their own fields in the instance.
+		methodName = ".read_arrayinfo."
+		with open(arrayinfopath) as f:
+			rawinfo = [[float(x) for x in line.split()] for line in f]
+		if verbose:
+			print self.className + methodName + " MSG:",  "Reading", arrayinfopath, "...",
 
-	def readyForCpp(self, verbose = True):#todo check if all parameters are specified to call Cpp
+		self.badAntenna = np.array(rawinfo[0]).astype(int)
+		if self.badAntenna[0] < 0:
+			self.badAntenna = np.zeros(0)
+
+		self.badUBL = np.array(rawinfo[1]).astype(int)
+		if self.badUBL[0] < 0:
+			self.badUBL = np.zeros(0)
+
+		self.antennaLocationTolerance = rawinfo[2][0]
+
+		for a in range(len(self.antennaLocation)):
+			if len(rawinfo[a + 3]) != 3:
+				raise Exception(self.className + methodName + "Error: Format error in " + arrayinfopath + ": The antenna locations should start on the 4th line, with 3 numbers in each line!")
+			else:
+				self.antennaLocation[a] = np.array(rawinfo[a + 3])
+
+		for bl in range(len(self.totalVisibilityId)):
+			if len(rawinfo[bl + 3 + len(self.antennaLocation)]) != 2:
+				raise Exception(self.className + methodName + "Error: Format error in " + arrayinfopath + ": The baseline to antenna mapping should start after antenna locations, with 2 numbers (conj index, index) in each line!")
+			else:
+				self.totalVisibilityId[bl] = np.array(rawinfo[bl + 3 + len(self.antennaLocation)]).astype(int)
+		if verbose:
+			print "Bad antenna indices:", self.badAntenna,
+			print "Bad UBL indices:", self.badUBL
+
+
+	def readyForCpp(self, verbose = True):#todo check if all necessary parameters are specified to call Cpp
 		methodName = '.readyForCpp.'
 		if os.path.getsize(self.dataPath) / 8 != self.nTime * self.nFrequency * self.nTotalBaselineAuto:
 			if verbose:
