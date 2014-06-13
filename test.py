@@ -76,9 +76,9 @@ reorder = (0,2,1)
 for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 	print "Writing polarization: " + pol,  np.array(data[:len(t), p].shape)[np.array(reorder)]
 	if needrawcal:
-		(np.transpose(data[:len(t), p],reorder)/rawcorrection[p, np.newaxis,:,:]).tofile(oppath + 'miriadextract_' + pol + '_' + ano)
+		(data[p]/rawcorrection[p, np.newaxis,:,:]).tofile(oppath + 'miriadextract_' + pol + '_' + ano)
 	else:
-		np.transpose(data[:len(t), p],reorder).tofile(oppath + 'miriadextract_' + pol + '_' + ano)
+		data[p].tofile(oppath + 'miriadextract_' + pol + '_' + ano)
 
 ###Save various files read################
 #np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')
