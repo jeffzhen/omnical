@@ -96,8 +96,19 @@ ubllist=np.delete(ubllist,0,0)
 nUBL=len(ubllist)-len(calibrator.badUBL);
 
 #################################################################################################
+def dis(a1,a2):
+	return np.linalg.norm(np.array(a1)-np.array(a2))
 
-#find nBaseline
-#badbl=[ubllist[i] for i in calibrator.badUBL]
-#for i in range(len(antloc)):
-	#for j in range(len(antloc)-i):
+
+#find nBaseline (include auto baselines)
+badbl=[ubllist[i] for i in calibrator.badUBL]
+nbl=0;
+for i in range(len(antloc)):
+	for j in range(i,len(antloc)):
+		bool=False
+		for bl in badbl:
+			bool=bool or dis(antloc[i]-antloc[j],bl)<precision or dis(antloc[i]-antloc[j],-bl)<precision
+		if bool==False:
+			nbl+=1
+print nbl
+		
