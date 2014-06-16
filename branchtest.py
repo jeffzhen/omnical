@@ -73,42 +73,183 @@ def UBL(antlist,precision):
 	antloc=calibrator.antennaLocation
 	ubllist=np.array([np.array([0,0,0])]);
 	for i in range(len(antloc)):
-		for j in range(i,len(antloc)):
+		for j in range(i+1,len(antloc)):
 			bool = False;
 			for bl in ubllist:
 				bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<precision or np.linalg.norm(antloc[i]-antloc[j]+bl)<precision)
 			if bool == False:			
 				ubllist = np.concatenate((ubllist,[antloc[i]-antloc[j]]))
-	ubllist=np.delete(ubllist,0,0)
+	ubllist=np.delete(ubllist,np.insert(np.array(calibrator.badUBL)+1,0,0),0)
 	return ubllist
 
 
 ubllist=np.zeros((1,3));
 precision=calibrator.antennaLocationTolerance;
 for i in range(len(antloc)):
-	for j in range(i,len(antloc)):
+	for j in range(i+1,len(antloc)):
 		bool = False;
 		for bl in ubllist:
 			bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<precision or np.linalg.norm(antloc[i]-antloc[j]+bl)<precision)
 		if bool == False:			
 			ubllist = np.concatenate((ubllist,[antloc[i]-antloc[j]]))
-ubllist=np.delete(ubllist,0,0)
-nUBL=len(ubllist)-len(calibrator.badUBL);
+ublall=np.delete(ubllist,0,0)
+ubl=np.delete(ubllist,np.insert(np.array(calibrator.badUBL)+1,0,0),0)
+nUBL=len(ubl);
 
 #################################################################################################
+#calculate the norm of the difference of two vectors
 def dis(a1,a2):
 	return np.linalg.norm(np.array(a1)-np.array(a2))
 
 
-#find nBaseline (include auto baselines)
-badbl=[ubllist[i] for i in calibrator.badUBL]
+#find nBaseline (include auto baselines) and subsetbl
+badbl=[ublall[i] for i in calibrator.badUBL]
 nbl=0;
+goodpairs=[];
 for i in range(len(antloc)):
-	for j in range(i,len(antloc)):
+	for j in range(i+1):
 		bool=False
 		for bl in badbl:
-			bool=bool or dis(antloc[i]-antloc[j],bl)<precision or dis(antloc[i]-antloc[j],-bl)<precision
-		if bool==False:
+			bool = bool or dis(antloc[i]-antloc[j],bl)<precision or dis(antloc[i]-antloc[j],-bl)<precision
+		if bool == False:
 			nbl+=1
-print nbl
+			goodpairs.append([i,j])
+
+#from antenna pair to baseline index			
+def toBaseline(pair,n=nAntenna):
+	j=pair[0];
+	i=pair[1];	
+	return j*(j+1)/2+i
+	
+subsetbl=np.array([toBaseline(bl,nAntenna) for bl in goodpairs])
+
+##########################################
+#bltoubl: cross bl number to ubl index
+def findublindex(pair,ubl=ubl):
+	i=pair[0]
+	j=pair[1]
+	for k in range(len(ubl)):
+		if dis(antloc[i]-antloc[j],ubl[k])<precision or dis(antloc[i]-antloc[j],-ubl[k])<precision:
+			return k
+	return "no match"
+	
+bltoubl=[];
+for i in goodpairs:
+	if i[0]!=i[1]:
+		bltoubl.append(findublindex(i)) 
 		
+###########################################
+#reversed:   cross only bl if reversed -1, otherwise 1
+crosspair=[]
+for p in goodpairs:
+	if p[0]!=p[1]:
+		crosspair.append(p)
+
+reverse=[]
+for k in range(len(crosspair)):
+	i=crosspair[k][0]
+	j=crosspair[k][1]
+	if dis(antloc[i]-antloc[j],-ubl[bltoubl[k]])<precision:
+		reverse.append(1)
+	elif dis(antloc[i]-antloc[j],ubl[bltoubl[k]])<precision:
+		reverse.append(-1)
+	else :
+		print "something's wrong with bltoubl"
+		
+###############################################
+#reversedauto: the index of good baselines (auto included) in all baselines
+#autoindex: index of auto bls among good bls
+#crossindex: index of cross bls among good bls
+#ncross
+reversedauto = range(len(goodpairs))
+
+#find the autoindex and crossindex in goodpairs
+autoindex=[]
+crossindex=[]
+for i in range(len(goodpairs)):
+	if goodpairs[i][0]==goodpairs[i][1]:
+		autoindex.append(i)
+	else:
+		crossindex.append(i)
+
+for i in autoindex:
+	reversedauto[i]=1
+
+for i in range(len(crossindex)):
+	reversedauto[crossindex[i]]=reverse[i]
+	
+reversedauto=np.array(reversedauto)
+autoindex=np.array(autoindex)
+crossindex=np.array(crossindex)
+ncross=len(crossindex)
+###################################################
+#bl2d:  from 1d bl index to a pair of antenna numbers
+bl2d=[]
+for pair in goodpairs:
+	bl2d.append(pair[::-1])
+bl2d=np.array(bl2d)
+
+###################################################
+#ublcount:  for each ubl, the number of good cross bls corresponding to it
+countdict={}
+for bl in bltoubl:
+	countdict[bl]=0
+for bl in bltoubl:
+	countdict[bl]+=1
+
+ublcount=[]
+for i in range(nUBL):
+	ublcount.append(countdict[i])
+ublcount=np.array(ublcount)
+
+##################################################
+#ublindex:  //for each ubl, the vector<int> contains (ant1, ant2, crossbl)
+countdict={}
+for bl in bltoubl:
+	countdict[bl]=[]
+
+for i in range(len(crosspair)):
+	ant1=crosspair[i][1]
+	ant2=crosspair[i][0]
+	countdict[bltoubl[i]].append([ant1,ant2,i])
+
+ublindex=[]
+for i in range(nUBL):
+	ublindex.append(countdict[i])
+#turn each list in ublindex into np array	
+for i in range(len(ublindex)):
+	ublindex[i]=np.array(ublindex[i])
+ublindex=np.array(ublindex)
+
+
+################################################################
+#bl1dmatrix: a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
+		#I suppose 99999 for bad and auto baselines?
+bl1dmatrix=99999*np.ones([nAntenna,nAntenna],dtype='int16')
+for i in range(len(crosspair)):
+	bl1dmatrix[crosspair[i][1]][crosspair[i][0]]=i
+	bl1dmatrix[crosspair[i][0]][crosspair[i][1]]=i
+
+################################################################
+#degenM: 
+
+
+
+
+
+
+
+
+
+
+################################################################
+#A: A matrix for logcal amplitude
+
+
+
+
+
+
+
+
+
