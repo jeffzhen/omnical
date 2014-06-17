@@ -21,7 +21,7 @@ correctinfo = omni.read_redundantinfo('redundantinfo_PSA32.txt')
 calibrator = omni.RedundantCalibrator(64)
 
 calibrator.antennaLocationTolerance = .1
-calibrator.badAntenna = []
+calibrator.badAntenna = [1,3,4]
 calibrator.badUBL = [0, 1, 2]
 
 antlist=[[ -1.82119623e-02,  -1.17231687e-02 , -1.65467362e-02],
@@ -56,28 +56,23 @@ antlist=[[ -1.82119623e-02,  -1.17231687e-02 , -1.65467362e-02],
  [  3.11715553e+00,   2.10050692e+02,   1.21823486e-01],
  [  7.12040215e+00,   2.10072049e+02,   1.62089177e-01],
  [  1.11236488e+01,   2.10093406e+02,   2.02354869e-01]]
+flat=[ele for bl in antlist for ele in bl]
+calibrator.antennaLocation=np.reshape(np.array(flat),(len(flat)/3,3))
+
+test=omni.RedundantCalibrator.compute_info(calibrator)
 
 
 #nAntenna and subsetant : get rid of the bad antennas
-nant=len(antlist)
+nant=len(calibrator.antennaLocation)
 subsetant=[i for i in range(nant) if i not in calibrator.badAntenna]
 nAntenna=len(subsetant)
-
-
-
-#create antloc
-flat=[ele for bl in antlist for ele in bl]
-calibrator.antennaLocation =np.reshape(np.array(flat),(len(flat)/3,3))
 antloc=[calibrator.antennaLocation[ant] for ant in subsetant]
 
 
 #find out UBL
 ##########################################################################################
 #antloc has the form of a nested list with dimension nant*3, returns a np array of unique baselines
-def UBL(antlist,precision):
-	flat=[ele for bl in antlist for ele in bl]
-	calibrator.antennaLocation =np.reshape(np.array(flat),(len(flat)/3,3))
-	antloc=calibrator.antennaLocation
+def UBL(antloc,precision):
 	ubllist=np.array([np.array([0,0,0])]);
 	for i in range(len(antloc)):
 		for j in range(i+1,len(antloc)):
@@ -86,21 +81,23 @@ def UBL(antlist,precision):
 				bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<precision or np.linalg.norm(antloc[i]-antloc[j]+bl)<precision)
 			if bool == False:			
 				ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
-	ubllist=np.delete(ubllist,np.insert(np.array(calibrator.badUBL)+1,0,0),0)
-	return ubllist
+	ublall=np.delete(ubllist,0,0)
+	return ublall
 
 
-ubllist=np.zeros((1,3));
-precision=calibrator.antennaLocationTolerance;
-for i in range(len(antloc)):
-	for j in range(i+1,len(antloc)):
-		bool = False;
-		for bl in ubllist:
-			bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<precision or np.linalg.norm(antloc[i]-antloc[j]+bl)<precision)
-		if bool == False:			
-			ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
-ublall=np.delete(ubllist,0,0)
-ubl=np.delete(ubllist,np.insert(np.array(calibrator.badUBL)+1,0,0),0)
+#ubllist=np.zeros((1,3));
+#precision=calibrator.antennaLocationTolerance;
+#for i in range(len(antloc)):
+	#for j in range(i+1,len(antloc)):
+		#bool = False;
+		#for bl in ubllist:
+			#bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<precision or np.linalg.norm(antloc[i]-antloc[j]+bl)<precision)
+		#if bool == False:			
+			#ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
+			
+precision=calibrator.antennaLocationTolerance;		
+ublall=UBL(antloc,precision)
+ubl=np.delete(ublall,np.array(calibrator.badUBL),0)
 nUBL=len(ubl);
 
 #################################################################################################
@@ -263,7 +260,7 @@ for i in range(len(crosspair)):
 	A[i][crosspair[i][0]]=1
 	A[i][crosspair[i][1]]=1
 	A[i][nAntenna+bltoubl[i]]=1
-	
+A=sps.csr_matrix(A)
 
 ################################################################
 #B: B matrix for logcal phase
@@ -273,6 +270,7 @@ for i in range(len(crosspair)):
 	B[i][crosspair[i][0]]=reverse[i]*1
 	B[i][crosspair[i][1]]=reverse[i]*-1
 	B[i][nAntenna+bltoubl[i]]=1
+B=sps.csr_matrix(B)
 
 #########################################
 #create info dictionary
@@ -297,6 +295,19 @@ info['bl1dmatrix']=bl1dmatrix
 info['degenM']=degenM
 info['A']=A
 info['B']=B
+
+with warnings.catch_warnings():
+		warnings.filterwarnings("ignore",category=DeprecationWarning)
+		info['At'] = info['A'].transpose()
+		info['Bt'] = info['B'].transpose()
+		info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense())#(AtA)^-1
+		info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense())#(BtB)^-1
+		info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+		info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+		info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+		info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+		info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+		info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
 
 
 
