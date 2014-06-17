@@ -21,7 +21,7 @@ correctinfo = omni.read_redundantinfo('redundantinfo_PSA32.txt')
 calibrator = omni.RedundantCalibrator(64)
 
 calibrator.antennaLocationTolerance = .1
-calibrator.badAntenna = [1,3,4]
+calibrator.badAntenna = []
 calibrator.badUBL = [0, 1, 2]
 
 antlist=[[ -1.82119623e-02,  -1.17231687e-02 , -1.65467362e-02],
@@ -59,7 +59,7 @@ antlist=[[ -1.82119623e-02,  -1.17231687e-02 , -1.65467362e-02],
 flat=[ele for bl in antlist for ele in bl]
 calibrator.antennaLocation=np.reshape(np.array(flat),(len(flat)/3,3))
 
-test=omni.RedundantCalibrator.compute_info(calibrator)
+test=calibrator.compute_info()
 
 
 #nAntenna and subsetant : get rid of the bad antennas

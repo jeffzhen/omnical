@@ -394,12 +394,12 @@ class RedundantCalibrator:
 		#self.calMode = '2'
 		#self.cal(data, verbose)
 
-	def compute_info(calibrator, configFilePath = None):#todo
+	def compute_info(self, configFilePath = None):#todo
 		#nAntenna and subsetant : get rid of the bad antennas
-		nant=len(calibrator.antennaLocation)
-		subsetant=[i for i in range(nant) if i not in calibrator.badAntenna]
+		nant=len(self.antennaLocation)
+		subsetant=[i for i in range(nant) if i not in self.badAntenna]
 		nAntenna=len(subsetant)
-		antloc=[calibrator.antennaLocation[ant] for ant in subsetant]
+		antloc=[self.antennaLocation[ant] for ant in subsetant]
 		##########################################################################################
 		#find out ubl
 		#antloc has the form of a nested list with dimension nant*3, returns a np array of unique baselines
@@ -415,16 +415,16 @@ class RedundantCalibrator:
 			ublall=np.delete(ubllist,0,0)
 			return ublall
 		#use the function above to find the ubl
-		precision=calibrator.antennaLocationTolerance;		
+		precision=self.antennaLocationTolerance;		
 		ublall=UBL(antloc,precision)
-		ubl=np.delete(ublall,np.array(calibrator.badUBL),0)
+		ubl=np.delete(ublall,np.array(self.badUBL),0)
 		nUBL=len(ubl);
 		#################################################################################################
 		#calculate the norm of the difference of two vectors
 		def dis(a1,a2):
 			return np.linalg.norm(np.array(a1)-np.array(a2))
 		#find nBaseline (include auto baselines) and subsetbl
-		badbl=[ublall[i] for i in calibrator.badUBL]
+		badbl=[ublall[i] for i in self.badUBL]
 		nbl=0;
 		goodpairs=[];
 		for i in range(len(antloc)):
