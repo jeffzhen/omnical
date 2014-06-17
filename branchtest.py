@@ -56,12 +56,19 @@ antlist=[[ -1.82119623e-02,  -1.17231687e-02 , -1.65467362e-02],
  [  3.11715553e+00,   2.10050692e+02,   1.21823486e-01],
  [  7.12040215e+00,   2.10072049e+02,   1.62089177e-01],
  [  1.11236488e+01,   2.10093406e+02,   2.02354869e-01]]
+
+
+#nAntenna and subsetant : get rid of the bad antennas
+nant=len(antlist)
+subsetant=[i for i in range(nant) if i not in calibrator.badAntenna]
+nAntenna=len(subsetant)
+
+
+
+#create antloc
 flat=[ele for bl in antlist for ele in bl]
 calibrator.antennaLocation =np.reshape(np.array(flat),(len(flat)/3,3))
-antloc=calibrator.antennaLocation
-
-#nAntenna
-nAntenna=len(calibrator.antennaLocation)
+antloc=[calibrator.antennaLocation[ant] for ant in subsetant]
 
 
 #find out UBL
@@ -78,7 +85,7 @@ def UBL(antlist,precision):
 			for bl in ubllist:
 				bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<precision or np.linalg.norm(antloc[i]-antloc[j]+bl)<precision)
 			if bool == False:			
-				ubllist = np.concatenate((ubllist,[antloc[i]-antloc[j]]))
+				ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
 	ubllist=np.delete(ubllist,np.insert(np.array(calibrator.badUBL)+1,0,0),0)
 	return ubllist
 
@@ -91,7 +98,7 @@ for i in range(len(antloc)):
 		for bl in ubllist:
 			bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<precision or np.linalg.norm(antloc[i]-antloc[j]+bl)<precision)
 		if bool == False:			
-			ubllist = np.concatenate((ubllist,[antloc[i]-antloc[j]]))
+			ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
 ublall=np.delete(ubllist,0,0)
 ubl=np.delete(ubllist,np.insert(np.array(calibrator.badUBL)+1,0,0),0)
 nUBL=len(ubl);
@@ -114,6 +121,7 @@ for i in range(len(antloc)):
 		if bool == False:
 			nbl+=1
 			goodpairs.append([i,j])
+nBaseline=len(goodpairs)
 
 #from antenna pair to baseline index			
 def toBaseline(pair,n=nAntenna):
@@ -149,9 +157,9 @@ reverse=[]
 for k in range(len(crosspair)):
 	i=crosspair[k][0]
 	j=crosspair[k][1]
-	if dis(antloc[i]-antloc[j],-ubl[bltoubl[k]])<precision:
+	if dis(antloc[i]-antloc[j],ubl[bltoubl[k]])<precision:
 		reverse.append(1)
-	elif dis(antloc[i]-antloc[j],ubl[bltoubl[k]])<precision:
+	elif dis(antloc[i]-antloc[j],-ubl[bltoubl[k]])<precision:
 		reverse.append(-1)
 	else :
 		print "something's wrong with bltoubl"
@@ -231,24 +239,64 @@ for i in range(len(crosspair)):
 	bl1dmatrix[crosspair[i][0]][crosspair[i][1]]=i
 
 ################################################################
-#degenM: 
-
-
-
-
-
-
-
-
-
+#degenM:
+a=[] 
+for i in range(len(antloc)):
+	a.append(np.append(antloc[i],1))
+a=np.array(a)
+	
+d=[]
+for i in range(len(ubl)):
+	d.append(np.append(ubl[i],0))
+d=np.array(d)
+	
+	
+m1=-a.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
+m2=d.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
+degenM = np.append(m1,m2,axis=0)
 
 ################################################################
 #A: A matrix for logcal amplitude
 
+A=np.zeros([len(crosspair),nAntenna+len(ubl)])
+for i in range(len(crosspair)):
+	A[i][crosspair[i][0]]=1
+	A[i][crosspair[i][1]]=1
+	A[i][nAntenna+bltoubl[i]]=1
+	
 
+################################################################
+#B: B matrix for logcal phase
 
+B=np.zeros([len(crosspair),nAntenna+len(ubl)])
+for i in range(len(crosspair)):
+	B[i][crosspair[i][0]]=reverse[i]*1
+	B[i][crosspair[i][1]]=reverse[i]*-1
+	B[i][nAntenna+bltoubl[i]]=1
 
-
+#########################################
+#create info dictionary
+info={}
+info['nAntenna']=nAntenna
+info['nUBL']=nUBL
+info['nBaseline']=nBaseline
+info['subsetant']=subsetant
+info['antloc']=antloc
+info['subsetbl']=subsetbl
+info['ubl']=ubl
+info['bltoubl']=bltoubl
+info['reversed']=reverse
+info['reversedauto']=reversedauto
+info['autoindex']=autoindex
+info['crossindex']=crossindex
+info['ncross']=ncross
+info['bl2d']=bl2d
+info['ublcount']=ublcount
+info['ublindex']=ublindex
+info['bl1dmatrix']=bl1dmatrix
+info['degenM']=degenM
+info['A']=A
+info['B']=B
 
 
 
