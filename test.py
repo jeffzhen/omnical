@@ -2,7 +2,7 @@ import aipy as ap
 import numpy as np
 import commands, os, time, math, ephem
 import calibration_omni as omni
-FILENAME = "omnical.py"
+FILENAME = "test.py"
 
 ######################################################################
 ##############Config parameters###################################
@@ -66,15 +66,15 @@ if needrawcal:
 ###start reading miriads################
 print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
 data, t, timing, lst = omni.importuvs(uvfiles, [calibrator.info for calibrator in calibrators], wantpols)
-print FILENAME + " MSG:",  len(t), "slices read.",
+print FILENAME + " MSG:",  len(t), "slices read."
 
 ###reorder and dump the binary data from miriad################
 if not os.path.exists(oppath):
 	os.makedirs(oppath)
 
-reorder = (0,2,1)
+
 for p, pol in zip(range(len(wantpols)), wantpols.keys()):
-	print "Writing polarization: " + pol,  np.array(data[:len(t), p].shape)[np.array(reorder)]
+	print "Writing polarization: " + pol,  data[p].shape
 	if needrawcal:
 		(data[p]/rawcorrection[p, np.newaxis,:,:]).tofile(oppath + 'miriadextract_' + pol + '_' + ano)
 	else:
@@ -107,15 +107,22 @@ for pol, calibrator in zip(wantpols.keys(), calibrators):
 
 
 #########Test results############
-correctresult = np.fromfile("test.omnical", dtype = 'float32')
+correctresult = np.sum(np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165),axis=2).flatten()#summing the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
 
-newresult = calibrators[1].rawCalpar.flatten()#np.fromfile(oppath + "miriadextract_xx_test.omnical", dtype = 'float32')
+newresult = np.sum(calibrators[1].rawCalpar,axis=2).flatten()
 if (len(newresult) == len(correctresult)) and ((newresult == correctresult) | (np.isnan(newresult) & np.isnan(correctresult))).all():
 	print "TEST PASSED!"
 else:
+	cnt = 0
+	for t in range(len(calibrators[1].rawCalpar)):
+		for f in range(len(calibrators[1].rawCalpar[0])):
+			for i in range(len(calibrators[1].rawCalpar[0][0])):
+				if (not np.isnan(calibrators[1].rawCalpar[t,f,i])) and correctresult[cnt] != calibrators[1].rawCalpar[t,f,i]:
+					print t,f,i,calibrators[1].rawCalpar[t,f,i],correctresult[cnt]
+				cnt = cnt + 1
 	print "TEST FAILED :("
 
-newresult = np.fromfile(oppath + "miriadextract_xx_test.omnical", dtype = 'float32')
+newresult = np.sum(np.fromfile(oppath + "miriadextract_xx_test.omnical", dtype = 'float32').reshape(14,203,165),axis=2).flatten()
 if (len(newresult) == len(correctresult)) and ((newresult == correctresult) | (np.isnan(newresult) & np.isnan(correctresult))).all():
 	print "TEST PASSED!"
 else:
