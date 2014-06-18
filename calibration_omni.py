@@ -603,7 +603,7 @@ class RedundantCalibrator:
 				info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
 				info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
 				info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
-		return info
+		self.info=info
 
 
 

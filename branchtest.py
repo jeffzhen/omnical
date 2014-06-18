@@ -59,7 +59,7 @@ antlist=[[ -1.82119623e-02,  -1.17231687e-02 , -1.65467362e-02],
 flat=[ele for bl in antlist for ele in bl]
 calibrator.antennaLocation=np.reshape(np.array(flat),(len(flat)/3,3))
 
-test=calibrator.compute_info()
+calibrator.compute_info()
 
 
 #nAntenna and subsetant : get rid of the bad antennas
