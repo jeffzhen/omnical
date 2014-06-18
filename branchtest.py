@@ -67,18 +67,18 @@ nant=len(calibrator.antennaLocation)
 subsetant=[i for i in range(nant) if i not in calibrator.badAntenna]
 nAntenna=len(subsetant)
 antloc=[calibrator.antennaLocation[ant] for ant in subsetant]
-
+calibrator.totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(nant)])
 
 #find out UBL
 ##########################################################################################
 #antloc has the form of a nested list with dimension nant*3, returns a np array of unique baselines
-def UBL(antloc,precision):
+def UBL(antloc,tolerance):
 	ubllist=np.array([np.array([0,0,0])]);
 	for i in range(len(antloc)):
 		for j in range(i+1,len(antloc)):
 			bool = False;
 			for bl in ubllist:
-				bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<precision or np.linalg.norm(antloc[i]-antloc[j]+bl)<precision)
+				bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<tolerance or np.linalg.norm(antloc[i]-antloc[j]+bl)<tolerance)
 			if bool == False:			
 				ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
 	ublall=np.delete(ubllist,0,0)
@@ -86,17 +86,17 @@ def UBL(antloc,precision):
 
 
 #ubllist=np.zeros((1,3));
-#precision=calibrator.antennaLocationTolerance;
+#tolerance=calibrator.antennaLocationTolerance;
 #for i in range(len(antloc)):
 	#for j in range(i+1,len(antloc)):
 		#bool = False;
 		#for bl in ubllist:
-			#bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<precision or np.linalg.norm(antloc[i]-antloc[j]+bl)<precision)
+			#bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<tolerance or np.linalg.norm(antloc[i]-antloc[j]+bl)<tolerance)
 		#if bool == False:			
 			#ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
 			
-precision=calibrator.antennaLocationTolerance;		
-ublall=UBL(antloc,precision)
+tolerance=calibrator.antennaLocationTolerance;		
+ublall=UBL(antloc,tolerance)
 ubl=np.delete(ublall,np.array(calibrator.badUBL),0)
 nUBL=len(ubl);
 
@@ -114,19 +114,24 @@ for i in range(len(antloc)):
 	for j in range(i+1):
 		bool=False
 		for bl in badbl:
-			bool = bool or dis(antloc[i]-antloc[j],bl)<precision or dis(antloc[i]-antloc[j],-bl)<precision
+			bool = bool or dis(antloc[i]-antloc[j],bl)<tolerance or dis(antloc[i]-antloc[j],-bl)<tolerance
 		if bool == False:
 			nbl+=1
 			goodpairs.append([i,j])
 nBaseline=len(goodpairs)
 
-#from antenna pair to baseline index			
-def toBaseline(pair,n=nAntenna):
-	j=pair[0];
-	i=pair[1];	
-	return j*(j+1)/2+i
-	
-subsetbl=np.array([toBaseline(bl,nAntenna) for bl in goodpairs])
+#from antenna pair to baseline index (pair[i,j], i>j)			
+#def toBaseline(pair,n=nAntenna):
+	#j=pair[0];
+	#i=pair[1];	
+	#return j*(j+1)/2+i
+def toBaseline(pair,tvid=calibrator.totalVisibilityId):
+	sortp=np.array(sorted(pair))
+	for i in range(len(tvid)):
+		if tvid[i][0] == sortp[0] and tvid[i][1] == sortp[1]:
+			return i
+	return 'no match'
+subsetbl=np.array([toBaseline(bl,calibrator.totalVisibilityId) for bl in goodpairs])
 
 ##########################################
 #bltoubl: cross bl number to ubl index
@@ -134,7 +139,7 @@ def findublindex(pair,ubl=ubl):
 	i=pair[0]
 	j=pair[1]
 	for k in range(len(ubl)):
-		if dis(antloc[i]-antloc[j],ubl[k])<precision or dis(antloc[i]-antloc[j],-ubl[k])<precision:
+		if dis(antloc[i]-antloc[j],ubl[k])<tolerance or dis(antloc[i]-antloc[j],-ubl[k])<tolerance:
 			return k
 	return "no match"
 	
@@ -154,9 +159,9 @@ reverse=[]
 for k in range(len(crosspair)):
 	i=crosspair[k][0]
 	j=crosspair[k][1]
-	if dis(antloc[i]-antloc[j],ubl[bltoubl[k]])<precision:
+	if dis(antloc[i]-antloc[j],ubl[bltoubl[k]])<tolerance:
 		reverse.append(1)
-	elif dis(antloc[i]-antloc[j],-ubl[bltoubl[k]])<precision:
+	elif dis(antloc[i]-antloc[j],-ubl[bltoubl[k]])<tolerance:
 		reverse.append(-1)
 	else :
 		print "something's wrong with bltoubl"

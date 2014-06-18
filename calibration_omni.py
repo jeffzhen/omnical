@@ -403,24 +403,25 @@ class RedundantCalibrator:
 		##########################################################################################
 		#find out ubl
 		#antloc has the form of a nested list with dimension nant*3, returns a np array of unique baselines
-		def UBL(antloc,precision):
+		def UBL(antloc,tolerance):
 			ubllist=np.array([np.array([0,0,0])]);
 			for i in range(len(antloc)):
 				for j in range(i+1,len(antloc)):
 					bool = False;
 					for bl in ubllist:
-						bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<precision or np.linalg.norm(antloc[i]-antloc[j]+bl)<precision)
+						bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<tolerance or np.linalg.norm(antloc[i]-antloc[j]+bl)<tolerance)
 					if bool == False:			
 						ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
 			ublall=np.delete(ubllist,0,0)
 			return ublall
 		#use the function above to find the ubl
-		precision=self.antennaLocationTolerance;		
-		ublall=UBL(antloc,precision)
+		tolerance=self.antennaLocationTolerance;		
+		ublall=UBL(antloc,tolerance)
+		#delete the bad ubl's
 		ubl=np.delete(ublall,np.array(self.badUBL),0)
 		nUBL=len(ubl);
 		#################################################################################################
-		#calculate the norm of the difference of two vectors
+		#calculate the norm of the difference of two vectors (just la.norm actually)
 		def dis(a1,a2):
 			return np.linalg.norm(np.array(a1)-np.array(a2))
 		#find nBaseline (include auto baselines) and subsetbl
@@ -431,24 +432,26 @@ class RedundantCalibrator:
 			for j in range(i+1):
 				bool=False
 				for bl in badbl:
-					bool = bool or dis(antloc[i]-antloc[j],bl)<precision or dis(antloc[i]-antloc[j],-bl)<precision
+					bool = bool or dis(antloc[i]-antloc[j],bl)<tolerance or dis(antloc[i]-antloc[j],-bl)<tolerance
 				if bool == False:
 					nbl+=1
 					goodpairs.append([i,j])
 		nBaseline=len(goodpairs)
-		#from antenna pair to baseline index			
-		def toBaseline(pair,n=nAntenna):
-			j=pair[0];
-			i=pair[1];	
-			return j*(j+1)/2+i
-		subsetbl=np.array([toBaseline(bl,nAntenna) for bl in goodpairs])
+		#from antenna pair to baseline index
+		def toBaseline(pair,tvid=self.totalVisibilityId):
+			sortp=np.array(sorted(pair))
+			for i in range(len(tvid)):
+				if tvid[i][0] == sortp[0] and tvid[i][1] == sortp[1]:
+					return i
+			return 'no match'
+		subsetbl=np.array([toBaseline(bl,self.totalVisibilityId) for bl in goodpairs])			
 		##################################################################################
 		#bltoubl: cross bl number to ubl index
 		def findublindex(pair,ubl=ubl):
 			i=pair[0]
 			j=pair[1]
 			for k in range(len(ubl)):
-				if dis(antloc[i]-antloc[j],ubl[k])<precision or dis(antloc[i]-antloc[j],-ubl[k])<precision:
+				if dis(antloc[i]-antloc[j],ubl[k])<tolerance or dis(antloc[i]-antloc[j],-ubl[k])<tolerance:
 					return k
 			return "no match"
 		bltoubl=[];
@@ -465,9 +468,9 @@ class RedundantCalibrator:
 		for k in range(len(crosspair)):
 			i=crosspair[k][0]
 			j=crosspair[k][1]
-			if dis(antloc[i]-antloc[j],ubl[bltoubl[k]])<precision:
+			if dis(antloc[i]-antloc[j],ubl[bltoubl[k]])<tolerance:
 				reverse.append(1)
-			elif dis(antloc[i]-antloc[j],-ubl[bltoubl[k]])<precision:
+			elif dis(antloc[i]-antloc[j],-ubl[bltoubl[k]])<tolerance:
 				reverse.append(-1)
 			else :
 				print "something's wrong with bltoubl"
@@ -606,5 +609,51 @@ class RedundantCalibrator:
 		self.info=info
 
 
+	#inverse function of totalVisibilityId, calculate the baseline index from the antenna pair
+	def toBaseline(self,pair):
+		sortp=np.array(sorted(pair))
+		for i in range(len(self.totalVisibilityId)):
+			if self.totalVisibilityId[i][0] == sortp[0] and self.totalVisibilityId[i][1] == sortp[1]:
+				return i
+		return 'no match'
+
+	#with antenna locations and tolerance, calculate the unique baselines. (In the order of omniscope baseline index convention)
+	def UBL(self,tolerance):
+		antloc=self.antennaLocation
+		ubllist=np.array([np.array([0,0,0])]);
+		for i in range(len(antloc)):
+			for j in range(i+1,len(antloc)):
+				bool = False;
+				for bl in ubllist:
+					bool = bool or (la.norm(antloc[i]-antloc[j]-bl)<tolerance or la.norm(antloc[i]-antloc[j]+bl)<tolerance)
+				if bool == False:			
+					ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
+		ublall = np.delete(ubllist,0,0)
+		return ublall
+
+	#need to do compute_info first for this function to work
+	#input the antenna pair(as a list of two numbers), return the corresponding ubl index
+	def pair2ublindex(self,antpair):
+		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
+		if antpair[0]==antpair[1]:
+			return "auto correlation"
+		elif crossblindex == 99999:
+			return "bad ubl"
+		return self.info['bltoubl'][crossblindex]
+
+	#need to do compute_info first
+	#input the antenna pair, return -1 if it is a reversed baseline and 1 if it is not reversed
+	def pair2reversed(self,antpair):
+		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
+		if antpair[0] == antpair[1]:
+			return 1
+		if crossblindex == 99999:
+			return 'badbaseline'
+		return self.info['reversed'][crossblindex]
+		
+		
+		
+		
+		
 
 
