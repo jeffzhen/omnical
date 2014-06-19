@@ -20,8 +20,10 @@ removeadditive = False
 needrawcal = True #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
 rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
 
-keep_binary_data = True
-keep_binary_calpar = True
+
+
+keep_binary_data = False
+keep_binary_calpar = False
 
 
 converge_percent = 0.01
@@ -47,38 +49,17 @@ del(uv)
 
 ####create redundant calibrators################
 calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
-#print info[0]['bl1dmatrix']
-#exit(1)
-
-
-
-###read raw phase calibration prameters over frequencyfor each antenna, 203 by 32 in radiants; this part can be replaced################
-if needrawcal:
-	rawcalpar = np.asarray([np.fromfile(rawpaths[key], dtype="complex64").reshape(nfreq, nant) for key in wantpols.keys()])
-	rawcorrection = np.zeros((len(wantpols), nfreq, nant*(nant+1)/2), dtype='complex64') + 1#to be dividing the data;  data/calpar = model
-	for p in range(len(wantpols)):
-		for i, bl in zip(range(len(calibrators[p].info['subsetbl'])), calibrators[p].info['subsetbl']):
-			a1, a2 = calibrators[p].info['bl2d'][i]
-			rawcorrection[p, :, bl] = np.conj(rawcalpar[p, :,a1]) *  rawcalpar[p, :,a2]
-
-
 
 ###start reading miriads################
 print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
 data, t, timing, lst = omni.importuvs(uvfiles, [calibrator.info for calibrator in calibrators], wantpols)
 print FILENAME + " MSG:",  len(t), "slices read."
 
-###reorder and dump the binary data from miriad################
-if not os.path.exists(oppath):
-	os.makedirs(oppath)
-
-
-for p, pol in zip(range(len(wantpols)), wantpols.keys()):
-	print "Writing polarization: " + pol,  data[p].shape
-	if needrawcal:
-		(data[p]/rawcorrection[p, np.newaxis,:,:]).tofile(oppath + 'miriadextract_' + pol + '_' + ano)
-	else:
-		data[p].tofile(oppath + 'miriadextract_' + pol + '_' + ano)
+###raw calibration################
+if needrawcal:
+	for p, key in zip(range(len(wantpols)), wantpols.keys()):
+		rawcalpar = np.fromfile(rawpaths[key], dtype="complex64").reshape(nfreq, nant)
+		data[p] = omni.apply_calpar(data[p], rawcalpar, calibrators[p].totalVisibilityId)
 
 ###Save various files read################
 #np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')
@@ -90,10 +71,11 @@ f = open(oppath + 'miriadextract_' + ano + "_lsthour.dat",'w')
 for l in lst:
 	f.write("%s\n"%l)
 f.close()
-del(data)
+
 
 ####calibrate################
-for pol, calibrator in zip(wantpols.keys(), calibrators):
+print FILENAME + " MSG: starting calibration."
+for p, calibrator in zip(range(len(wantpols)), calibrators):
 	calibrator.nTime = len(t)
 	calibrator.nFrequency = nfreq
 	calibrator.removeDegeneracy = removedegen
@@ -103,8 +85,7 @@ for pol, calibrator in zip(wantpols.keys(), calibrators):
 	calibrator.convergePercent = converge_percent
 	calibrator.maxIteration = max_iter
 	calibrator.stepSize = step_size
-	calibrator.loglincal(oppath + 'miriadextract_' + pol + '_' + ano)
-
+	calibrator.loglincal(data[p],verbose=True)
 
 #########Test results############
 correctresult = np.sum(np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165),axis=2).flatten()#summing the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
@@ -113,22 +94,7 @@ newresult = np.sum(calibrators[1].rawCalpar,axis=2).flatten()
 if (len(newresult) == len(correctresult)) and ((newresult == correctresult) | (np.isnan(newresult) & np.isnan(correctresult))).all():
 	print "TEST PASSED!"
 else:
-	cnt = 0
-	for t in range(len(calibrators[1].rawCalpar)):
-		for f in range(len(calibrators[1].rawCalpar[0])):
-			for i in range(len(calibrators[1].rawCalpar[0][0])):
-				if (not np.isnan(calibrators[1].rawCalpar[t,f,i])) and correctresult[cnt] != calibrators[1].rawCalpar[t,f,i]:
-					print t,f,i,calibrators[1].rawCalpar[t,f,i],correctresult[cnt]
-				cnt = cnt + 1
 	print "TEST FAILED :("
 
-newresult = np.sum(np.fromfile(oppath + "miriadextract_xx_test.omnical", dtype = 'float32').reshape(14,203,165),axis=2).flatten()
-if (len(newresult) == len(correctresult)) and ((newresult == correctresult) | (np.isnan(newresult) & np.isnan(correctresult))).all():
-	print "TEST PASSED!"
-else:
-	print "TEST FAILED :("
-
-#for p, pol in zip(range(len(wantpols)), wantpols.keys()):
-	#os.remove(oppath + 'miriadextract_' + pol + '_' + ano + '.omnical')
 os.remove(oppath + 'miriadextract_' + ano + "_localtime.dat")
 os.remove(oppath + 'miriadextract_' + ano + "_lsthour.dat")

@@ -189,6 +189,19 @@ def importuvs(uvfilenames, info, wantpols):
 	reorder = (1, 0, 3, 2)
 	return np.transpose(data[:len(t)],reorder), t, timing, lst
 
+def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq
+	METHODNAME = "*apply_calpar*"
+	if calpar.shape[-1] <= np.amax(visibilityID) or data.shape[-1] != len(visibilityID):
+		raise Exception("Dimension mismatch! Either number of antennas in calpar " + str(calpar.shape[-1]) + " is less than implied in visibility ID "  + str(1 + np.amax(visibilityID)) + ", or the length of the last axis of data "  + str(data.shape[-1]) + " is not equal to length of visibilityID "  + str(len(visibilityID)) + ".")
+	if len(calpar.shape) == 3 and len(data.shape) == 3 and calpar.shape[:2] == data.shape[:2]:
+		return data/(np.conjugate(calpar[:,:,visibilityID[:,0].astype(int)]) * calpar[:,:,visibilityID[:,1].astype(int)])
+	elif len(calpar.shape) == 2 and (len(data.shape) == 3 or len(data.shape) == 2) and calpar.shape[0] == data.shape[-2]:
+		return data/(np.conjugate(calpar[:,visibilityID[:,0].astype(int)]) * calpar[:,visibilityID[:,1].astype(int)])
+	elif len(calpar.shape) == 1 and len(data.shape) <= 3:
+		return data/(np.conjugate(calpar[visibilityID[:,0].astype(int)]) * calpar[visibilityID[:,1].astype(int)])
+	else:
+		raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
+
 def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano):
 	METHODNAME = "*apply_omnical_uvs*"
 
@@ -355,7 +368,7 @@ class RedundantCalibrator:
 			print "Bad UBL indices:", self.badUBL
 
 
-	def readyForCpp(self, verbose = True):#todo check if all necessary parameters are specified to call Cpp
+	def readyForCpp(self, verbose = True):#check if all necessary parameters are specified to call Cpp
 		methodName = '.readyForCpp.'
 		if os.path.getsize(self.dataPath) / 8 != self.nTime * self.nFrequency * self.nTotalBaselineAuto:
 			if verbose:
@@ -403,7 +416,8 @@ class RedundantCalibrator:
 				self.chisq = self.rawCalpar[:, :, 2]
 			elif self.calMode == '2':
 				self.chisq = self.rawCalpar[:, :, 1]
-			self.calpar = (10**(self.rawCalpar[:, :, 3: (3 + self.info['nAntenna'])])) * np.exp(1.j * np.pi * self.rawCalpar[:, :, (3 + self.info['nAntenna']): (3 + 2 * self.info['nAntenna'])] / 180)
+			self.calpar = np.zeros((self.nTime, self.nFrequency, self.nTotalAnt), dtype='complex64')
+			self.calpar[:,:,self.info['subsetant']] = (10**(self.rawCalpar[:, :, 3: (3 + self.info['nAntenna'])])) * np.exp(1.j * np.pi * self.rawCalpar[:, :, (3 + self.info['nAntenna']): (3 + 2 * self.info['nAntenna'])] / 180)
 			self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.info['nAntenna']):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.info['nAntenna']):: 2]
 			if not self.keepCalpar:
 				os.remove(self.calparPath)
