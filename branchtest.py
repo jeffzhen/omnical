@@ -17,12 +17,12 @@ with warnings.catch_warnings():
     
 import calibration_omni as omni
 
-correctinfo = omni.read_redundantinfo('redundantinfo_PSA32.txt')
-calibrator = omni.RedundantCalibrator(64)
+correctinfo = omni.read_redundantinfo('/home/ericy/omnical/redundant_info/redundantinfo_badant2_4_5_6_8_9_10badubl1_2_3_5_8_9.txt')
+calibrator = omni.RedundantCalibrator(32)
 
 calibrator.antennaLocationTolerance = .1
-calibrator.badAntenna = []
-calibrator.badUBL = [0, 1, 2]
+calibrator.badAntenna = [1,3,4,5,7,8]
+calibrator.badUBL = [0, 1, 2,4,7,8]
 
 antlist=[[ -1.82119623e-02,  -1.17231687e-02 , -1.65467362e-02],
  [  3.98503466e+00,   9.63369375e-03 ,  2.37189551e-02],
@@ -61,7 +61,42 @@ calibrator.antennaLocation=np.reshape(np.array(flat),(len(flat)/3,3))
 
 calibrator.compute_info()
 
+info1=correctinfo
+info2=calibrator.info
 
+#input two different redundant info, output True if they are the same and False if they are different
+def compare_info(info1,info2):
+	try:
+		infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+		infomatrices=['A','B','At','Bt']
+		diff=[]
+		#10**5 for floating point errors
+		for key in infokeys:	
+			diff.append(round(10**5*la.norm(info1[key]-info2[key])))
+		for key in infomatrices:
+			diff.append(round(10**5*la.norm((info1[key]-info2[key]).todense())))
+		for i in info1['ublindex']-info2['ublindex']:
+			diff.append(round(10**5*la.norm(i)))
+		bool = True
+		for i in diff:
+			bool = bool and i==0
+		return bool
+	except ValueError:
+		print "info doesn't have the same shape"
+		return False
+	
+print compare_info(info1,info2)
+
+
+
+
+
+
+
+
+
+
+'''
 #nAntenna and subsetant : get rid of the bad antennas
 nant=len(calibrator.antennaLocation)
 subsetant=[i for i in range(nant) if i not in calibrator.badAntenna]
@@ -314,6 +349,6 @@ with warnings.catch_warnings():
 		info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
 		info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
 
-
+'''
 
 

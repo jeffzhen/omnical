@@ -263,7 +263,26 @@ def stdmatrix(length, polydegree):#to find out the error in fitting y by a polyn
 	At = A.transpose()
 	return np.identity(length) - A.dot(la.pinv(At.dot(A)).dot(At))
 
-
+#compare if two redundant info are the same
+def compare_info(info1,info2):
+	try:
+		infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+		infomatrices=['A','B','At','Bt']
+		diff=[]
+		#10**5 for floating point errors
+		for key in infokeys:	
+			diff.append(round(10**5*la.norm(info1[key]-info2[key])))
+		for key in infomatrices:
+			diff.append(round(10**5*la.norm((info1[key]-info2[key]).todense())))
+		for i in info1['ublindex']-info2['ublindex']:
+			diff.append(round(10**5*la.norm(i)))
+		bool = True
+		for i in diff:
+			bool = bool and i==0
+		return bool
+	except ValueError:
+		print "info doesn't have the same shape"
+		return False
 
 
 class RedundantCalibrator:
@@ -441,7 +460,7 @@ class RedundantCalibrator:
 		def toBaseline(pair,tvid=self.totalVisibilityId):
 			sortp=np.array(sorted(pair))
 			for i in range(len(tvid)):
-				if tvid[i][0] == sortp[0] and tvid[i][1] == sortp[1]:
+				if tvid[i][0] == subsetant[sortp[0]] and tvid[i][1] == subsetant[sortp[1]]:
 					return i
 			return 'no match'
 		subsetbl=np.array([toBaseline(bl,self.totalVisibilityId) for bl in goodpairs])			
@@ -610,15 +629,29 @@ class RedundantCalibrator:
 
 
 	#inverse function of totalVisibilityId, calculate the baseline index from the antenna pair
-	def get_baseline(self,pair):
-		sortp=np.array(sorted(pair))
+	def get_baseline(self,pair): 
+		if not (type(pair) == list or type(pair) == np.ndarray or type(pair) == tuple):
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif len(np.array(pair)) != 2:
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif type(pair[0]) == str or type(pair[0]) == np.string_:
+			raise Exception("input needs to be number not string")
+			return
+		sortp = np.array(sorted(pair))
 		for i in range(len(self.totalVisibilityId)):
 			if self.totalVisibilityId[i][0] == sortp[0] and self.totalVisibilityId[i][1] == sortp[1]:
 				return i
-		return 'no match'
+		raise Exception("antenna index out of range")
 
 	#with antenna locations and tolerance, calculate the unique baselines. (In the order of omniscope baseline index convention)
-	def compute_UBL(self,tolerance):
+	def compute_UBL(self,tolerance = 0.1):
+		#check if the tolerance is not a string
+		if type(tolerance) == str:
+			raise Exception("tolerance needs to be number not string")
+			return
+			
 		antloc=self.antennaLocation
 		ubllist=np.array([np.array([0,0,0])]);
 		for i in range(len(antloc)):
@@ -630,20 +663,44 @@ class RedundantCalibrator:
 					ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
 		ublall = np.delete(ubllist,0,0)
 		return ublall
+		
 
 	#need to do compute_info first for this function to work
 	#input the antenna pair(as a list of two numbers), return the corresponding ubl index
 	def get_ublindex(self,antpair):
+		#check if the input is a list, tuple, np.array of two numbers
+		if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif len(np.array(antpair)) != 2:
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
+			raise Exception("input needs to be number not string")
+			return
+			
 		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
 		if antpair[0]==antpair[1]:
 			return "auto correlation"
 		elif crossblindex == 99999:
 			return "bad ubl"
 		return self.info['bltoubl'][crossblindex]
+		
 
 	#need to do compute_info first
 	#input the antenna pair, return -1 if it is a reversed baseline and 1 if it is not reversed
 	def get_reversed(self,antpair):
+		#check if the input is a list, tuple, np.array of two numbers
+		if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif len(np.array(antpair)) != 2:
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
+			raise Exception("input needs to be number not string")
+			return
+		
 		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
 		if antpair[0] == antpair[1]:
 			return 1
