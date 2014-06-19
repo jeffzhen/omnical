@@ -276,7 +276,26 @@ def stdmatrix(length, polydegree):#to find out the error in fitting y by a polyn
 	At = A.transpose()
 	return np.identity(length) - A.dot(la.pinv(At.dot(A)).dot(At))
 
-
+#compare if two redundant info are the same
+def compare_info(info1,info2):
+	try:
+		infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+		infomatrices=['A','B','At','Bt']
+		diff=[]
+		#10**5 for floating point errors
+		for key in infokeys:	
+			diff.append(round(10**5*la.norm(info1[key]-info2[key])))
+		for key in infomatrices:
+			diff.append(round(10**5*la.norm((info1[key]-info2[key]).todense())))
+		for i in info1['ublindex']-info2['ublindex']:
+			diff.append(round(10**5*la.norm(i)))
+		bool = True
+		for i in diff:
+			bool = bool and i==0
+		return bool
+	except ValueError:
+		print "info doesn't have the same shape"
+		return False
 
 
 class RedundantCalibrator:
@@ -441,10 +460,303 @@ class RedundantCalibrator:
 		#self.cal(data, verbose)
 
 	def compute_info(self, configFilePath = None):#todo
-		raise Exception(self.className + "Error: compute_info function is not yet implemented.")
+		#nAntenna and subsetant : get rid of the bad antennas
+		nant=len(self.antennaLocation)
+		subsetant=[i for i in range(nant) if i not in self.badAntenna]
+		nAntenna=len(subsetant)
+		antloc=[self.antennaLocation[ant] for ant in subsetant]
+		##########################################################################################
+		#find out ubl
+		#antloc has the form of a nested list with dimension nant*3, returns a np array of unique baselines
+		def UBL(antloc,tolerance):
+			ubllist=np.array([np.array([0,0,0])]);
+			for i in range(len(antloc)):
+				for j in range(i+1,len(antloc)):
+					bool = False;
+					for bl in ubllist:
+						bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<tolerance or np.linalg.norm(antloc[i]-antloc[j]+bl)<tolerance)
+					if bool == False:			
+						ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
+			ublall=np.delete(ubllist,0,0)
+			return ublall
+		#use the function above to find the ubl
+		tolerance=self.antennaLocationTolerance;		
+		ublall=UBL(antloc,tolerance)
+		#delete the bad ubl's
+		ubl=np.delete(ublall,np.array(self.badUBL),0)
+		nUBL=len(ubl);
+		#################################################################################################
+		#calculate the norm of the difference of two vectors (just la.norm actually)
+		def dis(a1,a2):
+			return np.linalg.norm(np.array(a1)-np.array(a2))
+		#find nBaseline (include auto baselines) and subsetbl
+		badbl=[ublall[i] for i in self.badUBL]
+		nbl=0;
+		goodpairs=[];
+		for i in range(len(antloc)):
+			for j in range(i+1):
+				bool=False
+				for bl in badbl:
+					bool = bool or dis(antloc[i]-antloc[j],bl)<tolerance or dis(antloc[i]-antloc[j],-bl)<tolerance
+				if bool == False:
+					nbl+=1
+					goodpairs.append([i,j])
+		nBaseline=len(goodpairs)
+		#from antenna pair to baseline index
+		def toBaseline(pair,tvid=self.totalVisibilityId):
+			sortp=np.array(sorted(pair))
+			for i in range(len(tvid)):
+				if tvid[i][0] == subsetant[sortp[0]] and tvid[i][1] == subsetant[sortp[1]]:
+					return i
+			return 'no match'
+		subsetbl=np.array([toBaseline(bl,self.totalVisibilityId) for bl in goodpairs])			
+		##################################################################################
+		#bltoubl: cross bl number to ubl index
+		def findublindex(pair,ubl=ubl):
+			i=pair[0]
+			j=pair[1]
+			for k in range(len(ubl)):
+				if dis(antloc[i]-antloc[j],ubl[k])<tolerance or dis(antloc[i]-antloc[j],-ubl[k])<tolerance:
+					return k
+			return "no match"
+		bltoubl=[];
+		for i in goodpairs:
+			if i[0]!=i[1]:
+				bltoubl.append(findublindex(i)) 	
+		#################################################################################
+		#reversed:   cross only bl if reversed -1, otherwise 1
+		crosspair=[]
+		for p in goodpairs:
+			if p[0]!=p[1]:
+				crosspair.append(p)
+		reverse=[]
+		for k in range(len(crosspair)):
+			i=crosspair[k][0]
+			j=crosspair[k][1]
+			if dis(antloc[i]-antloc[j],ubl[bltoubl[k]])<tolerance:
+				reverse.append(1)
+			elif dis(antloc[i]-antloc[j],-ubl[bltoubl[k]])<tolerance:
+				reverse.append(-1)
+			else :
+				print "something's wrong with bltoubl"
+		######################################################################################
+		#reversedauto: the index of good baselines (auto included) in all baselines
+		#autoindex: index of auto bls among good bls
+		#crossindex: index of cross bls among good bls
+		#ncross
+		reversedauto = range(len(goodpairs))
+		#find the autoindex and crossindex in goodpairs
+		autoindex=[]
+		crossindex=[]
+		for i in range(len(goodpairs)):
+			if goodpairs[i][0]==goodpairs[i][1]:
+				autoindex.append(i)
+			else:
+				crossindex.append(i)
+		for i in autoindex:
+			reversedauto[i]=1
+		for i in range(len(crossindex)):
+			reversedauto[crossindex[i]]=reverse[i]
+		reversedauto=np.array(reversedauto)
+		autoindex=np.array(autoindex)
+		crossindex=np.array(crossindex)
+		ncross=len(crossindex)
+		###################################################
+		#bl2d:  from 1d bl index to a pair of antenna numbers
+		bl2d=[]
+		for pair in goodpairs:
+			bl2d.append(pair[::-1])
+		bl2d=np.array(bl2d)
+		###################################################
+		#ublcount:  for each ubl, the number of good cross bls corresponding to it
+		countdict={}
+		for bl in bltoubl:
+			countdict[bl]=0
+			
+		for bl in bltoubl:
+			countdict[bl]+=1
+			
+		ublcount=[]
+		for i in range(nUBL):
+			ublcount.append(countdict[i])
+		ublcount=np.array(ublcount)
+		####################################################################################
+		#ublindex:  //for each ubl, the vector<int> contains (ant1, ant2, crossbl)
+		countdict={}
+		for bl in bltoubl:
+			countdict[bl]=[]
+			
+		for i in range(len(crosspair)):
+			ant1=crosspair[i][1]
+			ant2=crosspair[i][0]
+			countdict[bltoubl[i]].append([ant1,ant2,i])
+			
+		ublindex=[]
+		for i in range(nUBL):
+			ublindex.append(countdict[i])
+		#turn each list in ublindex into np array	
+		for i in range(len(ublindex)):
+			ublindex[i]=np.array(ublindex[i])
+		ublindex=np.array(ublindex)
+		###############################################################################
+		#bl1dmatrix: a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
+				#I suppose 99999 for bad and auto baselines?
+		bl1dmatrix=99999*np.ones([nAntenna,nAntenna],dtype='int16')
+		for i in range(len(crosspair)):
+			bl1dmatrix[crosspair[i][1]][crosspair[i][0]]=i
+			bl1dmatrix[crosspair[i][0]][crosspair[i][1]]=i
+		####################################################################################3
+		#degenM:
+		a=[] 
+		for i in range(len(antloc)):
+			a.append(np.append(antloc[i],1))
+		a=np.array(a)
+		
+		d=[]
+		for i in range(len(ubl)):
+			d.append(np.append(ubl[i],0))
+		d=np.array(d)
+		
+		m1=-a.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
+		m2=d.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
+		degenM = np.append(m1,m2,axis=0)
+		#####################################################################################
+		#A: A matrix for logcal amplitude
+		A=np.zeros([len(crosspair),nAntenna+len(ubl)])
+		for i in range(len(crosspair)):
+			A[i][crosspair[i][0]]=1
+			A[i][crosspair[i][1]]=1
+			A[i][nAntenna+bltoubl[i]]=1
+		A=sps.csr_matrix(A)
+		#################################################################################
+		#B: B matrix for logcal phase
+		B=np.zeros([len(crosspair),nAntenna+len(ubl)])
+		for i in range(len(crosspair)):
+			B[i][crosspair[i][0]]=reverse[i]*1
+			B[i][crosspair[i][1]]=reverse[i]*-1
+			B[i][nAntenna+bltoubl[i]]=1
+		B=sps.csr_matrix(B)
+		###########################################################################
+		#create info dictionary
+		info={}
+		info['nAntenna']=nAntenna
+		info['nUBL']=nUBL
+		info['nBaseline']=nBaseline
+		info['subsetant']=subsetant
+		info['antloc']=antloc
+		info['subsetbl']=subsetbl
+		info['ubl']=ubl
+		info['bltoubl']=bltoubl
+		info['reversed']=reverse
+		info['reversedauto']=reversedauto
+		info['autoindex']=autoindex
+		info['crossindex']=crossindex
+		info['ncross']=ncross
+		info['bl2d']=bl2d
+		info['ublcount']=ublcount
+		info['ublindex']=ublindex
+		info['bl1dmatrix']=bl1dmatrix
+		info['degenM']=degenM
+		info['A']=A
+		info['B']=B
+		with warnings.catch_warnings():
+				warnings.filterwarnings("ignore",category=DeprecationWarning)
+				info['At'] = info['A'].transpose()
+				info['Bt'] = info['B'].transpose()
+				info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense())#(AtA)^-1
+				info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense())#(BtB)^-1
+				info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+				info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+				info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+				info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+				info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+				info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
+		self.info=info
 
 
+	#inverse function of totalVisibilityId, calculate the baseline index from the antenna pair
+	def get_baseline(self,pair): 
+		if not (type(pair) == list or type(pair) == np.ndarray or type(pair) == tuple):
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif len(np.array(pair)) != 2:
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif type(pair[0]) == str or type(pair[0]) == np.string_:
+			raise Exception("input needs to be number not string")
+			return
+		sortp = np.array(sorted(pair))
+		for i in range(len(self.totalVisibilityId)):
+			if self.totalVisibilityId[i][0] == sortp[0] and self.totalVisibilityId[i][1] == sortp[1]:
+				return i
+		raise Exception("antenna index out of range")
 
+	#with antenna locations and tolerance, calculate the unique baselines. (In the order of omniscope baseline index convention)
+	def compute_UBL(self,tolerance = 0.1):
+		#check if the tolerance is not a string
+		if type(tolerance) == str:
+			raise Exception("tolerance needs to be number not string")
+			return
+			
+		antloc=self.antennaLocation
+		ubllist=np.array([np.array([0,0,0])]);
+		for i in range(len(antloc)):
+			for j in range(i+1,len(antloc)):
+				bool = False;
+				for bl in ubllist:
+					bool = bool or (la.norm(antloc[i]-antloc[j]-bl)<tolerance or la.norm(antloc[i]-antloc[j]+bl)<tolerance)
+				if bool == False:			
+					ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
+		ublall = np.delete(ubllist,0,0)
+		return ublall
+		
 
+	#need to do compute_info first for this function to work
+	#input the antenna pair(as a list of two numbers), return the corresponding ubl index
+	def get_ublindex(self,antpair):
+		#check if the input is a list, tuple, np.array of two numbers
+		if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif len(np.array(antpair)) != 2:
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
+			raise Exception("input needs to be number not string")
+			return
+			
+		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
+		if antpair[0]==antpair[1]:
+			return "auto correlation"
+		elif crossblindex == 99999:
+			return "bad ubl"
+		return self.info['bltoubl'][crossblindex]
+		
+
+	#need to do compute_info first
+	#input the antenna pair, return -1 if it is a reversed baseline and 1 if it is not reversed
+	def get_reversed(self,antpair):
+		#check if the input is a list, tuple, np.array of two numbers
+		if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif len(np.array(antpair)) != 2:
+			raise Exception("input needs to be a list of two numbers")
+			return 
+		elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
+			raise Exception("input needs to be number not string")
+			return
+		
+		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
+		if antpair[0] == antpair[1]:
+			return 1
+		if crossblindex == 99999:
+			return 'badbaseline'
+		return self.info['reversed'][crossblindex]
+		
+		
+		
+		
+		
 
 
