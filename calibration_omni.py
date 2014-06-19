@@ -610,7 +610,7 @@ class RedundantCalibrator:
 
 
 	#inverse function of totalVisibilityId, calculate the baseline index from the antenna pair
-	def toBaseline(self,pair):
+	def get_baseline(self,pair):
 		sortp=np.array(sorted(pair))
 		for i in range(len(self.totalVisibilityId)):
 			if self.totalVisibilityId[i][0] == sortp[0] and self.totalVisibilityId[i][1] == sortp[1]:
@@ -618,7 +618,7 @@ class RedundantCalibrator:
 		return 'no match'
 
 	#with antenna locations and tolerance, calculate the unique baselines. (In the order of omniscope baseline index convention)
-	def UBL(self,tolerance):
+	def compute_UBL(self,tolerance):
 		antloc=self.antennaLocation
 		ubllist=np.array([np.array([0,0,0])]);
 		for i in range(len(antloc)):
@@ -633,7 +633,7 @@ class RedundantCalibrator:
 
 	#need to do compute_info first for this function to work
 	#input the antenna pair(as a list of two numbers), return the corresponding ubl index
-	def pair2ublindex(self,antpair):
+	def get_ublindex(self,antpair):
 		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
 		if antpair[0]==antpair[1]:
 			return "auto correlation"
@@ -643,7 +643,7 @@ class RedundantCalibrator:
 
 	#need to do compute_info first
 	#input the antenna pair, return -1 if it is a reversed baseline and 1 if it is not reversed
-	def pair2reversed(self,antpair):
+	def get_reversed(self,antpair):
 		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
 		if antpair[0] == antpair[1]:
 			return 1
