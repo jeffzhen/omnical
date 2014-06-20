@@ -276,22 +276,32 @@ def stdmatrix(length, polydegree):#to find out the error in fitting y by a polyn
 	At = A.transpose()
 	return np.identity(length) - A.dot(la.pinv(At.dot(A)).dot(At))
 
-#compare if two redundant info are the same
-def compare_info(info1,info2):
+#input two different redundant info, output True if they are the same and False if they are different
+def compare_info(info1,info2,printfirstdiff=True):
 	try:
-		infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+		floatkeys=['antloc','ubl']
+		intkeys = ['nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 		infomatrices=['A','B','At','Bt']
+		allkeys=['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
 		diff=[]
 		#10**5 for floating point errors
-		for key in infokeys:	
-			diff.append(round(10**5*la.norm(info1[key]-info2[key])))
+		for key in floatkeys:	
+			diff.append(round(10**5*la.norm(info1[key]-info2[key]))==0)
+		for key in intkeys:	
+			diff.append(la.norm(info1[key]-info2[key])==0)
 		for key in infomatrices:
-			diff.append(round(10**5*la.norm((info1[key]-info2[key]).todense())))
+			diff.append(la.norm((info1[key]-info2[key]).todense())==0)
 		for i in info1['ublindex']-info2['ublindex']:
-			diff.append(round(10**5*la.norm(i)))
+			diff.append(la.norm(i)==0)
 		bool = True
 		for i in diff:
-			bool = bool and i==0
+			bool = bool and i
+		#print the first key found different (this will only trigger when the two info's have the same shape, so probably not very useful)
+		if printfirstdiff and bool == False:
+			for i in range(len(diff)):
+				if diff[i] == False:
+					print allkeys[i]
+					break
 		return bool
 	except ValueError:
 		print "info doesn't have the same shape"
@@ -482,21 +492,9 @@ class RedundantCalibrator:
 		antloc=[self.antennaLocation[ant] for ant in subsetant]
 		##########################################################################################
 		#find out ubl
-		#antloc has the form of a nested list with dimension nant*3, returns a np array of unique baselines
-		def UBL(antloc,tolerance):
-			ubllist=np.array([np.array([0,0,0])]);
-			for i in range(len(antloc)):
-				for j in range(i+1,len(antloc)):
-					bool = False;
-					for bl in ubllist:
-						bool = bool or (np.linalg.norm(antloc[i]-antloc[j]-bl)<tolerance or np.linalg.norm(antloc[i]-antloc[j]+bl)<tolerance)
-					if bool == False:			
-						ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
-			ublall=np.delete(ubllist,0,0)
-			return ublall
-		#use the function above to find the ubl
+		#use the function compute_UBL to find the ubl
 		tolerance=self.antennaLocationTolerance;		
-		ublall=UBL(antloc,tolerance)
+		ublall=self.compute_UBL(tolerance)
 		#delete the bad ubl's
 		ubl=np.delete(ublall,np.array(self.badUBL),0)
 		nUBL=len(ubl);
@@ -517,14 +515,8 @@ class RedundantCalibrator:
 					nbl+=1
 					goodpairs.append([i,j])
 		nBaseline=len(goodpairs)
-		#from antenna pair to baseline index
-		def toBaseline(pair,tvid=self.totalVisibilityId):
-			sortp=np.array(sorted(pair))
-			for i in range(len(tvid)):
-				if tvid[i][0] == subsetant[sortp[0]] and tvid[i][1] == subsetant[sortp[1]]:
-					return i
-			return 'no match'
-		subsetbl=np.array([toBaseline(bl,self.totalVisibilityId) for bl in goodpairs])			
+		#from a pair of good antenna index to baseline index
+		subsetbl=np.array([self.get_baseline([subsetant[bl[0]],subsetant[bl[1]]]) for bl in goodpairs])
 		##################################################################################
 		#bltoubl: cross bl number to ubl index
 		def findublindex(pair,ubl=ubl):
@@ -653,40 +645,39 @@ class RedundantCalibrator:
 		B=sps.csr_matrix(B)
 		###########################################################################
 		#create info dictionary
-		info={}
-		info['nAntenna']=nAntenna
-		info['nUBL']=nUBL
-		info['nBaseline']=nBaseline
-		info['subsetant']=subsetant
-		info['antloc']=antloc
-		info['subsetbl']=subsetbl
-		info['ubl']=ubl
-		info['bltoubl']=bltoubl
-		info['reversed']=reverse
-		info['reversedauto']=reversedauto
-		info['autoindex']=autoindex
-		info['crossindex']=crossindex
-		info['ncross']=ncross
-		info['bl2d']=bl2d
-		info['ublcount']=ublcount
-		info['ublindex']=ublindex
-		info['bl1dmatrix']=bl1dmatrix
-		info['degenM']=degenM
-		info['A']=A
-		info['B']=B
+		self.info={}
+		self.info['nAntenna']=nAntenna
+		self.info['nUBL']=nUBL
+		self.info['nBaseline']=nBaseline
+		self.info['subsetant']=subsetant
+		self.info['antloc']=antloc
+		self.info['subsetbl']=subsetbl
+		self.info['ubl']=ubl
+		self.info['bltoubl']=bltoubl
+		self.info['reversed']=reverse
+		self.info['reversedauto']=reversedauto
+		self.info['autoindex']=autoindex
+		self.info['crossindex']=crossindex
+		self.info['ncross']=ncross
+		self.info['bl2d']=bl2d
+		self.info['ublcount']=ublcount
+		self.info['ublindex']=ublindex
+		self.info['bl1dmatrix']=bl1dmatrix
+		self.info['degenM']=degenM
+		self.info['A']=A
+		self.info['B']=B
 		with warnings.catch_warnings():
 				warnings.filterwarnings("ignore",category=DeprecationWarning)
-				info['At'] = info['A'].transpose()
-				info['Bt'] = info['B'].transpose()
-				info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense())#(AtA)^-1
-				info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense())#(BtB)^-1
-				info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
-				info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
-				info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
-				info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
-				info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
-				info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
-		self.info=info
+				self.info['At'] = self.info['A'].transpose()
+				self.info['Bt'] = self.info['B'].transpose()
+				self.info['AtAi'] = la.pinv(self.info['At'].dot(self.info['A']).todense())#(AtA)^-1
+				self.info['BtBi'] = la.pinv(self.info['Bt'].dot(self.info['B']).todense())#(BtB)^-1
+				self.info['AtAiAt'] = self.info['AtAi'].dot(self.info['At'].todense())#(AtA)^-1At
+				self.info['BtBiBt'] = self.info['BtBi'].dot(self.info['Bt'].todense())#(BtB)^-1Bt
+				self.info['PA'] = self.info['A'].dot(self.info['AtAiAt'])#A(AtA)^-1At
+				self.info['PB'] = self.info['B'].dot(self.info['BtBiBt'])#B(BtB)^-1Bt
+				self.info['ImPA'] = sps.identity(ncross) - self.info['PA']#I-PA
+				self.info['ImPB'] = sps.identity(ncross) - self.info['PB']#I-PB
 
 
 
@@ -713,8 +704,11 @@ class RedundantCalibrator:
 		if type(tolerance) == str:
 			raise Exception("tolerance needs to be number not string")
 			return
-			
-		antloc=self.antennaLocation
+		#remove the bad antennas
+		nant=len(self.antennaLocation)
+		subsetant=[i for i in range(nant) if i not in self.badAntenna]
+		nAntenna=len(subsetant)
+		antloc=[self.antennaLocation[ant] for ant in subsetant]
 		ubllist=np.array([np.array([0,0,0])]);
 		for i in range(len(antloc)):
 			for j in range(i+1,len(antloc)):
@@ -727,7 +721,7 @@ class RedundantCalibrator:
 		return ublall
 		
 
-	#need to do compute_redundantinfo first for this function to work
+	#need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
 	#input the antenna pair(as a list of two numbers), return the corresponding ubl index
 	def get_ublindex(self,antpair):
 		#check if the input is a list, tuple, np.array of two numbers
@@ -740,7 +734,13 @@ class RedundantCalibrator:
 		elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
 			raise Exception("input needs to be number not string")
 			return
-			
+		
+		#check if self.info['bl1dmatrix'] exists
+		if type(self.info) != dict :
+			raise Exception("needs info['bl1dmatrix']")
+		if 'bl1dmatrix' not in self.info:
+			raise Exception("needs info['bl1dmatrix']")
+		
 		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
 		if antpair[0]==antpair[1]:
 			return "auto correlation"
@@ -762,6 +762,12 @@ class RedundantCalibrator:
 		elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
 			raise Exception("input needs to be number not string")
 			return
+		
+		#check if self.info['bl1dmatrix'] exists
+		if type(self.info) != dict :
+			raise Exception("needs info['bl1dmatrix']")
+		if 'bl1dmatrix' not in self.info:
+			raise Exception("needs info['bl1dmatrix']")
 		
 		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
 		if antpair[0] == antpair[1]:

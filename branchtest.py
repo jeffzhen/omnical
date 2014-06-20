@@ -21,7 +21,7 @@ correctinfo = omni.read_redundantinfo('/home/ericy/omnical/redundant_info/redund
 calibrator = omni.RedundantCalibrator(32)
 
 calibrator.antennaLocationTolerance = .1
-calibrator.badAntenna = [1,3,4,5,7,8]
+calibrator.badAntenna = [1,3,4,5,7,8,9]
 calibrator.badUBL = [0, 1, 2,4,7,8]
 
 antlist=[[ -1.82119623e-02,  -1.17231687e-02 , -1.65467362e-02],
@@ -59,27 +59,37 @@ antlist=[[ -1.82119623e-02,  -1.17231687e-02 , -1.65467362e-02],
 flat=[ele for bl in antlist for ele in bl]
 calibrator.antennaLocation=np.reshape(np.array(flat),(len(flat)/3,3))
 
-calibrator.compute_info()
+calibrator.compute_redundantinfo()
 
 info1=correctinfo
 info2=calibrator.info
 
 #input two different redundant info, output True if they are the same and False if they are different
-def compare_info(info1,info2):
+def compare_info(info1,info2,printfirstdiff=True):
 	try:
-		infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+		floatkeys=['antloc','ubl']
+		intkeys = ['nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 		infomatrices=['A','B','At','Bt']
+		allkeys=['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
 		diff=[]
 		#10**5 for floating point errors
-		for key in infokeys:	
-			diff.append(round(10**5*la.norm(info1[key]-info2[key])))
+		for key in floatkeys:	
+			diff.append(round(10**5*la.norm(info1[key]-info2[key]))==0)
+		for key in intkeys:	
+			diff.append(la.norm(info1[key]-info2[key])==0)
 		for key in infomatrices:
-			diff.append(round(10**5*la.norm((info1[key]-info2[key]).todense())))
+			diff.append(la.norm((info1[key]-info2[key]).todense())==0)
 		for i in info1['ublindex']-info2['ublindex']:
-			diff.append(round(10**5*la.norm(i)))
+			diff.append(la.norm(i)==0)
 		bool = True
 		for i in diff:
-			bool = bool and i==0
+			bool = bool and i
+		#print the first key found different
+		if printfirstdiff and bool == False:
+			for i in range(len(diff)):
+				if diff[i] == False:
+					print allkeys[i]
+					break
 		return bool
 	except ValueError:
 		print "info doesn't have the same shape"
@@ -87,8 +97,7 @@ def compare_info(info1,info2):
 	
 print compare_info(info1,info2)
 
-
-
+print calibrator.get_baseline([1,2])
 
 
 
