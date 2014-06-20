@@ -12,6 +12,8 @@ uvfiles = ['test.uv']
 wantpols = {'xx':-5, 'yy':-6}
 
 infopaths = {'xx':'./redundantinfo_PSA32.txt', 'yy':'./redundantinfo_PSA32.txt'}
+arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
+
 oppath = './results/'
 
 removedegen = True
@@ -49,7 +51,10 @@ del(uv)
 
 ####create redundant calibrators################
 calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
-
+#calibrators = [omni.RedundantCalibrator(nant) for key in wantpols.keys()]
+#for calibrator, key in zip(calibrators, wantpols.keys()):
+	#calibrator.compute_redundantinfo(arrayinfoPath = arrayinfos[key])
+	#calibrator.write_redundantinfo(infoPath = './redundantinfo_test_' + key + '.txt', overwrite = True)
 ###start reading miriads################
 print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
 data, t, timing, lst = omni.importuvs(uvfiles, [calibrator.info for calibrator in calibrators], wantpols)
@@ -85,6 +90,8 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 	calibrator.convergePercent = converge_percent
 	calibrator.maxIteration = max_iter
 	calibrator.stepSize = step_size
+	print calibrator.nTime, calibrator.nFrequency
+	calibrator.readyForCpp()
 	calibrator.loglincal(data[p],verbose=True)
 
 #########Test results############

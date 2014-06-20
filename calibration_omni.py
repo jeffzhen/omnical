@@ -105,7 +105,7 @@ def read_redundantinfo(infopath):
 def write_redundantinfo(info, infopath, overwrite = False):
 	METHODNAME = "*write_redundantinfo*"
 	if (not overwrite) and os.path.isfile(infopath):
-		raise Exception(fileName + methodName + "Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
+		raise Exception("Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
 		return
 	if (overwrite) and os.path.isfile(infopath):
 		os.remove(infopath)
@@ -312,8 +312,8 @@ class RedundantCalibrator:
 		self.badUBL = []
 		self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(self.nTotalAnt)])#PAPER miriad convention by default
 		self.info = None
+		self.infoPath = './tmp_redundantinfo'
 		self.infoFileExist = False
-		self.infoPath = None
 		self.dataFileExist = False
 		self.keepData = False
 		self.tmpDataPath = './tmp_calibration_omni_data'
@@ -333,9 +333,7 @@ class RedundantCalibrator:
 			if type(info) == type({}):
 				self.info = info
 			elif type(info) == type('a'):
-				self.info = read_redundantinfo(info)
-				self.infoPath = info
-				self.infoFileExist = True
+				self.read_redundantinfo(info)
 			else:
 				raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
 
@@ -344,18 +342,21 @@ class RedundantCalibrator:
 		self.info = read_redundantinfo(infopath)
 		self.infoFileExist = True
 
-	def write_redundantinfo(self, infoPath = None):
+	def write_redundantinfo(self, infoPath = None, overwrite = False):
 		methodName = '.write_redundantinfo.'
 		if infoPath == None:
 			infoPath = self.infoPath
-		if (self.info != None) and (self.infoFileExist == False) and (infoPath != None):
-			write_redundantinfo(self.info, infoPath)
+		if (self.info != None) and (infoPath != None):
+			write_redundantinfo(self.info, infoPath, overwrite = overwrite)
+			self.infoPath = infoPath
 			self.infoFileExist = True
 		else:
 			raise Exception(self.className + methodName + "Error: either 1) info does not yet exist for the current instance, or 2) an info file already exists on disk, or 3) no file path is ever specified.")
 
 	def read_arrayinfo(self, arrayinfopath, verbose = False):#array info is the minimum set of information to uniquely describe a redundant array, and is needed to compute redundant info. It includes, in each line, bad antenna indices, bad unique baseline indices, tolerance of error when checking redundancy, antenna locations, and visibility's antenna pairing conventions. Unlike redundant info which is a self-contained dictionary, items in array info each have their own fields in the instance.
 		methodName = ".read_arrayinfo."
+		if not os.path.isfile(arrayinfopath):
+			raise Exception(self.className + methodName + "Error: Array info file " + arrayinfopath + " doesn't exist!")
 		with open(arrayinfopath) as f:
 			rawinfo = [[float(x) for x in line.split()] for line in f]
 		if verbose:
@@ -389,6 +390,10 @@ class RedundantCalibrator:
 
 	def readyForCpp(self, verbose = True):#check if all necessary parameters are specified to call Cpp
 		methodName = '.readyForCpp.'
+		if not (self.dataFileExist and os.path.isfile(self.dataPath)):
+			if verbose:
+				print self.className + methodName + "Error: data file check failed. No data file specified or specified filename does not exist."
+			return False
 		if os.path.getsize(self.dataPath) / 8 != self.nTime * self.nFrequency * self.nTotalBaselineAuto:
 			if verbose:
 				print self.className + methodName + "Error: data size check failed. File on disk seems to contain " + str(os.path.getsize(self.dataPath) / 8) + " complex64 numbers, where as we expect " + str(self.nTime * self.nFrequency * self.nTotalBaselineAuto) + '.'
@@ -396,7 +401,7 @@ class RedundantCalibrator:
 
 		if not self.infoFileExist :
 			if verbose:
-				print self.className + methodName + "Error: info file existence check failed. Call read_redundantinfo(self, infoPath) function to read in an existing redundant info text file or write_redundantinfo(self, infoPath) to write a new text file."
+				print self.className + methodName + "Error: info file existence check failed. Call read_redundantinfo(self, infoPath) function to read in an existing redundant info text file or compute_redundantinfo(arrayinfoPath=None) to compute redundantinfo write_redundantinfo() to write redundantinfo."
 			return False
 
 		if self.removeAdditive and self.removeAdditivePeriod <= 0:
@@ -416,12 +421,17 @@ class RedundantCalibrator:
 		methodName = '.cal.'
 		if type(data) == type(' '):
 			self.dataPath = data
+			self.dataFileExist = True
 		elif type(data) == type(np.zeros(1)) and len(data.shape) == 3 and len(data[0,0]) == self.nTotalBaselineAuto and self.dataPath == self.tmpDataPath:
 			(self.nTime, self.nFrequency, _) = data.shape
 			np.array(data, dtype = 'complex64').tofile(self.tmpDataPath)
 			self.dataPath = self.tmpDataPath
+			self.dataFileExist = True
 		else:
 			raise Exception(self.className + methodName + "Error: data type must be a file path name to a binary file *OR* a 3D numpy array of dimensions (nTime, nFrequency, nTotalBaselineAuto). You have either 1) passed in the wrong type, or 2) passed in a correct data array but have mismatching self.dataPath and self.tmpDataPath (these paths will be overwritten if you pass in an array as data!).")
+
+		if (not self.infoFileExist):
+			self.write_redundantinfo()
 
 		if self.readyForCpp(verbose = False):
 			command = "./omnical " + self.dataPath + " " + self.infoPath + " " + str(self.nTime) + " " + str(self.nFrequency) + " "  + str(self.nTotalAnt) + " " + str(int(self.removeDegeneracy)) + " " + str(int(self.removeAdditive)) + " " + str(self.removeAdditivePeriod) + " " + self.calMode + " " + str(self.convergePercent) + " " + str(self.maxIteration) + " " + str(self.stepSize)
@@ -459,7 +469,12 @@ class RedundantCalibrator:
 		#self.calMode = '2'
 		#self.cal(data, verbose)
 
-	def compute_info(self, configFilePath = None):#todo
+	def compute_redundantinfo(self, arrayinfoPath = None):
+		if arrayinfoPath != None and os.path.isfile(arrayinfoPath):
+			self.read_arrayinfo(arrayinfoPath)
+		if np.linalg.norm(self.antennaLocation) == 0:
+			raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
+		
 		#nAntenna and subsetant : get rid of the bad antennas
 		nant=len(self.antennaLocation)
 		subsetant=[i for i in range(nant) if i not in self.badAntenna]
@@ -674,6 +689,7 @@ class RedundantCalibrator:
 		self.info=info
 
 
+
 	#inverse function of totalVisibilityId, calculate the baseline index from the antenna pair
 	def get_baseline(self,pair): 
 		if not (type(pair) == list or type(pair) == np.ndarray or type(pair) == tuple):
@@ -711,7 +727,7 @@ class RedundantCalibrator:
 		return ublall
 		
 
-	#need to do compute_info first for this function to work
+	#need to do compute_redundantinfo first for this function to work
 	#input the antenna pair(as a list of two numbers), return the corresponding ubl index
 	def get_ublindex(self,antpair):
 		#check if the input is a list, tuple, np.array of two numbers
@@ -733,7 +749,7 @@ class RedundantCalibrator:
 		return self.info['bltoubl'][crossblindex]
 		
 
-	#need to do compute_info first
+	#need to do compute_redundantinfo first
 	#input the antenna pair, return -1 if it is a reversed baseline and 1 if it is not reversed
 	def get_reversed(self,antpair):
 		#check if the input is a list, tuple, np.array of two numbers
