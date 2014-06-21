@@ -74,7 +74,7 @@ def read_redundantinfo(infopath):
 		for j in range(len(info['ublindex'][i])):
 			info['ublindex'][i][j] = tmp[cnter]
 			cnter+=1
-
+	info['ublindex'] = np.asarray(info['ublindex'])
 
 	info['bl1dmatrix'] = rawinfo[infocount].reshape((info['nAntenna'], info['nAntenna'])).astype(int) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
 	infocount += 1
@@ -90,8 +90,8 @@ def read_redundantinfo(infopath):
 		warnings.filterwarnings("ignore",category=DeprecationWarning)
 		info['At'] = info['A'].transpose()
 		info['Bt'] = info['B'].transpose()
-		info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense())#(AtA)^-1
-		info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense())#(BtB)^-1
+		info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
+		info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
 		info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
 		info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
 		info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
@@ -274,34 +274,36 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano)
 def stdmatrix(length, polydegree):#to find out the error in fitting y by a polynomial poly(x), one compute error vector by (I-A.(At.A)^-1 At).y, where Aij = i^j. This function returns (I-A.(At.A)^-1 At)
 	A = np.array([[i**j for j in range(polydegree + 1)] for i in range(length)], dtype='int')
 	At = A.transpose()
-	return np.identity(length) - A.dot(la.pinv(At.dot(A)).dot(At))
+	return np.identity(length) - A.dot(la.pinv(At.dot(A), cond = 10**(-6)).dot(At))
 
 #input two different redundant info, output True if they are the same and False if they are different
-def compare_info(info1,info2,printfirstdiff=True):
+def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
 	try:
 		floatkeys=['antloc','ubl']
 		intkeys = ['nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 		infomatrices=['A','B','At','Bt']
-		allkeys=['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
+		specialkeys = ['ublindex']
+		allkeys= floatkeys + intkeys + infomatrices + specialkeys#['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
 		diff=[]
 		#10**5 for floating point errors
 		for key in floatkeys:	
-			diff.append(round(10**5*la.norm(info1[key]-info2[key]))==0)
+			diff.append(round(la.norm(info1[key]-info2[key])/tolerance)==0)
 		for key in intkeys:	
 			diff.append(la.norm(info1[key]-info2[key])==0)
 		for key in infomatrices:
 			diff.append(la.norm((info1[key]-info2[key]).todense())==0)
-		for i in info1['ublindex']-info2['ublindex']:
-			diff.append(la.norm(i)==0)
+
+		diff.append(True)
+		for i,j in zip(info1['ublindex'],info2['ublindex']):
+			diff[-1] = diff[-1] and (la.norm(i - j)==0)
 		bool = True
 		for i in diff:
 			bool = bool and i
 		#print the first key found different (this will only trigger when the two info's have the same shape, so probably not very useful)
-		if printfirstdiff and bool == False:
+		if verbose and bool == False:
 			for i in range(len(diff)):
 				if diff[i] == False:
 					print allkeys[i]
-					break
 		return bool
 	except ValueError:
 		print "info doesn't have the same shape"
@@ -624,8 +626,8 @@ class RedundantCalibrator:
 			d.append(np.append(ubl[i],0))
 		d=np.array(d)
 		
-		m1=-a.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
-		m2=d.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
+		m1=-a.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
+		m2=d.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
 		degenM = np.append(m1,m2,axis=0)
 		#####################################################################################
 		#A: A matrix for logcal amplitude
@@ -670,8 +672,8 @@ class RedundantCalibrator:
 				warnings.filterwarnings("ignore",category=DeprecationWarning)
 				self.info['At'] = self.info['A'].transpose()
 				self.info['Bt'] = self.info['B'].transpose()
-				self.info['AtAi'] = la.pinv(self.info['At'].dot(self.info['A']).todense())#(AtA)^-1
-				self.info['BtBi'] = la.pinv(self.info['Bt'].dot(self.info['B']).todense())#(BtB)^-1
+				self.info['AtAi'] = la.pinv(self.info['At'].dot(self.info['A']).todense(), cond = 10**(-6))#(AtA)^-1
+				self.info['BtBi'] = la.pinv(self.info['Bt'].dot(self.info['B']).todense(), cond = 10**(-6))#(BtB)^-1
 				self.info['AtAiAt'] = self.info['AtAi'].dot(self.info['At'].todense())#(AtA)^-1At
 				self.info['BtBiBt'] = self.info['BtBi'].dot(self.info['Bt'].todense())#(BtB)^-1Bt
 				self.info['PA'] = self.info['A'].dot(self.info['AtAiAt'])#A(AtA)^-1At

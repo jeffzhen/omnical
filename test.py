@@ -9,7 +9,7 @@ FILENAME = "test.py"
 ######################################################################
 ano = 'test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 uvfiles = ['test.uv']
-wantpols = {'xx':-5, 'yy':-6}
+wantpols = {'xx':-5}#, 'yy':-6}
 
 infopaths = {'xx':'./redundantinfo_PSA32.txt', 'yy':'./redundantinfo_PSA32.txt'}
 arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
@@ -24,7 +24,7 @@ rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
 
 
 
-keep_binary_data = False
+keep_binary_data = True
 keep_binary_calpar = False
 
 
@@ -50,11 +50,11 @@ del(uv)
 
 
 ####create redundant calibrators################
-calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
-#calibrators = [omni.RedundantCalibrator(nant) for key in wantpols.keys()]
-#for calibrator, key in zip(calibrators, wantpols.keys()):
-	#calibrator.compute_redundantinfo(arrayinfoPath = arrayinfos[key])
-	#calibrator.write_redundantinfo(infoPath = './redundantinfo_test_' + key + '.txt', overwrite = True)
+#calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
+calibrators = [omni.RedundantCalibrator(nant) for key in wantpols.keys()]
+for calibrator, key in zip(calibrators, wantpols.keys()):
+	calibrator.compute_redundantinfo(arrayinfoPath = arrayinfos[key])
+	calibrator.write_redundantinfo(infoPath = './redundantinfo_test_' + key + '.txt', overwrite = True)
 ###start reading miriads################
 print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
 data, t, timing, lst = omni.importuvs(uvfiles, [calibrator.info for calibrator in calibrators], wantpols)
@@ -97,10 +97,15 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 #########Test results############
 correctresult = np.sum(np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165),axis=2).flatten()#summing the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
 
-newresult = np.sum(calibrators[1].rawCalpar,axis=2).flatten()
+newresult = np.sum(calibrators[-1].rawCalpar,axis=2).flatten()
 if (len(newresult) == len(correctresult)) and ((newresult == correctresult) | (np.isnan(newresult) & np.isnan(correctresult))).all():
 	print "TEST PASSED!"
+elif (len(newresult) == len(correctresult)) and ([abs((j-i)/j) < 10**-6 for i,j in zip(newresult, correctresult)] | (np.isnan(newresult) & np.isnan(correctresult))).all():
+	print "TEST PASSED! Note: There seem to be minor numerical differences on the level of 10^-6."
 else:
+	for i in range(len(newresult)):
+		if abs((newresult[i]-correctresult[i])/correctresult[i]) >= 10**-6:
+			print i, newresult[i], correctresult[i]
 	print "TEST FAILED :("
 
 os.remove(oppath + 'miriadextract_' + ano + "_localtime.dat")

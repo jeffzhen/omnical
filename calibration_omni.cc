@@ -3433,7 +3433,7 @@ void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* modu
 void runAverage1d(vector<float> *in, vector<float> *out, int w){//compute running average with running length 2w+1. The first and last w elements are averaged with less elements.
 	string METHODNAME = "runAverage1d";
 	if(in->size() != out->size()){
-		printf("#!!#%s#!!#%s: FATAL ERROR: input and output arrays have different dimensions: %i vs %i. ABORT!\n", FILENAME.c_str(), METHODNAME.c_str(), in->size(), out->size());
+		printf("#!!#%s#!!#%s: FATAL ERROR: input and output arrays have different dimensions: %lu vs %lu. ABORT!\n", FILENAME.c_str(), METHODNAME.c_str(), in->size(), out->size());
 		return;
 	}
 	int l = in->size();
