@@ -2,6 +2,7 @@ import aipy as ap
 import numpy as np
 import commands, os, time, math, ephem
 import calibration_omni as omni
+import optparse, sys
 FILENAME = "omnical_PSA64.py"
 
 ##########################Sub-class#############################
@@ -25,12 +26,19 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
 ######################################################################
 ##############Config parameters###################################
 ######################################################################
+o = optparse.OptionParser()
+ap.scripting.add_standard_options(o, cal=True, pol=True)
+opts,args = o.parse_args(sys.argv[1:])
+
+
 ano = 'test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
-uvfiles = ['test.uv']
-wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo: 
+uvfiles = args
+wantpols = {}
+for p in opts.pol.split(','): wantpols[p] = ap.miraid.str2pol[p]
+#wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo: 
 
 
-aa = ap.cal.get_aa('psa898_v003', np.array([.15]))
+aa = ap.cal.get_aa(opts.cal, np.array([.15]))
 #infopaths = {'xx':'./redundantinfo_PSA32.txt', 'yy':'./redundantinfo_PSA32.txt'}
 #arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
 oppath = './results/'
