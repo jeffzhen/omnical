@@ -287,15 +287,15 @@ def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
 		diff=[]
 		#10**5 for floating point errors
 		for key in floatkeys:	
-			diff.append(round(la.norm(info1[key]-info2[key])/tolerance)==0)
+			diff.append(round(la.norm(np.array(info1[key])-np.array(info2[key]))/tolerance)==0)
 		for key in intkeys:	
-			diff.append(la.norm(info1[key]-info2[key])==0)
+			diff.append(la.norm(np.array(info1[key])-np.array(info2[key]))==0)
 		for key in infomatrices:
 			diff.append(la.norm((info1[key]-info2[key]).todense())==0)
 
 		diff.append(True)
 		for i,j in zip(info1['ublindex'],info2['ublindex']):
-			diff[-1] = diff[-1] and (la.norm(i - j)==0)
+			diff[-1] = diff[-1] and (la.norm(np.array(i) - np.array(j))==0)
 		bool = True
 		for i in diff:
 			bool = bool and i
