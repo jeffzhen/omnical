@@ -494,6 +494,21 @@ class RedundantCalibrator:
 		#self.calMode = '2'
 		#self.cal(data, verbose)
 
+	def set_badUBL(self, badUBL):
+		if np.array(badUBL).shape[-1] != 3 or len(np.array(badUBL).shape) != 2:
+			raise Exception("ERROR: badUBL need to be a list of coordinates each with 3 numbers.")
+		badindex = []
+		UBL = self.compute_UBL(self.antennaLocationTolerance)
+		for badubl in badUBL:
+			for i, ubl in zip(range(len(UBL)), UBL):
+				if la.norm(badubl - ubl) < self.antennaLocationTolerance:
+					badindex += [i]
+					break
+		if len(badindex) != len(badUBL):
+			raise Exception("ERROR: some badUBL not found in self.computeUBL!")
+		else:
+			self.badUBL = np.sort(badindex).tolist()
+
 	def compute_redundantinfo(self, arrayinfoPath = None):
 		if arrayinfoPath != None and os.path.isfile(arrayinfoPath):
 			self.read_arrayinfo(arrayinfoPath)
