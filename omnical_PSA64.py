@@ -116,7 +116,10 @@ for l in lst:
 	f.write("%s\n"%l)
 f.close()
 
-
+####manually saving data################
+for p, calibrator in zip(range(len(wantpols)), calibrators):
+	data[p].astype('complex64').tofile(calibrator.dataPath)
+del(data)
 ####calibrate################
 print FILENAME + " MSG: starting calibration."
 for p, calibrator in zip(range(len(wantpols)), calibrators):
@@ -131,5 +134,5 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 	calibrator.stepSize = step_size
 	print calibrator.nTime, calibrator.nFrequency
 #	calibrator.readyForCpp()
-	calibrator.loglincal(data[p],verbose=True)
+	calibrator.loglincal(calibrator.dataPath, verbose=True)
 
