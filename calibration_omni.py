@@ -129,17 +129,12 @@ def write_redundantinfo(info, infopath, overwrite = False):
 	f_handle.close()
 	return
 
-def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None):
+def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100):#tolerance of timing in radians in lst
 	METHODNAME = "*importuvs*"
-	latP = -0.53619181096511903#todo: figure this out from uv files
-	lonP = 0.37399448506783717
 	############################################################
-	sa = ephem.Observer()
-	sa.lon = lonP #//todo: read from uv property
-	sa.lat = latP
 	sun = ephem.Sun()
 	julDelta = 2415020 # =julian date - pyephem's Observer date
-	####get some info from the first uvfile
+	####get some info from the first uvfile####################
 	uv=ap.miriad.UV(uvfilenames[0])
 	nfreq = uv.nchan;
 	if nTotalAntenna == None:
@@ -152,9 +147,14 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None):
 		raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
 	startfreq = uv['sfreq']
 	dfreq = uv['sdf']
+
+	sa = ephem.Observer()
+	sa.lon = uv['longitu']
+	sa.lat = uv['latitud']
+
 	del(uv)
 
-	##compute bl1dmatrix####each entry is 1 indexed with minus meaning conjugate
+	#######compute bl1dmatrix####each entry is 1 indexed with minus meaning conjugate
 	bl1dmatrix = np.zeros((nant, nant), dtype = 'int32')
 	for a1a2, bl in zip(totalVisibilityId, range(len(totalVisibilityId))):
 		a1, a2 = a1a2
@@ -164,9 +164,9 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None):
 	deftime = 2000
 	data = np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')
 	#sunpos = np.zeros((deftime, 2))
-	t = []
-	timing = []
-	lst = []
+	t = []#julian date
+	timing = []#local time string
+	lst = []#in units of sidereal hour
 
 	###start processing
 	datapulled = False
@@ -182,7 +182,10 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None):
 				sa.date = preamble[1] - julDelta
 				#sun.compute(sa)
 				timing += [sa.date.__str__()]
-				lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
+				if abs((uv['lst'] - float(sa.sidereal_time()) + math.pi)%(2*math.pi) - math.pi) >= timingTolerance:
+					raise Exception("Error: uv['lst'] is %f radians whereas time computed by aipy is %f radians, the difference is larger than tolerance of %f."%(uv['lst'], float(sa.sidereal_time()), timingTolerance))
+				else:
+					lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
 				if len(t) > len(data):
 					print FILENAME + METHODNAME + " MSG:",  "expanding number of time slices from", len(data), "to", len(data) + deftime
 					data = np.concatenate((data, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')))
