@@ -91,7 +91,7 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 	calibrator.maxIteration = max_iter
 	calibrator.stepSize = step_size
 	print calibrator.nTime, calibrator.nFrequency
-	calibrator.readyForCpp()
+	#calibrator.readyForCpp()
 	calibrator.loglincal(data[p],verbose=True)
 
 #########Test results############
