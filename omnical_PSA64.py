@@ -27,11 +27,13 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
 ##############Config parameters###################################
 ######################################################################
 o = optparse.OptionParser()
+
 ap.scripting.add_standard_options(o, cal=True, pol=True)
+o.add_option('--tag', action = 'store', default = 'PSA64', help = 'tag name of this calculation')
 opts,args = o.parse_args(sys.argv[1:])
 
 
-ano = 'PSA64_test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
+ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 uvfiles = args
 wantpols = {}
 for p in opts.pol.split(','): wantpols[p] = ap.miriad.str2pol[p]
