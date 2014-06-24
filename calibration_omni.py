@@ -143,13 +143,13 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None):
 	uv=ap.miriad.UV(uvfilenames[0])
 	nfreq = uv.nchan;
 	if nTotalAntenna == None:
-		nant = uv['nants'] / 2 # 'nants' counting ant-pols, so divide 2
+		nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
 	else:
 		nant = nTotalAntenna
 
 
 	if nant * (nant + 1) / 2 < len(totalVisibilityId):
-		raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, max(info[p]['subsetbl'])))
+		raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
 	startfreq = uv['sfreq']
 	dfreq = uv['sdf']
 	del(uv)

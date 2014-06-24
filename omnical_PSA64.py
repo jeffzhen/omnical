@@ -61,7 +61,7 @@ keep_binary_data = True
 keep_binary_calpar = True
 
 
-converge_percent = 0.01
+converge_percent = 0.001
 max_iter = 20
 step_size = .3
 
@@ -94,7 +94,7 @@ for calibrator, key in zip(calibrators, wantpols.keys()):
 	calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
 ###start reading miriads################
 print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
-data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols, nTotalAntenna = len(aa))
+data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols)#, nTotalAntenna = len(aa))
 print FILENAME + " MSG:",  len(t), "slices read."
 
 ###raw calibration################
