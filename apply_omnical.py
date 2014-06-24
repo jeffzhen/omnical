@@ -11,8 +11,8 @@ FILENAME = "omnical.py"
 latP = -0.53619181096511903
 lonP = 0.37399448506783717
 
-calparano = 'lst_v007_fg'
-ano = 'lst_v006_I_w_v007par'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
+calparano = 'lst_v007_fg_crosstalkrm'
+ano = 'lst_v006_I_w_v007par_crosstalkrm'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 uvfiles = commands.getoutput('ls /data4/paper/arp/lst_v006_I/*.uv -d').split()[:15]
 wantpols = {'SI':1}
 

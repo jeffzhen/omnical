@@ -8,7 +8,7 @@ FILENAME = "omnical.py"
 latP = -0.53619181096511903
 lonP = 0.37399448506783717
 
-ano = 'lst_v007_fg'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
+ano = 'lst_v007_fg_crosstalkrm'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 uvfiles = commands.getoutput('ls /data4/paper/arp/lst_v007_fg/*.uv -d').split()
 wantpols = {'SI':1}
 
@@ -16,6 +16,8 @@ infopaths = {'SI':'./redundantinfo_PSA32.txt'}
 oppath = './lst_v007_results/'
 
 removedegen = 1
+removeadd = 1
+addPeriod = 50
 
 needrawcal = False #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
 rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
@@ -79,7 +81,7 @@ del(data)
 
 ####Call C++ omnical code################
 for p, pol in zip(range(len(wantpols)), wantpols.keys()):
-	command = "./omnical " + oppath + 'miriadextract_' + pol + '_' + ano + " " + infopaths[pol] + " " + str(len(t)) + " " + str(nfreq) + " "  + str(nant) + " " + str(removedegen)# + " " + oppath + 'miriadextract_' + pol + '_' + ano + ".omnical"
+	command = "./omnical " + oppath + 'miriadextract_' + pol + '_' + ano + " " + infopaths[pol] + " " + str(len(t)) + " " + str(nfreq) + " "  + str(nant) + " " + str(removedegen) + " " + str(removeadd) + " " + str(addPeriod)# + " " + oppath + 'miriadextract_' + pol + '_' + ano + ".omnical"
 	print FILENAME + " MSG: System call: ",  command
 	os.system(command)
 	print np.fromfile(oppath + 'miriadextract_' + pol + '_' + ano + ".omnical", dtype = 'float32').reshape((len(t), nfreq, 3+2*(info[p]['nAntenna']+info[p]['nUBL'])))[:5,50,:3]

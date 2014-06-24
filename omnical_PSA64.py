@@ -31,7 +31,7 @@ ap.scripting.add_standard_options(o, cal=True, pol=True)
 opts,args = o.parse_args(sys.argv[1:])
 
 
-ano = 'test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
+ano = 'PSA64_test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 uvfiles = args
 wantpols = {}
 for p in opts.pol.split(','): wantpols[p] = ap.miraid.str2pol[p]
@@ -39,24 +39,25 @@ for p in opts.pol.split(','): wantpols[p] = ap.miraid.str2pol[p]
 
 
 aa = ap.cal.get_aa(opts.cal, np.array([.15]))
+
 #infopaths = {'xx':'./redundantinfo_PSA32.txt', 'yy':'./redundantinfo_PSA32.txt'}
 #arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
 oppath = './results/'
 
-removedegen = True
+removedegen = False
 removeadditive = False
 
-needrawcal = True #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
-rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
+needrawcal = False #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
+#rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
 
 
 
 keep_binary_data = True
-keep_binary_calpar = False
+keep_binary_calpar = True
 
 
 converge_percent = 0.01
-max_iter = 10
+max_iter = 20
 step_size = .3
 
 ######################################################################
@@ -80,8 +81,10 @@ del(uv)
 #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
 calibrators = [RedundantCalibrator_PAPER(aa) for key in wantpols.keys()]
 for calibrator, key in zip(calibrators, wantpols.keys()):
-	calibrator.compute_redundantinfo(badUBL = [0, 1, 2], antennaLocationTolerance = 1)
-	calibrator.write_redundantinfo(infoPath = './redundantinfo_test_' + key + '.txt', overwrite = True)
+	calibrator.compute_redundantinfo(badUBL = [], antennaLocationTolerance = 1)
+	calibrator.write_redundantinfo(infoPath = oppath + 'redundantinfo_' + ano + '_' + key + '.txt', overwrite = True)
+	calibrator.dataPath = oppath + 'data_' + ano + '_' + key
+	calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
 ###start reading miriads################
 print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
 data, t, timing, lst = omni.importuvs(uvfiles, [calibrator.info for calibrator in calibrators], wantpols)
@@ -121,19 +124,3 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 	calibrator.readyForCpp()
 	calibrator.loglincal(data[p],verbose=True)
 
-#########Test results############
-correctresult = np.sum(np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165),axis=2).flatten()#summing the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
-
-newresult = np.sum(calibrators[-1].rawCalpar,axis=2).flatten()
-if (len(newresult) == len(correctresult)) and ((newresult == correctresult) | (np.isnan(newresult) & np.isnan(correctresult))).all():
-	print "TEST PASSED!"
-elif (len(newresult) == len(correctresult)) and ([abs((j-i)/j) < 10**-6 for i,j in zip(newresult, correctresult)] | (np.isnan(newresult) & np.isnan(correctresult))).all():
-	print "TEST PASSED! Note: There seem to be minor numerical differences on the level of 10^-6."
-else:
-	for i in range(len(newresult)):
-		if abs((newresult[i]-correctresult[i])/correctresult[i]) >= 10**-6:
-			print i, newresult[i], correctresult[i]
-	print "TEST FAILED :("
-
-os.remove(oppath + 'miriadextract_' + ano + "_localtime.dat")
-os.remove(oppath + 'miriadextract_' + ano + "_lsthour.dat")
