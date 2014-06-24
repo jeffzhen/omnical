@@ -57,19 +57,19 @@ int main(int argc, char *argv[]){
 	float converge_percent = atof(argv[10]);
 	int max_iter  = atoi(argv[11]);
 	float step_size = atof(argv[12]);
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Starting " << visin << " " << nInt << " by " << nFreq << endl; 
+	cout << "##" << FILENAME << "##" << METHODNAME << ": Starting " << visin << " " << nInt << " by " << nFreq << endl;
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Reading redundant baseline information and pre-computed matrices:" << endl;//generated from 16. additive noise investigation _from_17.nb
 	redundantinfo info;
 	readredundantinfo(infopath, &info);
 
 	cout << "Good antenna count: " << info.nAntenna << ". UBL count: " << info.nUBL << "." << endl;
 	cout.flush();
-	
-	
+
+
 	int nBaseline = nAnt * (nAnt + 1) / 2;
 	int nCross = nAnt * (nAnt - 1) / 2;
-	
 
+	clock_t tStartVar = clock();
 	////allocate big memories for calibration operations
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Allocating big memories for calibration operations...";
 	cout.flush();
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]){
 	//logcaladd(&(data[5][50]), &(additiveplaceholder), &info, &(calpar[5][50]), &(additiveplaceholder), 1, &module);
 	//lincal(&(data[5][50]), &(additiveplaceholder2), &info, &(calpar[5][50]), &module, 0.01, 10, 0.3);
 	//printv(&(calpar[5][50]), 0,10);
-	//return 0;	
+	//return 0;
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Calibrating...";
 	cout.flush();
 	for (int t = 0; t < data.size(); t++){
@@ -128,16 +128,16 @@ int main(int argc, char *argv[]){
 	}
 	cout << "Done." << endl;
 	cout.flush();
-	
-	
+
+
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing results...";
 	cout.flush();
 	if(removeadd) outputDataLarge(&additiveout, (visin + ".omniadd").c_str());
 	outputCalparSP(&calpar, calparout, false, info.nAntenna);
-	cout << "Done." << endl;
+	cout << "##" << FILENAME << "##" << METHODNAME << ": Done. ";
 	cout.flush();
-
-	printf("Time taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
+	printf("Calibration time taken: %.2fs; ", (double)(clock() - tStartVar)/CLOCKS_PER_SEC);
+	printf("Total time taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
 
 	return 0;
 }
