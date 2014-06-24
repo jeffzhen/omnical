@@ -57,7 +57,7 @@ for calibrator, key in zip(calibrators, wantpols.keys()):
 	calibrator.write_redundantinfo(infoPath = './redundantinfo_test_' + key + '.txt', overwrite = True)
 ###start reading miriads################
 print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
-data, t, timing, lst = omni.importuvs(uvfiles, [calibrator.info for calibrator in calibrators], wantpols)
+data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols)
 print FILENAME + " MSG:",  len(t), "slices read."
 
 ###raw calibration################

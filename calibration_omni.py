@@ -129,7 +129,7 @@ def write_redundantinfo(info, infopath, overwrite = False):
 	f_handle.close()
 	return
 
-def importuvs(uvfilenames, info, wantpols):
+def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None):
 	METHODNAME = "*importuvs*"
 	latP = -0.53619181096511903#todo: figure this out from uv files
 	lonP = 0.37399448506783717
@@ -142,10 +142,24 @@ def importuvs(uvfilenames, info, wantpols):
 	####get some info from the first uvfile
 	uv=ap.miriad.UV(uvfilenames[0])
 	nfreq = uv.nchan;
-	nant = uv['nants'] / 2 # 'nants' counting ant-pols, so divide 2
+	if nTotalAntenna == None:
+		nant = uv['nants'] / 2 # 'nants' counting ant-pols, so divide 2
+	else:
+		nant = nTotalAntenna
+
+
+	if nant * (nant + 1) / 2 < len(totalVisibilityId):
+		raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, max(info[p]['subsetbl'])))
 	startfreq = uv['sfreq']
 	dfreq = uv['sdf']
 	del(uv)
+
+	##compute bl1dmatrix####each entry is 1 indexed with minus meaning conjugate
+	bl1dmatrix = np.zeros((nant, nant), dtype = 'int32')
+	for a1a2, bl in zip(totalVisibilityId, range(len(totalVisibilityId))):
+		a1, a2 = a1a2
+		bl1dmatrix[a1, a2] = bl + 1
+		bl1dmatrix[a2, a1] = - (bl + 1)
 	####prepare processing
 	deftime = 2000
 	data = np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')
@@ -177,11 +191,10 @@ def importuvs(uvfilenames, info, wantpols):
 			for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 				if wantpols[pol] == uv['pol']:#//todo: use select()
 					a1, a2 = preamble[2]
-					bl = info[p]['bl1dmatrix'][a1, a2]
-					if bl < info[p]['nBaseline']:
-						datapulled = True
-						#print info[p]['subsetbl'][info[p]['crossindex'][bl]],
-						data[len(t) - 1, p, info[p]['subsetbl'][info[p]['crossindex'][bl]]] = rawd.data.astype('complex64')
+					bl = bl1dmatrix[a1, a2]#bl is 1 indexed with minus meaning conjugate
+					datapulled = True
+					#print info[p]['subsetbl'][info[p]['crossindex'][bl]],
+					data[len(t) - 1, p, abs(bl) - 1] = (np.real(rawd.data) + 1.j * np.sign(bl) * np.imag(rawd.data)).astype('complex64')
 		del(uv)
 		if not datapulled:
 			print FILENAME + METHODNAME + " MSG:",  "FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting."
@@ -286,9 +299,9 @@ def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
 		allkeys= floatkeys + intkeys + infomatrices + specialkeys#['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
 		diff=[]
 		#10**5 for floating point errors
-		for key in floatkeys:	
+		for key in floatkeys:
 			diff.append(round(la.norm(np.array(info1[key])-np.array(info2[key]))/tolerance)==0)
-		for key in intkeys:	
+		for key in intkeys:
 			diff.append(la.norm(np.array(info1[key])-np.array(info2[key]))==0)
 		for key in infomatrices:
 			diff.append(la.norm((info1[key]-info2[key]).todense())==0)
@@ -486,7 +499,7 @@ class RedundantCalibrator:
 			self.read_arrayinfo(arrayinfoPath)
 		if np.linalg.norm(self.antennaLocation) == 0:
 			raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
-		
+
 		#nAntenna and subsetant : get rid of the bad antennas
 		nant=len(self.antennaLocation)
 		subsetant=[i for i in range(nant) if i not in self.badAntenna]
@@ -495,7 +508,7 @@ class RedundantCalibrator:
 		##########################################################################################
 		#find out ubl
 		#use the function compute_UBL to find the ubl
-		tolerance=self.antennaLocationTolerance;		
+		tolerance=self.antennaLocationTolerance;
 		ublall=self.compute_UBL(tolerance)
 		#delete the bad ubl's
 		ubl=np.delete(ublall,np.array(self.badUBL),0)
@@ -531,7 +544,7 @@ class RedundantCalibrator:
 		bltoubl=[];
 		for i in goodpairs:
 			if i[0]!=i[1]:
-				bltoubl.append(findublindex(i)) 	
+				bltoubl.append(findublindex(i))
 		#################################################################################
 		#reversed:   cross only bl if reversed -1, otherwise 1
 		crosspair=[]
@@ -581,10 +594,10 @@ class RedundantCalibrator:
 		countdict={}
 		for bl in bltoubl:
 			countdict[bl]=0
-			
+
 		for bl in bltoubl:
 			countdict[bl]+=1
-			
+
 		ublcount=[]
 		for i in range(nUBL):
 			ublcount.append(countdict[i])
@@ -594,16 +607,16 @@ class RedundantCalibrator:
 		countdict={}
 		for bl in bltoubl:
 			countdict[bl]=[]
-			
+
 		for i in range(len(crosspair)):
 			ant1=crosspair[i][1]
 			ant2=crosspair[i][0]
 			countdict[bltoubl[i]].append([ant1,ant2,i])
-			
+
 		ublindex=[]
 		for i in range(nUBL):
 			ublindex.append(countdict[i])
-		#turn each list in ublindex into np array	
+		#turn each list in ublindex into np array
 		for i in range(len(ublindex)):
 			ublindex[i]=np.array(ublindex[i])
 		ublindex=np.array(ublindex)
@@ -616,16 +629,16 @@ class RedundantCalibrator:
 			bl1dmatrix[crosspair[i][0]][crosspair[i][1]]=i
 		####################################################################################3
 		#degenM:
-		a=[] 
+		a=[]
 		for i in range(len(antloc)):
 			a.append(np.append(antloc[i],1))
 		a=np.array(a)
-		
+
 		d=[]
 		for i in range(len(ubl)):
 			d.append(np.append(ubl[i],0))
 		d=np.array(d)
-		
+
 		m1=-a.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
 		m2=d.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
 		degenM = np.append(m1,m2,axis=0)
@@ -684,13 +697,13 @@ class RedundantCalibrator:
 
 
 	#inverse function of totalVisibilityId, calculate the baseline index from the antenna pair
-	def get_baseline(self,pair): 
+	def get_baseline(self,pair):
 		if not (type(pair) == list or type(pair) == np.ndarray or type(pair) == tuple):
 			raise Exception("input needs to be a list of two numbers")
-			return 
+			return
 		elif len(np.array(pair)) != 2:
 			raise Exception("input needs to be a list of two numbers")
-			return 
+			return
 		elif type(pair[0]) == str or type(pair[0]) == np.string_:
 			raise Exception("input needs to be number not string")
 			return
@@ -717,11 +730,11 @@ class RedundantCalibrator:
 				bool = False;
 				for bl in ubllist:
 					bool = bool or (la.norm(antloc[i]-antloc[j]-bl)<tolerance or la.norm(antloc[i]-antloc[j]+bl)<tolerance)
-				if bool == False:			
+				if bool == False:
 					ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
 		ublall = np.delete(ubllist,0,0)
 		return ublall
-		
+
 
 	#need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
 	#input the antenna pair(as a list of two numbers), return the corresponding ubl index
@@ -729,27 +742,27 @@ class RedundantCalibrator:
 		#check if the input is a list, tuple, np.array of two numbers
 		if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
 			raise Exception("input needs to be a list of two numbers")
-			return 
+			return
 		elif len(np.array(antpair)) != 2:
 			raise Exception("input needs to be a list of two numbers")
-			return 
+			return
 		elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
 			raise Exception("input needs to be number not string")
 			return
-		
+
 		#check if self.info['bl1dmatrix'] exists
 		if type(self.info) != dict :
 			raise Exception("needs info['bl1dmatrix']")
 		if 'bl1dmatrix' not in self.info:
 			raise Exception("needs info['bl1dmatrix']")
-		
+
 		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
 		if antpair[0]==antpair[1]:
 			return "auto correlation"
 		elif crossblindex == 99999:
 			return "bad ubl"
 		return self.info['bltoubl'][crossblindex]
-		
+
 
 	#need to do compute_redundantinfo first
 	#input the antenna pair, return -1 if it is a reversed baseline and 1 if it is not reversed
@@ -757,30 +770,30 @@ class RedundantCalibrator:
 		#check if the input is a list, tuple, np.array of two numbers
 		if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
 			raise Exception("input needs to be a list of two numbers")
-			return 
+			return
 		elif len(np.array(antpair)) != 2:
 			raise Exception("input needs to be a list of two numbers")
-			return 
+			return
 		elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
 			raise Exception("input needs to be number not string")
 			return
-		
+
 		#check if self.info['bl1dmatrix'] exists
 		if type(self.info) != dict :
 			raise Exception("needs info['bl1dmatrix']")
 		if 'bl1dmatrix' not in self.info:
 			raise Exception("needs info['bl1dmatrix']")
-		
+
 		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
 		if antpair[0] == antpair[1]:
 			return 1
 		if crossblindex == 99999:
 			return 'badbaseline'
 		return self.info['reversed'][crossblindex]
-		
-		
-		
-		
-		
+
+
+
+
+
 
 
