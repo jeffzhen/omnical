@@ -100,8 +100,66 @@ print compare_info(info1,info2)
 print calibrator.get_baseline([1,2])
 
 
+def compute_UBL(tolerance = 0.1):
+	#check if the tolerance is not a string
+	if type(tolerance) == str:
+		raise Exception("tolerance needs to be number not string")
+		return
+	#remove the bad antennas
+	nant=len(calibrator.antennaLocation)
+	subsetant=[i for i in range(nant) if i not in calibrator.badAntenna]
+	nAntenna=len(subsetant)
+	antloc = np.array([calibrator.antennaLocation[ant] for ant in subsetant])
+	ubllist = np.array([np.array([np.array([0,0,0]),1])]);
+	for i in range(len(antloc)):
+		for j in range(i+1,len(antloc)):
+			bool = True
+			for k in range(len(ubllist)):
+				if  la.norm(antloc[i]-antloc[j]-ubllist[k][0])<tolerance:
+					n=ubllist[k][1]
+					ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]+antloc[i]-antloc[j])
+					ubllist[k][1]+=1
+					bool = False
+				elif  la.norm(antloc[i]-antloc[j]+ubllist[k][0])<tolerance:
+					n=ubllist[k][1]
+					ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]-(antloc[i]-antloc[j]))
+					ubllist[k][1]+=1
+					bool = False
+			if bool :
+				ubllist = np.append(ubllist,np.array([np.array([antloc[j]-antloc[i],1])]),axis=0)
+	ubllist = np.delete(ubllist,0,0)
+	ublall=[]
+	for ubl in ubllist:
+		ublall.append(ubl[0])
+	ublall=np.array(ublall)
+	return ublall
+
+test=compute_UBL()
+test2=calibrator.compute_UBL()
 
 
+
+#old compute_UBL
+	#def compute_UBL(self,tolerance = 0.1):
+		##check if the tolerance is not a string
+		#if type(tolerance) == str:
+			#raise Exception("tolerance needs to be number not string")
+			#return
+		##remove the bad antennas
+		#nant=len(self.antennaLocation)
+		#subsetant=[i for i in range(nant) if i not in self.badAntenna]
+		#nAntenna=len(subsetant)
+		#antloc=[self.antennaLocation[ant] for ant in subsetant]
+		#ubllist=np.array([np.array([0,0,0])]);
+		#for i in range(len(antloc)):
+			#for j in range(i+1,len(antloc)):
+				#bool = False;
+				#for bl in ubllist:
+					#bool = bool or (la.norm(antloc[i]-antloc[j]-bl)<tolerance or la.norm(antloc[i]-antloc[j]+bl)<tolerance)
+				#if bool == False:
+					#ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
+		#ublall = np.delete(ubllist,0,0)
+		#return ublall
 
 
 

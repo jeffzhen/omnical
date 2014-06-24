@@ -729,6 +729,7 @@ class RedundantCalibrator:
 		raise Exception("antenna index out of range")
 
 	#with antenna locations and tolerance, calculate the unique baselines. (In the order of omniscope baseline index convention)
+	#compute_UBL returns the average of all baselines in that ubl group
 	def compute_UBL(self,tolerance = 0.1):
 		#check if the tolerance is not a string
 		if type(tolerance) == str:
@@ -738,18 +739,30 @@ class RedundantCalibrator:
 		nant=len(self.antennaLocation)
 		subsetant=[i for i in range(nant) if i not in self.badAntenna]
 		nAntenna=len(subsetant)
-		antloc=[self.antennaLocation[ant] for ant in subsetant]
-		ubllist=np.array([np.array([0,0,0])]);
+		antloc = np.array([self.antennaLocation[ant] for ant in subsetant])
+		ubllist = np.array([np.array([np.array([0,0,0]),1])]);
 		for i in range(len(antloc)):
 			for j in range(i+1,len(antloc)):
-				bool = False;
-				for bl in ubllist:
-					bool = bool or (la.norm(antloc[i]-antloc[j]-bl)<tolerance or la.norm(antloc[i]-antloc[j]+bl)<tolerance)
-				if bool == False:
-					ubllist = np.concatenate((ubllist,[antloc[j]-antloc[i]]))
-		ublall = np.delete(ubllist,0,0)
+				bool = True
+				for k in range(len(ubllist)):
+					if  la.norm(antloc[i]-antloc[j]-ubllist[k][0])<tolerance:
+						n=ubllist[k][1]
+						ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]+antloc[i]-antloc[j])
+						ubllist[k][1]+=1
+						bool = False
+					elif  la.norm(antloc[i]-antloc[j]+ubllist[k][0])<tolerance:
+						n=ubllist[k][1]
+						ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]-(antloc[i]-antloc[j]))
+						ubllist[k][1]+=1
+						bool = False
+				if bool :
+					ubllist = np.append(ubllist,np.array([np.array([antloc[j]-antloc[i],1])]),axis=0)
+		ubllist = np.delete(ubllist,0,0)
+		ublall=[]
+		for ubl in ubllist:
+			ublall.append(ubl[0])
+		ublall=np.array(ublall)
 		return ublall
-
 
 	#need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
 	#input the antenna pair(as a list of two numbers), return the corresponding ubl index
