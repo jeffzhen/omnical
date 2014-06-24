@@ -114,7 +114,7 @@ def write_redundantinfo(info, infopath, overwrite = False):
 		if key in ['antloc', 'ubl', 'degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:
 			np.savetxt(f_handle, [np.array(info[key]).flatten()])
 		elif key == 'ublindex':
-			np.savetxt(f_handle, [np.concatenate(info[key]).flatten()], fmt = '%d')
+			np.savetxt(f_handle, [np.vstack(info[key]).flatten()], fmt = '%d')
 		elif key in ['At','Bt']:
 			tmp = []
 			for i in range(info[key].shape[0]):

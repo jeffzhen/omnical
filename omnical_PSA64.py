@@ -34,11 +34,14 @@ opts,args = o.parse_args(sys.argv[1:])
 ano = 'PSA64_test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 uvfiles = args
 wantpols = {}
-for p in opts.pol.split(','): wantpols[p] = ap.miraid.str2pol[p]
+for p in opts.pol.split(','): wantpols[p] = ap.miriad.str2pol[p]
 #wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo: 
 
 
 aa = ap.cal.get_aa(opts.cal, np.array([.15]))
+
+badAntenna = [37]
+badUBL = []
 
 #infopaths = {'xx':'./redundantinfo_PSA32.txt', 'yy':'./redundantinfo_PSA32.txt'}
 #arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
@@ -81,7 +84,7 @@ del(uv)
 #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
 calibrators = [RedundantCalibrator_PAPER(aa) for key in wantpols.keys()]
 for calibrator, key in zip(calibrators, wantpols.keys()):
-	calibrator.compute_redundantinfo(badUBL = [], antennaLocationTolerance = 1)
+	calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBL = badUBL, antennaLocationTolerance = 1)
 	calibrator.write_redundantinfo(infoPath = oppath + 'redundantinfo_' + ano + '_' + key + '.txt', overwrite = True)
 	calibrator.dataPath = oppath + 'data_' + ano + '_' + key
 	calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
@@ -121,6 +124,6 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 	calibrator.maxIteration = max_iter
 	calibrator.stepSize = step_size
 	print calibrator.nTime, calibrator.nFrequency
-	calibrator.readyForCpp()
+#	calibrator.readyForCpp()
 	calibrator.loglincal(data[p],verbose=True)
 
