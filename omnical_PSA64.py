@@ -37,6 +37,13 @@ opts,args = o.parse_args(sys.argv[1:])
 
 ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 uvfiles = args
+for uvf in uvfiles:
+	if not os.path.isdir(uvf):
+		uvfiles.remove(uvf)
+if len(uvfiles) == 0:
+	print "ERROR: No valid uv files detected in input. Exiting!"
+	quit()
+
 wantpols = {}
 for p in opts.pol.split(','): wantpols[p] = ap.miriad.str2pol[p]
 #wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo:
