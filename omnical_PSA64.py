@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import aipy as ap
 import numpy as np
 import commands, os, time, math, ephem
