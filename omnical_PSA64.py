@@ -51,7 +51,7 @@ infopaths = {'xx':oppath + 'redundantinfo_PSA64_test_xx.txt', 'yy':oppath + 'red
 #arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
 
 
-removedegen = False
+removedegen = True
 removeadditive = False
 
 needrawcal = False #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
