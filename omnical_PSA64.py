@@ -18,7 +18,11 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
 		self.antennaLocationTolerance = antennaLocationTolerance
 		self.badAntenna = badAntenna
 		self.badUBL = badUBL
-		self.antennaLocation = np.array([ant.pos for ant in self.aa])
+		self.antennaLocation = np.zeros((self.nTotalAnt,3))
+		for i in range(len(self.aa.ant_layout)):
+			for j in range(len(self.aa.ant_layout[0])):
+				self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
+		self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
 		omni.RedundantCalibrator.compute_redundantinfo(self)
 
 
@@ -56,7 +60,7 @@ badUBL = []
 
 oppath = './results/'
 
-infopaths = {'xx':oppath + 'redundantinfo_PSA64_test_xx.txt', 'yy':oppath + 'redundantinfo_PSA64_test_xx.txt'}
+infopaths = {'xx':oppath + 'redundantinfo_PSA64.txt', 'yy':oppath + 'redundantinfo_PSA64.txt'}
 #arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
 
 
