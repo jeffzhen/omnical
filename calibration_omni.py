@@ -325,6 +325,25 @@ def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
 		print "info doesn't have the same shape"
 		return False
 
+def omnical2omnigain(omnicalPaths, localtimePaths, omnigainPath, info):
+	julDelta = 2415020
+	utctimes = []
+	for fname in localtimePaths:
+		with open(fname) as f:
+			utctimes += f.readlines()
+	calpars = np.vstack([np.fromfile(omnicalPath, dtype='float32') for omnicalPath in omnicalPaths])
+
+	nT = len(utctimes)
+	nF = len(calpars) / nT / (3 + 2 * info['nAntenna'] + 2 * info['nUBL']])
+
+	calpars = calpars.reshape((nT, nF, (3 + 2 * info['nAntenna'] + 2 * info['nUBL']])))
+	chisq =
+
+	sa = ephem.Observer()
+	for utctime in utctimes:
+		sa.date = utctime
+		jd.append(sa.date + julDelta)
+
 
 class RedundantCalibrator:
 #This class is the main tool for performing redundant calibration on data sets. For a given redundant configuration, say 32 antennas with 3 bad antennas, the user should create one instance of Redundant calibrator and reuse it for all data collected from that array. In general, upon creating an instance, the user need to create the info field of the instance by either computing it or reading it from a text file. readyForCpp(verbose = True) should be a very helpful function to provide information on what information is missing for running the calibration.
