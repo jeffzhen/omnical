@@ -358,7 +358,7 @@ def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputP
 
 	opomnigain[:, :, :2] = jd[:, None]
 	opomnigain[:, :, 2] = np.array(info['subsetant']).astype('float32')
-	opchisq[:, 3] = float(nF)
+	opomnigain[:, 3] = float(nF)
 	gains = (10**calpars[:, :, 3:(3 + info['nAntenna'])] * np.exp(1.j * math.pi * calpars[:, :, (3 + info['nAntenna']):(3 + 2 * info['nAntenna'])] / 180)).transpose((0,2,1))
 	opomnigain[:, :, 4::2] = np.real(gains)
 	opomnigain[:, :, 5::2] = np.imag(gains)
