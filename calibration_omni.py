@@ -6,7 +6,6 @@ import aipy as ap
 import struct
 import numpy as np
 import os, sys
-import datetime
 from optparse import OptionParser
 import warnings
 with warnings.catch_warnings():
@@ -325,24 +324,55 @@ def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
 		print "info doesn't have the same shape"
 		return False
 
-def omnical2omnigain(omnicalPaths, localtimePaths, omnigainPath, info):
+def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputPath should be a path without extensions like .omnigain which will be appended
+	if outputPath == None:
+		outputPath = omnicalPath.replace('.omnical', '')
 	julDelta = 2415020
-	utctimes = []
-	for fname in localtimePaths:
-		with open(fname) as f:
-			utctimes += f.readlines()
-	calpars = np.vstack([np.fromfile(omnicalPath, dtype='float32') for omnicalPath in omnicalPaths])
+	#info = redundantCalibrator.info
+
+
+	with open(utctimePath) as f:
+		utctimes = f.readlines()
+	calpars = np.fromfile(omnicalPath, dtype='float32')
 
 	nT = len(utctimes)
-	nF = len(calpars) / nT / (3 + 2 * info['nAntenna'] + 2 * info['nUBL']])
+	nF = len(calpars) / nT / (3 + 2 * info['nAntenna'] + 2 * info['nUBL'])
+	#if nF != redundantCalibrator.nFrequency:
+		#raise Exception('Error: time and frequency count implied in the infput files (%d %d) does not agree with those speficied in redundantCalibrator (%d %d). Exiting!'%(nT, nF, redundantCalibrator.nTime, redundantCalibrator.nFrequency))
+	calpars = calpars.reshape((nT, nF, (3 + 2 * info['nAntenna'] + 2 * info['nUBL'])))
 
-	calpars = calpars.reshape((nT, nF, (3 + 2 * info['nAntenna'] + 2 * info['nUBL']])))
-	chisq =
-
+	jd = np.zeros((len(utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
 	sa = ephem.Observer()
-	for utctime in utctimes:
+	for utctime, t in zip(utctimes, range(len(utctimes))):
 		sa.date = utctime
-		jd.append(sa.date + julDelta)
+		jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
+
+	opchisq = np.zeros((nT, 2 + 1 + 2 * nF), dtype = 'float32')
+	opomnigain = np.zeros((nT, info['nAntenna'], 2 + 1 + 1 + 2 * nF), dtype = 'float32')
+	opomnifit = np.zeros((nT, info['nUBL'], 2 + 3 + 1 + 2 * nF), dtype = 'float32')
+
+	opchisq[:, :2] = jd
+	opchisq[:, 2] = float(nF)
+	opchisq[:, 3::2] = calpars[:, :, 0]#number of lincal iters
+	opchisq[:, 4::2] = calpars[:, :, 2]#chisq which is sum of squares of errors in each visbility
+
+	opomnigain[:, :, :2] = jd[:, None]
+	opomnigain[:, :, 2] = np.array(info['subsetant']).astype('float32')
+	opchisq[:, 3] = float(nF)
+	gains = (10**calpars[:, :, 3:(3 + info['nAntenna'])] * np.exp(1.j * math.pi * calpars[:, :, (3 + info['nAntenna']):(3 + 2 * info['nAntenna'])] / 180)).transpose((0,2,1))
+	opomnigain[:, :, 4::2] = np.real(gains)
+	opomnigain[:, :, 5::2] = np.imag(gains)
+
+	opomnifit[:, :, :2] = jd[:, None]
+	opomnifit[:, :, 2:5] = np.array(info['ubl']).astype('float32')
+	opomnifit[:, :, 5] = float(nF)
+	opomnifit[:, :, 6::2] = calpars[:, :, 3 + 2 * info['nAntenna']::2].transpose((0,2,1))
+	opomnifit[:, :, 7::2] = calpars[:, :, 3 + 2 * info['nAntenna'] + 1::2].transpose((0,2,1))
+
+
+	opchisq.tofile(outputPath + '.omnichisq')
+	opomnigain.tofile(outputPath + '.omnigain')
+	opomnifit.tofile(outputPath + '.omnifit')
 
 
 class RedundantCalibrator:
