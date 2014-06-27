@@ -44,7 +44,7 @@ bool readredundantinfo(string filepath, redundantinfo* info){//data file generat
 		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": length inconsistency when parsing " << filepath << "! Make sure file exists." << endl;
 		return false;
 	}
-	
+
 	info->nAntenna = rawinfo[parser];//number of good antennas among all (64) antennas, same as the length of subsetant
 	parser++;
 
@@ -70,9 +70,9 @@ bool readredundantinfo(string filepath, redundantinfo* info){//data file generat
 			(info->antloc)[i][j] = rawinfo[parser];//antloc vectors
 			parser++;
 		}
-	}	
-	
-	
+	}
+
+
 	(info->subsetbl).resize(nbl);
 	for (int i = 0; i < nbl; i++){
 		(info->subsetbl)[i] = rawinfo[parser];//the index of good baselines (auto included) in all baselines
@@ -121,7 +121,7 @@ bool readredundantinfo(string filepath, redundantinfo* info){//data file generat
 		}
 	}
 
-	
+
 	(info->ublcount).resize(info->nUBL);
 	for (int i = 0; i < info->nUBL; i++){
 		(info->ublcount)[i] = rawinfo[parser];//for each ubl, the number of good cross bls corresponding to it
@@ -138,7 +138,7 @@ bool readredundantinfo(string filepath, redundantinfo* info){//data file generat
 			}
 		}
 	}
-	
+
 	(info->bl1dmatrix).resize(info->nAntenna);
 	for (int i = 0; i < info->nAntenna; i++){
 		(info->bl1dmatrix)[i].resize(info->nAntenna);
@@ -189,7 +189,7 @@ bool readredundantinfo(string filepath, redundantinfo* info){//data file generat
 	for (int i = 0; i < info->nUBL + info->nAntenna; i++){
 		(info->Btsparse)[i].resize(0);
 	}
-		
+
 	vector<int> dummybl(2,0);
 	for (int i = 0; i < 3 * ncross; i++){
 		dummybl[0] = rawinfo[parser + 1];
@@ -197,7 +197,7 @@ bool readredundantinfo(string filepath, redundantinfo* info){//data file generat
 		(info->Btsparse)[rawinfo[parser]].push_back(dummybl);
 		parser+=3;
 	}
-	
+
 	(info->AtAi).resize(info->nUBL + info->nAntenna);
 	for (int i = 0; i < info->nUBL + info->nAntenna; i++){
 		(info->AtAi)[i].resize(info->nUBL + info->nAntenna);
@@ -231,7 +231,7 @@ bool readredundantinfo(string filepath, redundantinfo* info){//data file generat
 			parser++;
 		}
 	}
-		
+
 	(info->PA).resize(ncross);
 	for (int i = 0; i < ncross; i++){
 		(info->PA)[i].resize(ncross);
@@ -264,13 +264,13 @@ bool readredundantinfo(string filepath, redundantinfo* info){//data file generat
 			parser++;
 		}
 	}
-	
-	
+
+
 	if(parser != rawinfo.size()){
 		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": length inconsistency when parsing " << filepath << "! Expecting " << parser << " elements in file but read " <<  rawinfo.size() << "!" << endl;
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -289,7 +289,7 @@ void initcalmodule(calmemmodule* module, redundantinfo* info){
 	(module->x2).resize(nubl + nant);
 	(module->x3).resize(nubl + nant);
 	(module->x4).resize(nubl + nant);
-	
+
 	(module->g1).resize(nant);
 	for (int i = 0; i < nant; i++){
 		(module->g1)[i].resize(2);
@@ -297,22 +297,22 @@ void initcalmodule(calmemmodule* module, redundantinfo* info){
 	(module->g0) = (module->g1);
 	(module->g2) = (module->g1);
 	(module->g3) = (module->g1);
-	
+
 	(module->adata1).resize(nbl);
 	for (int i = 0; i < nbl; i++){
 		(module->adata1)[i].resize(2);
 	}
 	(module->adata2) = (module->adata1);
 	(module->adata3) = (module->adata1);
-	
+
 	(module->cdata1).resize(ncross);
 	for (int i = 0; i < ncross; i++){
 		(module->cdata1)[i].resize(2);
 	}
 	(module->cdata2) = (module->cdata1);
 	(module->cdata3) = (module->cdata1);
-	
-	
+
+
 	(module->ubl1).resize(nubl);
 	for (int i = 0; i < nubl; i++){
 		(module->ubl1)[i].resize(2);
@@ -320,13 +320,13 @@ void initcalmodule(calmemmodule* module, redundantinfo* info){
 	(module->ubl0) = (module->ubl1);
 	(module->ubl2) = (module->ubl1);
 	(module->ubl3) = (module->ubl1);
-	
+
 	(module->ublgrp1).resize(nubl);
 	for (int i = 0; i < nubl; i++){
 		(module->ublgrp1)[i].resize(info->ublcount[i]);
 	}
 	(module->ublgrp2) = (module->ublgrp1);
-	
+
 	(module->ubl2dgrp1).resize(nubl);
 	for (int i = 0; i < nubl; i++){
 		(module->ubl2dgrp1)[i].resize(info->ublcount[i]);
@@ -342,7 +342,7 @@ void initcalmodule(calmemmodule* module, redundantinfo* info){
 //command line and Python interaction//
 ///////////////////////////////////////
 void printv(vector<float> *v, int mini, int maxi){
-	for (int i = max(0,mini); i < min(int(v->size()),maxi); i++) printf("%10.5f", v->at(i)); 
+	for (int i = max(0,mini); i < min(int(v->size()),maxi); i++) printf("%10.5f", v->at(i));
 	if (maxi == 200 and v->size() > 200) printf("...more entries not shown");
 	cout << endl;
 	return;
@@ -352,7 +352,7 @@ void printvv(vector<vector<float> > *v, int mini, int maxi){
 	for (int i = max(0,mini); i < min(int(v->size()),maxi); i++){
 		cout << "(";
 		for (int j = 0; j < (v->at(i)).size(); j++){
-			printf("%10.5f,", (v->at(i))[j]); 
+			printf("%10.5f,", (v->at(i))[j]);
 		}
 		cout << ") ";
 	}
@@ -365,7 +365,7 @@ void printvv(vector<vector<int> > *v, int mini, int maxi){
 	for (int i = max(0,mini); i < min(int(v->size()),maxi); i++){
 		cout << "(";
 		for (int j = 0; j < (v->at(i)).size(); j++){
-			printf("%10i,", (v->at(i))[j]); 
+			printf("%10i,", (v->at(i))[j]);
 		}
 		cout << ") ";
 	}
@@ -375,13 +375,13 @@ void printvv(vector<vector<int> > *v, int mini, int maxi){
 }
 
 void printv(vector<double> *v, int mini, int maxi){
-	for (int i = max(0,mini); i < min(int(v->size()),maxi); i++) printf("%10.5f", v->at(i));  
+	for (int i = max(0,mini); i < min(int(v->size()),maxi); i++) printf("%10.5f", v->at(i));
 	if (maxi == 200 and v->size() > 200) printf("...more entries not shown");
 	cout << endl;
 	return;
 }
 void printv(vector<int> *v, int mini, int maxi){
-	for (int i = max(0,mini); i < min(int(v->size()),maxi); i++) printf("%5.1i", v->at(i)); 
+	for (int i = max(0,mini); i < min(int(v->size()),maxi); i++) printf("%5.1i", v->at(i));
 	if (maxi == 200 and v->size() > 200) printf("...more entries not shown");
 	cout << endl;
 	return;
@@ -399,9 +399,9 @@ string exec(string input_command) {//return result of stdout of a system command
 	//cout << " test0 " + input_command;
 	while(!feof(pipe)) {
 		if(fgets(buffer, 1024, pipe) != NULL){
-			//cout << buffer << " ";			
+			//cout << buffer << " ";
 			result += buffer;
-		}	
+		}
 	}
 	pclose(pipe);
 	if ( result.size() > 0 )
@@ -487,7 +487,7 @@ void pyStarPosForks(string date, string time, float time_offset, vector<vector<f
 		(results->at(i))[1] = pos[2 * i + 1];
 	}
 	return;
-	
+
 }
 
 void pySatPosForks(string date, string time, float time_offset, vector<vector<float> >* results){
@@ -516,7 +516,7 @@ void pySatPosForks(string date, string time, float time_offset, vector<vector<fl
 		(results->at(i))[2] = pos[3 * i + 2];
 	}
 	return;
-	
+
 }
 
 
@@ -546,7 +546,7 @@ void pySatPos(string date, string time, float time_offset, float lat, float lon,
 		(results->at(i))[2] = pos[3 * i + 2];
 	}
 	return;
-	
+
 }
 
 void pyRequ2hor(string date, string time, float time_offset, float lat, float lon, vector<vector<float> >* results){//lat lon in degrees. Using this matrix in mathematica generates results that agree with pyephem output within 0.02 degrees on the few sources I checked at Forks
@@ -682,7 +682,7 @@ void readBinaryVisibility(const char* inputfilename, vector<vector<vector<vector
 	unsigned long  len;
 	size_t result;
 	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename << endl;
-	
+
 	// Open file
 	file = fopen(inputfilename,"rb");
 	if (file == NULL) {
@@ -729,7 +729,7 @@ void readBinaryVisibility(const char* inputfilename, vector<vector<vector<vector
 			pol = "xx";
 		}
 		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Parsing polarization: " << pol << "\n";
-		for(int t = 0; t < nIntegrations; t++){	
+		for(int t = 0; t < nIntegrations; t++){
 			for(int f=0; f < nFrequencies; f++){
 				for(int v = 0; v < nBase; v++){
 					for(int c = 0; c < 2; c++){
@@ -758,7 +758,7 @@ void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<v
 	unsigned long  len;
 	size_t result;
 	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename;
-	
+
 	// Open file
 	file = fopen(inputfilename,"rb");
 	if (file == NULL) {
@@ -776,10 +776,10 @@ void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<v
 	result = fread(fmemblock, sizeof(float), len / 4, file);
 	// Close file and clear buffer
 	fclose(file);
-	
+
 
 	//Transfer data to vectors
-	//cout << len / 4 << " " << nPol << " " <<  nFrequencies << " " <<  nBase << endl; 
+	//cout << len / 4 << " " << nPol << " " <<  nFrequencies << " " <<  nBase << endl;
 	if (nIntegrations != len / 4 / nPol/ nFrequencies / nBase / 2){
 		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The binary data seems to contain " << len / 4 / nPol / nFrequencies / nBase / 2 << " time slices, where as the parameter is specified as " << nIntegrations << " time slices. Exiting!!" << endl;
 		return;
@@ -806,7 +806,7 @@ void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<v
 			pol = "xx";
 		}
 		if(nPol > 1) cout << " Parsing polarization: " << pol << "...";
-		for(int t = 0; t < nIntegrations; t++){	
+		for(int t = 0; t < nIntegrations; t++){
 			for(int f=0; f < nFrequencies; f++){
 				for(int v = 0; v < nBase; v++){
 					for(int c = 0; c < 2; c++){
@@ -834,7 +834,7 @@ void readBinaryVisibilityLargeConj(const char* inputfilename, vector<vector<vect
 	unsigned long  len;
 	size_t result;
 	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename << endl;
-	
+
 	// Open file
 	file = fopen(inputfilename,"rb");
 	if (file == NULL) {
@@ -882,7 +882,7 @@ void readBinaryVisibilityLargeConj(const char* inputfilename, vector<vector<vect
 		}
 		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Parsing polarization: " << pol << "\n";
 		//cout << data->size() << " " << data->at(0).size() << " " << data->at(0)[0].size() << " " << data->at(0)[0][0].size() << endl << fmemblock[len / 4 - 1]; cout.flush();
-		for(int t = 0; t < nIntegrations; t++){	
+		for(int t = 0; t < nIntegrations; t++){
 			for(int f = 0; f < nFrequencies; f++){
 				for(int v = 0; v < nBase; v++){
 					//cout << p << " " << t << " " << f << " " << gc(v,0) << " " << n << " " << fmemblock[n]; cout.flush();
@@ -891,7 +891,7 @@ void readBinaryVisibilityLargeConj(const char* inputfilename, vector<vector<vect
 					//cout << n << " " ; cout.flush();
 					(data->at(p))[t][f][gc(v, 1)] = -fmemblock[n];
 					n++;
-					
+
 				}
 			}
 		}
@@ -904,7 +904,7 @@ void readBinaryVisibilityLargeConj(const char* inputfilename, vector<vector<vect
 }
 
 
-void breakLarge(vector<float> *largeslice, vector<vector<float> > * smallslice){// breaks up the frequency slice in large format (1D of length 2*nBaseline) into small format(2D of nBaseline by re/im) 
+void breakLarge(vector<float> *largeslice, vector<vector<float> > * smallslice){// breaks up the frequency slice in large format (1D of length 2*nBaseline) into small format(2D of nBaseline by re/im)
 	string METHODNAME = "breakLarge";
 	if ( largeslice->size() != 2*(smallslice->size()) or (smallslice->at(0)).size() != 2 ){
 		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array is initialized at (nBaseline, 2) = (" << smallslice->size() << " by " << (smallslice->at(0)).size() << "), where as the large slice is specified as (" << largeslice->size() << "). Exiting!!" << endl;
@@ -916,7 +916,7 @@ void breakLarge(vector<float> *largeslice, vector<vector<float> > * smallslice){
 	return;
 }
 
-void padSmall(vector<vector<float> > * smallslice, vector<float> * largeslice){// pad the frequency slice in small format(2D of nBaseline by re/im) into large format (1D of length 2*nBaseline)   
+void padSmall(vector<vector<float> > * smallslice, vector<float> * largeslice){// pad the frequency slice in small format(2D of nBaseline by re/im) into large format (1D of length 2*nBaseline)
 	string METHODNAME = "padSmall";
 	if ( largeslice->size() != 2*(smallslice->size()) or (smallslice->at(0)).size() != 2 ){
 		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The large array is initialized at (nBaseline, 2) = (" << smallslice->size() << " by " << (smallslice->at(0)).size() << "), where as the small slice is specified as (" << largeslice->size() << "). Exiting!!" << endl;
@@ -939,7 +939,7 @@ void readBinaryCalparSP(const char* inputfilename, vector<vector<vector<float> >
 	unsigned long  len;
 	size_t result;
 	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename << endl;
-	
+
 	// Open file
 	file = fopen(inputfilename,"rb");
 	if (file == NULL) {
@@ -966,7 +966,7 @@ void readBinaryCalparSP(const char* inputfilename, vector<vector<vector<float> >
 	};
 
 	int n  = 0;
-	for(int t = 0; t < nIntegrations; t++){	
+	for(int t = 0; t < nIntegrations; t++){
 		for(int f=0; f < nFrequencies; f++){
 			for(int chi = 0; chi < 3; chi++){
 					(data->at(t))[f][chi] = fmemblock[n];
@@ -1031,7 +1031,7 @@ vector<float> readAscii(const char* inputfilename, int count, bool verbose) {
 		 //if(verbose) cout << "r";
 		 myReadFile >> data[i];
 		 if (verbose and i < 5) cout << i << ": " << data[i] << "; ";
-		 //cout << cnter << endl;         
+		 //cout << cnter << endl;
 	}
 	//if (DEBUG) cout << endl;
 	myReadFile.close();
@@ -1111,7 +1111,7 @@ bool readCalparAscii(const char* inputfilename, vector<float> *chisq, vector<vec
 			calparcnter = calparcnter + 2;
 		}
 	}
-	
+
 	return true;
 }
 
@@ -1325,7 +1325,7 @@ void outputAscii(vector<vector<vector<float> > >* data, string output_name, int 
 
 void outputDataAscii(vector<vector<vector<float> > >  * data, string output_name){
 	string METHODNAME = "outputDataAscii";
-	
+
 	int numBL = (&(data->at(0)))->size();
 	int numFreq = data->size();
 	char buffer[2 * output_name.size()];
@@ -1367,7 +1367,7 @@ bool outputCalpar(vector<vector<vector<vector<float> > > > * data, string output
 		unsigned char g[sizeof(float)];
 	};
 	float_char to_file;
-	 
+
 	FILE * myFile = fopen(outputfilename.c_str(), "wb");
 	if(myFile == NULL){
 		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
@@ -1404,7 +1404,7 @@ bool outputCalpar(vector<vector<vector<vector<float> > > > * data, string output
 			}
 		}
 	}
-	
+
 	fclose(myFile);
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
 	return true;
@@ -1427,7 +1427,7 @@ bool outputCalparSP(vector<vector<vector<float> > > * data, string outputfilenam
 		unsigned char g[sizeof(float)];
 	};
 	float_char to_file;
-	 
+
 	FILE * myFile = fopen(outputfilename.c_str(), "wb");
 	if(myFile == NULL){
 		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
@@ -1459,7 +1459,7 @@ bool outputCalparSP(vector<vector<vector<float> > > * data, string outputfilenam
 		}
 
 	}
-	
+
 	fclose(myFile);
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
 	return true;
@@ -1479,7 +1479,7 @@ bool outputData(vector<vector<vector<vector<vector<float> > > > > * data, string
 		unsigned char g[sizeof(float)];
 	};
 	float_char to_file;
-	 
+
 	FILE * myFile = fopen(outputfilename.c_str(), "wb");
 	if(myFile == NULL){
 		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
@@ -1499,7 +1499,7 @@ bool outputData(vector<vector<vector<vector<vector<float> > > > > * data, string
 			}
 		}
 	}
-	
+
 	fclose(myFile);
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
 	return true;
@@ -1519,7 +1519,7 @@ bool outputDataLarge(vector<vector<vector<vector<float> > > > * data, string out
 		unsigned char g[sizeof(float)];
 	};
 	float_char to_file;
-	 
+
 	FILE * myFile = fopen(outputfilename.c_str(), "wb");
 	if(myFile == NULL){
 		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
@@ -1529,17 +1529,17 @@ bool outputDataLarge(vector<vector<vector<vector<float> > > > * data, string out
 		//cout << "##" << FILENAME << "##" << METHODNAME << ": Writing polarization: " << p << '\n';
 		for(int t = 0; t < numInt; t++){
 			for(int f = 0;f < numFreq; f++){
-				for(int b = 0; b < numBl; b++){
-					for(int c = 0; c < numRI; c++){
-						to_file.f = (data->at(p))[t][f][gc(b, c)];
+				for(int b = 0; b < (data->at(0))[0][0].size() ; b++){
+
+						to_file.f = (data->at(p))[t][f][b];
 						fwrite(to_file.g, sizeof(float), 1, myFile);
 						//cout << p << " " << t << " " << f<< " " << b << " " << c << endl;
-					}
+
 				}
 			}
 		}
 	}
-	
+
 	fclose(myFile);
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
 	return true;
@@ -1570,7 +1570,7 @@ vector<float> xyz2tp (vector<float> xyz){
 		return thephi;
 	}
 	thephi[0] = acos(xyz[2] / r);
-	
+
 	thephi[1] = atan2(xyz[1],xyz[0]);
 	return thephi;
 }
@@ -1584,7 +1584,7 @@ vector<float> xyz2tp (float x, float y, float z){
 		return thephi;
 	}
 	thephi[0] = acos(z / r);
-	
+
 	thephi[1] = atan2(y,x);
 	return thephi;
 }
@@ -1922,7 +1922,7 @@ string extFileName(string fileName, string ext){//extend a file name by a string
 		output.insert( found, ext );
 	};
 	return output;
-} 
+}
 
 vector<string> parseLines(string bigLine){
 	string line;
@@ -1945,7 +1945,7 @@ int get1DBL(int i, int j, int nAntenna){//0 indexed
 	if (i <= j) {
 		output = ( ( 2 * nAntenna - 1 - i ) * i / 2 + j );
 	} else {
-		output = ( ( 2 * nAntenna - 1 - j ) * j / 2 + i );	
+		output = ( ( 2 * nAntenna - 1 - j ) * j / 2 + i );
 	}
 	return output;
 }
@@ -1966,7 +1966,7 @@ vector<int> get2DBL(int bl, int nAntenna){//bl counts cross corrs AND auto corrs
 	}
 	vector<int> v(2, -1);
 	return v;
-} 
+}
 
 vector<int> get2DBLCross(int bl, int nAntenna){//bl only counts cross corrs
 	if(bl < nAntenna - 1){
@@ -2098,11 +2098,11 @@ vector<vector<float> > rotationMatrix(float x, float y, float z){//approximation
 	return r;
 }
 
-vector<vector<float> > rotationMatrixZ(float z){/*approximation for a rotation matrix rotating around x,y,z axis, Ry[roty_] := {{Cos[roty], 0, Sin[roty]}, {0, 1, 0}, {-Sin[roty], 0, 
+vector<vector<float> > rotationMatrixZ(float z){/*approximation for a rotation matrix rotating around x,y,z axis, Ry[roty_] := {{Cos[roty], 0, Sin[roty]}, {0, 1, 0}, {-Sin[roty], 0,
     Cos[roty]}};
-Rx[roty_] := {{1, 0, 0}, {0, Cos[roty], -Sin[roty]}, {0, Sin[roty], 
+Rx[roty_] := {{1, 0, 0}, {0, Cos[roty], -Sin[roty]}, {0, Sin[roty],
     Cos[roty]}};
-Rz[rotz_] := {{Cos[rotz], -Sin[rotz], 0}, {Sin[rotz], Cos[rotz], 
+Rz[rotz_] := {{Cos[rotz], -Sin[rotz], 0}, {Sin[rotz], Cos[rotz],
     0}, {0, 0, 1}};*/
 	vector<vector<float> > r(3, vector<float>(3, 0));
 	r[0][0] = cos(z);
@@ -2146,7 +2146,7 @@ bool createAmatrix(vector<vector<int> > *receiverAmatrix, vector<vector<float> >
 				(receiverAmatrix->at(bl))[col] = 1;
 			} else {
 				(receiverAmatrix->at(bl))[col] = 0;
-			}			
+			}
 		}
 
 	}
@@ -2191,7 +2191,7 @@ bool createBmatrix(vector<vector<int> > *receiverBmatrix, vector<vector<float> >
 				(receiverBmatrix->at(bl))[col] = 1;
 			} else {
 				(receiverBmatrix->at(bl))[col] = 0;
-			}			
+			}
 		}
 
 	}
@@ -2357,7 +2357,7 @@ void phaseCalibrate120(vector<float>* calpar120, vector<float>* calpar16, int nA
 	for (int i = 0; i < calparT.size(); i++){
 		for (int j = 0; j < calparT[0].size(); j++){
 			calparT[i][j] = calpar[j][i];
-		}	
+		}
 	}
 	for (int i = 0; i < nAnt; i++){
 		calpar16->at(i) = medianAngle(&(calparT[i]));
@@ -2368,7 +2368,7 @@ void phaseCalibrate120(vector<float>* calpar120, vector<float>* calpar16, int nA
 }
 
 vector<float> phaseCalibrate(vector<vector<float> > *dataf, string pol, float freq, vector<vector<float> > *antloc, vector<vector<float> > *cablelen, int startingAnt1, int startingAnt2, int startingAnt3, int nAntenna){
-	string METHODNAME = "phaseCalibrate";	
+	string METHODNAME = "phaseCalibrate";
 	vector<float> output( nAntenna, 0 );
 	vector<bool> calibrated( nAntenna, false);//denote whether each antenna has been calibrated
 	vector<int> calibratedList;//a growing list of calibrated antenna number
@@ -2394,8 +2394,8 @@ vector<float> phaseCalibrate(vector<vector<float> > *dataf, string pol, float fr
 		cableleni = cablelen->at(1);
 		cablelenj = cablelen->at(1);
 	}
-	
- 
+
+
 	float phase12 = phase((dataf->at(get1DBL(startingAnt1, startingAnt2, nAntenna)))[0], (dataf->at(get1DBL(startingAnt1, startingAnt2, nAntenna)))[1]);
 	float phaseCor2;//measured phase - phaseCor = ideal phase
 	if (startingAnt1 < startingAnt2){
@@ -2500,7 +2500,7 @@ vector<float> modelToMeasurement(vector<float> *modelCor, float ampcal, float ph
 	float modelPhase = phase( modelCor->at(0), modelCor->at(1) );
 	float measurementAmp = modelAmp * pow( 10, min(MAX_10_POW,ampcal) );
 	float measurementPhase = phaseWrap( modelPhase + phasecal );
-	
+
 	//cout <<  "#!#" << FILENAME << "#!#" << METHODNAME << ": " << "modelAmp: " << modelAmp << " modelPhase: " << modelPhase << " measurementAmp: " << measurementAmp << " measurementPhase: " << measurementPhase << " ampcal: " << ampcal << " phasecal: " << phasecal << endl;
 	measurement[0] = measurementAmp * cos(measurementPhase);
 	measurement[1] = measurementAmp * sin(measurementPhase);
@@ -2513,7 +2513,7 @@ vector<float> correctMeasurement(vector<float> *measuredCor, float ampcal1, floa
 	float p = phaseWrap( phase(measuredCor->at(0), measuredCor->at(1)) + phasecal1 - phasecal2 );
 	corrected[0] = a * cos(p);
 	corrected[1] = a * sin(p);
-	return corrected; 
+	return corrected;
 };
 
 void correctMeasurementPhase(vector<float> *measuredCor, float phasecal1, float phasecal2){//assumes <x1* , x2>
@@ -2521,14 +2521,14 @@ void correctMeasurementPhase(vector<float> *measuredCor, float phasecal1, float 
 	float p = phaseWrap( phase(measuredCor->at(0), measuredCor->at(1)) + phasecal1 - phasecal2 );
 	measuredCor->at(0) = a * cos(p);
 	measuredCor->at(1) = a * sin(p);
-	return; 
+	return;
 };
 
 void correctMeasurementMatrix(vector<vector<float> > *correctedData, vector<float> *ampcalpar, vector<float> *phasecalpar){
 	int nAntenna = ampcalpar->size();
 	for ( int i = 0; i < nAntenna; i++){
 		for ( int j = i; j < nAntenna; j++){
-			correctedData->at(get1DBL(i, j, nAntenna)) = correctMeasurement(&(correctedData->at(get1DBL(i, j, nAntenna))), ampcalpar->at(i), phasecalpar->at(i), ampcalpar->at(j), phasecalpar->at(j));		
+			correctedData->at(get1DBL(i, j, nAntenna)) = correctMeasurement(&(correctedData->at(get1DBL(i, j, nAntenna))), ampcalpar->at(i), phasecalpar->at(i), ampcalpar->at(j), phasecalpar->at(j));
 		}
 	}
 }
@@ -2545,7 +2545,7 @@ vector<float> getModel(int i, int j, vector<vector<float> > *antloc, vector<vect
 			return conjugate( UBLcor->at(k) );
 		}
 	}
-	
+
 }
 
 vector<vector<float> > ReverseEngineer(vector<float> * ampcalpar, vector<float> * phasecalpar, vector<vector<float> > * UBLcor, vector<vector<float> > * antloc, vector<vector<float> > * listUBL){
@@ -2580,7 +2580,7 @@ void ReverseEngineer(vector<vector<float> >* output, vector<float> * calpar, int
 				cor[1] = calpar->at(3 + 2 * numAntenna + 2 * ubl + 1);
 			} else{
 				cor[0] = calpar->at(3 + 2 * numAntenna + 2 * ubl);
-				cor[1] = -calpar->at(3 + 2 * numAntenna + 2 * ubl + 1);			
+				cor[1] = -calpar->at(3 + 2 * numAntenna + 2 * ubl + 1);
 			}
 			output->at(cnter) = modelToMeasurement( &cor, (calpar->at(3 + i) + calpar->at(3 + j)), (calpar->at(3 + numAntenna + j) - calpar->at(3 + numAntenna + i)) );
 			cnter ++;
@@ -2603,11 +2603,11 @@ float chiSq(vector<vector<float> > * dataf, vector<vector<float> > * sdevf, vect
 	}
 	float output = 0.0;
 	vector<float> bl(2);
-	
+
 	vector<vector<float> > Ax(numCrosscor, bl);
 	vector<vector<float> > y(numCrosscor, bl);
 	vector<vector<float> > N(numCrosscor, bl);// Here N is technicaly n, noise in units of sdev, not the N covariant matrix
-	
+
 	int cnter = 0;
 	for ( int i = 0; i < numAntenna; i++){
 		for ( int j = i + 1; j < numAntenna; j++){
@@ -2617,13 +2617,13 @@ float chiSq(vector<vector<float> > * dataf, vector<vector<float> > * sdevf, vect
 			cnter ++;
 		}
 	}
-	
+
 	Ax = ReverseEngineer(ampcalpar, phasecalpar, UBLcor, antloc, listUBL);
-	
+
 	for (int i = 0; i < numCrosscor; i ++){
 		output = output + square(( Ax[i][0] - y[i][0] ) / max(N[i][0], MIN_NONE_ZERO)) + square( ( Ax[i][1] - y[i][1] ) / max(N[i][1], MIN_NONE_ZERO));
 	}
-	
+
 	return output;
 }
 
@@ -2641,10 +2641,10 @@ bool fillChiSq(vector<vector<float> >* dataf, vector<vector<float> >* sdevf, vec
 	}
 	float output = 0.0;
 	vector<float> bl(2);
-	
+
 	vector<vector<float> > Ax(numCrosscor, bl);
 	ReverseEngineer(&Ax, calpar, numAntenna, UBLindex);
-	
+
 	for (int i = 0; i < numCrosscor; i ++){
 		vector<int> a = get2DBLCross(i, numAntenna);
 		if(goodAnt->at(a[0]) and goodAnt->at(a[1])){
@@ -2668,7 +2668,7 @@ float median (vector<float> list){
 	//cout << list[0] << " " << list[list.size() - 1] << endl;
 	/*cout << "DBG: Input list: ";
 	for ( int i = 0; i < list.size(); i++){
-		cout << list[i] << " "; 
+		cout << list[i] << " ";
 	}
 	cout << endl << "median: " << list[index] << endl;*/
 	if(l % 2 == 1) return list[index];
@@ -2697,7 +2697,7 @@ float mean (vector<float> *v, int start, int end){// take mean from start to end
 		cout << "#!#" << FILENAME << "#!#" << METHODNAME << " !!WARNING!! mean of an empty array requested!!";
 		return 0;
 	}
-	
+
 
 	if (end > size - 1 or start > size - 1){
 		cout << "#!#" << FILENAME << "#!#" << METHODNAME << " !!WARNING!! start/end index requested at "<< start << "/" << end << " is out of array length of " << v->size() << "!!";
@@ -2787,7 +2787,7 @@ vector<float> stdevAngle(vector<float> *v){
 		} else if (binCount[i] == maxCount){
 			maxDegeneracy ++;
 		}
-	}	
+	}
 	int index = floor( list.size() / 2 );
 
 	return list[index];
@@ -2802,7 +2802,7 @@ void pointSourceCalAccordingTo(int referenceAnt, vector<vector<float> > *data, v
 		cout << "#!#" << FILENAME << "#!#" << METHODNAME << ": !!!!FATAL ERROR!!!! Length of data is " << data->size() << ", not consistent with expected number of crosscorrelations " << nAnt * (nAnt + 1) / 2 << " computed from " << nAnt << " antennas!" << endl;
 		return;
 	}
-	
+
 	//Extracting amplitudes off all cross-correlations related to the reference ant
 	vector<float> amps (nAnt - 1);
 	for ( int i = 0; i < referenceAnt; i ++){
@@ -2813,12 +2813,12 @@ void pointSourceCalAccordingTo(int referenceAnt, vector<vector<float> > *data, v
 	}
 	float standardAmp = median(amps);
 	standardAmp = max(standardAmp , MIN_NONE_ZERO);
-	
+
 	float refphase = phase( (data->at(referenceAnt))[0], -(data->at(referenceAnt))[1] );//reference phase, < x_ref*, x_0>. If we were not to demand x_0's phase correction to be 0, this would have been x_0's phase correction for < x_ref*, x_0> to have 0 phase. However, we substract this from all subsequent phase corrections to demand phase correction for x_0 is 0.
 	for (int i = 0; i < nAnt; i++){
 		(&(ampcalparArray->at(i)))->at(referenceAnt) = log10( max( amp(&(data->at(get1DBL(referenceAnt, i, nAnt)))) / standardAmp, MIN_NONE_ZERO ) );
 		//cout << amp( &(data->at(get1DBL(referenceAnt, i, nAnt))) ) << " " << standardAmp << endl;
-		
+
 		float rawphase = phase( (data->at(get1DBL(referenceAnt, i, nAnt)))[0], (data->at(get1DBL(referenceAnt, i, nAnt)))[1] );
 		if ( i < referenceAnt ){
 			rawphase = - rawphase;
@@ -2880,13 +2880,13 @@ void rotateCalpar(vector<float> *originalPhase, vector<float> *rotatedPhase, vec
 	float cost = cos(theta);
 	float sinp = sin(phi);
 	float cosp = cos(phi);
-	
+
 	//vector<float> rotation (originalPhase->size(), 0.0);
 	if ( originalPhase->size() != rotatedPhase->size() or originalPhase->size() != antloc->size()){
 		cout << "#!#" << FILENAME << "#!#" << METHODNAME << ": !!!!FATAL ERROR!!!! Length of original phasecalpar is " << originalPhase->size() << ", not consistent with length of rotated phasecalpar " << rotatedPhase->size() << " or that implied by antloc " << antloc->size() << endl;
 		return;
 	}
-	
+
 	for ( int i = 0; i < originalPhase->size(); i ++){
 		//rotation[i] = k * (sint * cosp * ((&(antloc->at(i)))->at(0)) + sint * sinp * ((&(antloc->at(i)))->at(1)));
 		rotatedPhase->at(i) = phaseWrap( originalPhase->at(i) + k * (sint * sinp * ((&(antloc->at(i)))->at(0)) - sint * cosp * ((&(antloc->at(i)))->at(1))) );
@@ -2896,7 +2896,7 @@ void rotateCalpar(vector<float> *originalPhase, vector<float> *rotatedPhase, vec
 		//rotation[i] = k * (sint * cosp * ((&(antloc->at(i)))->at(0)) + sint * sinp * ((&(antloc->at(i)))->at(1)));
 		substractComplexPhase(
 			&(originalUBLcor->at(i)),
-			&(rotatedUBLcor->at(i)), 
+			&(rotatedUBLcor->at(i)),
 			phaseWrap(
 				k * (sint * sinp * ((&(listUBL->at(i)))->at(0)) - sint * cosp * ((&(listUBL->at(i)))->at(1)))
 				- phase((originalUBLcor->at(i))[0], (originalUBLcor->at(i))[1])
@@ -2916,11 +2916,11 @@ bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvA
 	! B = A^{-1}, where A is an arbitraty non-singular matrix.
 	! In the process, A gets destroyed (A=I on exit).
 	! Note that A need NOT be symmetric.
-	! This routine is designed for small matrices where you dont care about 
+	! This routine is designed for small matrices where you dont care about
 	! speed or numerical stability.
 	! Written & tested by Max Tegmark 000506
 	*/
-		
+
 	int i=0, j=0, k=0, n = AtNinvAori->size();//todo check size
 	vector<vector<float> > AtNinvAqaz(AtNinvAori->size(), vector<float>(AtNinvAori->at(0).size(),0));
 	vector<vector<float> > *AtNinvA = &AtNinvAqaz;
@@ -2932,7 +2932,7 @@ bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvA
 	double r;
 	//clock_t t1,t2;
 	//t1=clock();
-	
+
 
 	for( i = 0; i < n; i++){// set matrix to one
 		for (j = 0; j < n; j++){
@@ -2984,7 +2984,7 @@ bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvA
 					(AtNinvAinv->at(k))[j] = (AtNinvAinv->at(k))[j] - r*(AtNinvAinv->at(i))[j];
 				}
 			}
-		} 
+		}
 	}
 	//t2=clock();
 	//if(TIME) cout << ((float)t2-(float)t1) / CLOCKS_PER_SEC << "sec ";
@@ -2999,11 +2999,11 @@ bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNin
 	! B = A^{-1}, where A is an arbitraty non-singular matrix.
 	! In the process, A gets destroyed (A=I on exit).
 	! Note that A need NOT be symmetric.
-	! This routine is designed for small matrices where you dont care about 
+	! This routine is designed for small matrices where you dont care about
 	! speed or numerical stability.
 	! Written & tested by Max Tegmark 000506
 	*/
-		
+
 	int i=0, j=0, k=0, n = AtNinvAori->size();//todo check size
 	vector<vector<float> > AtNinvAqaz(AtNinvAori->size(), vector<float>(AtNinvAori->at(0).size(),0));
 	vector<vector<float> > *AtNinvA = &AtNinvAqaz;
@@ -3015,7 +3015,7 @@ bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNin
 	double r;
 	//clock_t t1,t2;
 	//t1=clock();
-	
+
 
 	for( i = 0; i < n; i++){// set matrix to one
 		for (j = 0; j < n; j++){
@@ -3067,7 +3067,7 @@ bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNin
 					(AtNinvAinv->at(k))[j] = (AtNinvAinv->at(k))[j] - r*(AtNinvAinv->at(i))[j];
 				}
 			}
-		} 
+		}
 	}
 	//t2=clock();
 	//if(TIME) cout << ((float)t2-(float)t1) / CLOCKS_PER_SEC << "sec ";
@@ -3137,13 +3137,13 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	int nubl = info->nUBL;
 	int nbl = info->nBaseline;
 	int ncross = info->nCross;
-	
+
 	////read in amp and args
 	for (int b = 0; b < ncross; b++){
 		module->amp1[b] = log10(amp(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]));
 		module->pha1[b] = phase(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]) * info->reversed[b];
 	}
-	
+
 	////rewrap args
 	for(int i = 0; i < nubl; i ++){
 		for(int j = 0; j < (module->ublgrp1)[i].size(); j ++){
@@ -3156,7 +3156,7 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	for (int b = 0; b < ncross; b++) {
 		module->pha1[b] = phaseWrap(module->pha1[b], (module->ubl1)[info->bltoubl[b]][1] - PI);
 	}
-	
+
 
 	fill(module->x3.begin(), module->x3.end(), 0);////At.y
 	for (int i = 0; i < info->Atsparse.size(); i++){
@@ -3172,7 +3172,7 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	}
 	vecmatmul(&(info->AtAi), &(module->x3), &(module->x1));
 	vecmatmul(&(info->BtBi), &(module->x4), &(module->x2));
-	
+
 	for(int b = 0; b < ncross; b++) {
 		float amp = pow(10, module->x1[nant + info->bltoubl[b]] + module->x1[info->bl2d[info->crossindex[b]][0]] + module->x1[info->bl2d[info->crossindex[b]][1]]);
 		float phase =  module->x2[nant + info->bltoubl[b]] * info->reversed[b] - module->x2[info->bl2d[info->crossindex[b]][0]] + module->x2[info->bl2d[info->crossindex[b]][1]];
@@ -3239,7 +3239,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 				module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
 				module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
 			}
-			
+
 			module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
 		}
 	}
@@ -3257,7 +3257,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
 	}
 
-	
+
 	////start iterations
 	int iter = 0;
 	float componentchange = 100;
@@ -3298,7 +3298,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		}
 		//printvv(&(module->g0),0,10);
 		//printvv(&(module->g3),0,10);
-			
+
 		////ubl M
 		for (int u = 0; u < info->nUBL; u++){
 			for (int i = 0; i < module->ubl2dgrp1[u].size(); i++){
@@ -3308,11 +3308,11 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 				module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
 				module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
 			}
-			
+
 			module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
 		}
 
-		
+
 		////Update g and ubl
 		//float fraction;
 		for (int a = 0; a < module->g3.size(); a++){
@@ -3320,7 +3320,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			//if (fraction > componentchange){
 				//componentchange = fraction;
 			//}
-			
+
 			module->g0[a][0] = stepsize2 * module->g0[a][0] + stepsize * module->g3[a][0];
 			module->g0[a][1] = stepsize2 * module->g0[a][1] + stepsize * module->g3[a][1];
 
@@ -3364,18 +3364,18 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			calpar->at(tmp + 2 * u + 1) = module->ubl0[u][1];
 		}
 
-		calpar->at(0) = iter;
+		calpar->at(0) += iter;
 		calpar->at(2) = chisq;
 		for (int b = 0; b < (module->cdata2).size(); b++){
 			additiveout->at(info->crossindex[b])[0] = module->cdata1[b][0] - module->cdata2[b][0];
 			additiveout->at(info->crossindex[b])[1] = module->cdata1[b][1] - module->cdata2[b][1];
 		}
 	}else{////if chisq didnt decrease, keep everything untouched
-		calpar->at(0) = 0;
+		calpar->at(0) += 0;
 		calpar->at(2) = calpar->at(1);
 	}
-	
-	
+
+
 	return;
 }
 
@@ -3386,7 +3386,7 @@ void loadGoodVisibilities(vector<vector<vector<vector<float> > > > * rawdata, ve
 				receiver->at(t)[f][bl][0] = rawdata->at(xy)[t][f][2 * info->subsetbl[bl]];
 				receiver->at(t)[f][bl][1] = rawdata->at(xy)[t][f][2 * info->subsetbl[bl] + 1];
 			}
-		}		
+		}
 	}
 	return;
 }
@@ -3408,18 +3408,18 @@ void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* modu
 	for (int a = 0 ; a < info->nAntenna; a ++){
 		ampfactor += pow(10, calpar->at(3 + a));
 	}
-	ampfactor = ampfactor / info->nAntenna; 
+	ampfactor = ampfactor / info->nAntenna;
 	//cout << ampfactor << endl;
-	
-	////compute phase delta	
+
+	////compute phase delta
 	vecmatmul(&(info->degenM), &(pha1), &(module->x1));//x1: add ant calpar and ubl fit by this
-	
+
 	////correct ant calpar
 	for (int a = 0 ; a < info->nAntenna; a ++){
 		calpar->at(3 + a) = calpar->at(3 + a) - log10(ampfactor);
 		calpar->at(3 + info->nAntenna + a) = phaseWrap(calpar->at(3 + info->nAntenna + a) + module->x1[a]);
 	}
-	
+
 	////correct ublfit
 	for (int u = 0 ; u < info->nUBL; u ++){
 		module->ubl2[u][0] = module->ubl1[u][0] * ampfactor * ampfactor;
@@ -3481,8 +3481,8 @@ void runAverage(vector<vector<vector<vector<float> > > > *in, int dimension, int
 			break;
 	}
 	dummy2 = dummy;
-	
-	
+
+
 	for (int t = 0; t < in->size(); t++){
 		for (int f = 0; f < in->at(0).size(); f++){
 			for (int b = 0; b < in->at(0)[0].size(); b++){
@@ -3502,7 +3502,7 @@ void runAverage(vector<vector<vector<vector<float> > > > *in, int dimension, int
 								dummy[i] = in->at(t)[i][b][ri];
 							}
 								runAverage1d(&dummy, &dummy2, w);
-							for (int i = 0; i < dummy.size(); i ++){								
+							for (int i = 0; i < dummy.size(); i ++){
 								in->at(t)[i][b][ri] = dummy2[i];
 							}
 							break;
@@ -3511,7 +3511,7 @@ void runAverage(vector<vector<vector<vector<float> > > > *in, int dimension, int
 								dummy[i] = in->at(t)[f][i][ri];
 							}
 								runAverage1d(&dummy, &dummy2, w);
-							for (int i = 0; i < dummy.size(); i ++){								
+							for (int i = 0; i < dummy.size(); i ++){
 								in->at(t)[f][i][ri] = dummy2[i];
 							}
 							break;
@@ -3520,10 +3520,10 @@ void runAverage(vector<vector<vector<vector<float> > > > *in, int dimension, int
 								dummy[i] = in->at(t)[f][b][i];
 							}
 								runAverage1d(&dummy, &dummy2, w);
-							for (int i = 0; i < dummy.size(); i ++){								
+							for (int i = 0; i < dummy.size(); i ++){
 								in->at(t)[f][b][i] = dummy2[i];
 							}
-							break;													
+							break;
 					}
 					if (dimension == 3) break;
 				}
@@ -3533,5 +3533,5 @@ void runAverage(vector<vector<vector<vector<float> > > > *in, int dimension, int
 		}
 		if (dimension == 0) break;
 	}
-		
+
 }

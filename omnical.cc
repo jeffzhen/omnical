@@ -132,7 +132,12 @@ int main(int argc, char *argv[]){
 
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing results...";
 	cout.flush();
-	if(removeadd) outputDataLarge(&additiveout, (visin + ".omniadd").c_str());
+	if(removeadd){
+		stringstream ss;
+		ss << additivePeriod;
+		//string str = ss.str();
+		outputDataLarge(&additiveout, (visin + ".omniadd" + ss.str()).c_str());
+	}
 	outputCalparSP(&calpar, calparout, false, info.nAntenna);
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Done. ";
 	cout.flush();

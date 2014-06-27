@@ -36,8 +36,11 @@ o = optparse.OptionParser()
 
 ap.scripting.add_standard_options(o, cal=True, pol=True)
 o.add_option('--tag', action = 'store', default = 'PSA64', help = 'tag name of this calculation')
+o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
+o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
+o.add_option('--skip', action = 'store_true', help = 'whether to skip data importing')
 opts,args = o.parse_args(sys.argv[1:])
-
+skip = opts.skip
 
 ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 uvfiles = args
@@ -65,7 +68,12 @@ infopaths = {'xx':oppath + 'redundantinfo_PSA64.txt', 'yy':oppath + 'redundantin
 
 
 removedegen = True
-removeadditive = False
+if opts.add and opts.nadd > 0:
+	removeadditive = True
+	removeadditiveperiod = opts.nadd
+else:
+	removeadditive = False
+	removeadditiveperiod = -1
 
 needrawcal = False #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
 #rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
@@ -86,14 +94,15 @@ step_size = .3
 
 ########Massage user parameters###################################
 oppath += '/'
-
+utcPath = oppath + 'miriadextract_' + ano + "_localtime.dat"
+lstPath = oppath + 'miriadextract_' + ano + "_lsthour.dat"
 
 ####get some info from the first uvfile   ################
 uv=ap.miriad.UV(uvfiles[0])
 nfreq = uv.nchan;
-nant = uv['nants'] / 2 # 'nants' counting ant-pols, so divide 2
-startfreq = uv['sfreq']
-dfreq = uv['sdf']
+#nant = uv['nants']
+#startfreq = uv['sfreq']
+#dfreq = uv['sdf']
 del(uv)
 
 
@@ -106,40 +115,50 @@ for calibrator, key in zip(calibrators, wantpols.keys()):
 	calibrator.read_redundantinfo(infopaths[p])
 	calibrator.dataPath = oppath + 'data_' + ano + '_' + key
 	calibrator.tmpDataPath = calibrator.dataPath
-	calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
+	if removeadditive:
+		calibrator.calparPath = oppath + 'data_' + ano + '_add' + str(removeadditiveperiod) + '_' + key + '.omnical'
+	else:
+		calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
+
+
 ###start reading miriads################
-print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
-data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols)#, nTotalAntenna = len(aa))
-print FILENAME + " MSG:",  len(t), "slices read."
+if skip:
+	with open(utcPath) as f:
+		timing = f.readlines()
+else:
+	print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
+	data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols)#, nTotalAntenna = len(aa))
+	print FILENAME + " MSG:",  len(t), "slices read."
+	f = open(utcPath,'w')
+	for time in timing:
+		f.write("%s\n"%time)
+	f.close()
+	f = open(lstPath,'w')
+	for l in lst:
+		f.write("%s\n"%l)
+	f.close()
+	#np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')
 
 ###raw calibration################
-if needrawcal:
+if needrawcal and (not skip):
 	for p, key in zip(range(len(wantpols)), wantpols.keys()):
 		rawcalpar = np.fromfile(rawpaths[key], dtype="complex64").reshape(nfreq, nant)
 		data[p] = omni.apply_calpar(data[p], rawcalpar, calibrators[p].totalVisibilityId)
 
-###Save various files read################
-#np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')
-f = open(oppath + 'miriadextract_' + ano + "_localtime.dat",'w')
-for time in timing:
-	f.write("%s\n"%time)
-f.close()
-f = open(oppath + 'miriadextract_' + ano + "_lsthour.dat",'w')
-for l in lst:
-	f.write("%s\n"%l)
-f.close()
-
 ####manually saving data################
-for p, calibrator in zip(range(len(wantpols)), calibrators):
-	data[p].astype('complex64').tofile(calibrator.dataPath)
-del(data)
+if not skip:
+	for p, calibrator in zip(range(len(wantpols)), calibrators):
+		data[p].astype('complex64').tofile(calibrator.dataPath)
+	del(data)
 ####calibrate################
 print FILENAME + " MSG: starting calibration."
 for p, calibrator in zip(range(len(wantpols)), calibrators):
-	calibrator.nTime = len(t)
+	calibrator.nTime = len(timing)
 	calibrator.nFrequency = nfreq
 	calibrator.removeDegeneracy = removedegen
 	calibrator.removeAdditive = removeadditive
+	if calibrator.removeAdditive:
+		calibrator.removeAdditivePeriod = removeadditiveperiod
 	calibrator.keepData = keep_binary_data
 	calibrator.keepCalpar = keep_binary_calpar
 	calibrator.convergePercent = converge_percent
