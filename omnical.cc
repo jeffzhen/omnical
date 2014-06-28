@@ -45,7 +45,6 @@ int main(int argc, char *argv[]){
 	}
 	clock_t tStart = clock();
 	string visin(argv[1]);
-	string calparout = visin + ".omnical";
 	string infopath(argv[2]);
 	int nInt = atoi(argv[3]);
 	int nFreq = atoi(argv[4]);
@@ -53,10 +52,18 @@ int main(int argc, char *argv[]){
 	bool removedegen = atoi(argv[6]);
 	bool removeadd = atoi(argv[7]);
 	int additivePeriod = atoi(argv[8]);
+	string additivePeriodstr = argv[8];
 	bool use_logcal = atoi(argv[9]);
 	float converge_percent = atof(argv[10]);
 	int max_iter  = atoi(argv[11]);
 	float step_size = atof(argv[12]);
+	string calparout;
+	if (removeadd){
+		calparout = visin + "_add" + additivePeriodstr + ".omnical";
+	}else{
+		calparout = visin + ".omnical";
+	}
+
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Starting " << visin << " " << nInt << " by " << nFreq << endl;
 	cout << "##" << FILENAME << "##" << METHODNAME << ": Reading redundant baseline information and pre-computed matrices:" << endl;//generated from 16. additive noise investigation _from_17.nb
 	redundantinfo info;

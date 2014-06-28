@@ -116,7 +116,7 @@ for calibrator, key in zip(calibrators, wantpols.keys()):
 	calibrator.dataPath = oppath + 'data_' + ano + '_' + key
 	calibrator.tmpDataPath = calibrator.dataPath
 	if removeadditive:
-		calibrator.calparPath = oppath + 'data_' + ano + '_add' + str(removeadditiveperiod) + '_' + key + '.omnical'
+		calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '_add' + str(removeadditiveperiod) + '.omnical'
 	else:
 		calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
 
