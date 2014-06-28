@@ -140,8 +140,6 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
 		nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
 	else:
 		nant = nTotalAntenna
-
-
 	if nant * (nant + 1) / 2 < len(totalVisibilityId):
 		raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
 	startfreq = uv['sfreq']
@@ -217,13 +215,18 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
 	else:
 		raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
-def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano):
+def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano, nTotalAntenna = None):
 	METHODNAME = "*apply_omnical_uvs*"
 
 	####get some info from the first uvfile
 	uv=ap.miriad.UV(uvfilenames[0])
 	nfreq = uv.nchan;
-	nant = uv['nants'] / 2 # 'nants' counting ant-pols, so divide 2
+	if nTotalAntenna == None:
+		nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
+	else:
+		nant = nTotalAntenna
+	if nant * (nant + 1) / 2 < len(totalVisibilityId):
+		raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
 	startfreq = uv['sfreq']
 	dfreq = uv['sdf']
 	del(uv)
@@ -241,7 +244,6 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano)
 		blcalpar.append(1 + np.zeros((ttotal, info[p]['nBaseline'], nfreq),dtype='complex64'))
 		for bl in range(info[p]['nBaseline']):
 			blcalpar[p][:, bl, :] *= (calpar[:, :, info[p]['bl2d'][bl,0]].conj() * calpar[:, :, info[p]['bl2d'][bl, 1]])
-
 
 
 	#########start processing#######################
