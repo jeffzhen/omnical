@@ -1,5 +1,5 @@
 import datetime
-import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime
+import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime, shutil
 import time
 from time import ctime
 import aipy as ap
@@ -215,8 +215,14 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
 	else:
 		raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
-def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano, nTotalAntenna = None):
+def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wantpols, oppath, ano, additivefilenames = None, nTotalAntenna = None, overwrite= False):
 	METHODNAME = "*apply_omnical_uvs*"
+	if len(additivefilenames) != len(calparfilenames) and additivefilenames != None:
+		raise Exception("Error: additivefilenames and calparfilenames have different lengths!")
+	if len(info) != len(calparfilenames):
+		raise Exception("Error: info and calparfilenames have different lengths!")
+	if additivefilenames == None:
+		additivefilenames = ["iDontThinkYouHaveAFileCalledThis" for _ in calparfilenames]
 
 	####get some info from the first uvfile
 	uv=ap.miriad.UV(uvfilenames[0])
@@ -225,14 +231,27 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano,
 		nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
 	else:
 		nant = nTotalAntenna
+
 	if nant * (nant + 1) / 2 < len(totalVisibilityId):
 		raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
 	startfreq = uv['sfreq']
 	dfreq = uv['sdf']
 	del(uv)
 
+	#######compute bl1dmatrix####each entry is 1 indexed with minus meaning conjugate, the bl here is not number in totalVisibilityId, but in info['subsetbl'], so it's different from bl1dmatrix in import_uvs method. it also has 2 pols
+	bl1dmatrix = [np.zeros((nant, nant), dtype = 'int32') for p in range(len(info))]
+
+	for a1a2, bl in zip(totalVisibilityId, range(len(totalVisibilityId))):
+		a1, a2 = a1a2
+		for p in range(len(info)):
+			for sbl, bl2 in zip(range(len(info[p]['subsetbl'])), info[p]['subsetbl']):
+				if bl == bl2:
+					bl1dmatrix[p][a1, a2] = sbl + 1
+					bl1dmatrix[p][a2, a1] = - (sbl + 1)
+					break
 	####load calpar and check dimensions, massage calpar from txfx(3+2a+2u) to t*goodabl*f
-	blcalpar = []#calpar for each baseline, auto included
+	calpars = []#bad antenna included
+	adds = []#badubl not included
 	for p in range(len(wantpols)):
 		calpar = np.fromfile(calparfilenames[p], dtype='float32')
 		if len(calpar)%(nfreq *( 3 + 2 * (info[p]['nAntenna'] + info[p]['nUBL']))) != 0:
@@ -240,11 +259,13 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano,
 			return
 		ttotal = len(calpar)/(nfreq *( 3 + 2 * (info[p]['nAntenna'] + info[p]['nUBL'])))
 		calpar = calpar.reshape((ttotal, nfreq, ( 3 + 2 * (info[p]['nAntenna'] + info[p]['nUBL']))))
-		calpar = (10**calpar[:,:,3:3+info[p]['nAntenna']])*np.exp(1.j * calpar[:,:,3+info[p]['nAntenna']:3+2*info[p]['nAntenna']] * math.pi / 180)
-		blcalpar.append(1 + np.zeros((ttotal, info[p]['nBaseline'], nfreq),dtype='complex64'))
-		for bl in range(info[p]['nBaseline']):
-			blcalpar[p][:, bl, :] *= (calpar[:, :, info[p]['bl2d'][bl,0]].conj() * calpar[:, :, info[p]['bl2d'][bl, 1]])
+		calpars.append(1 + np.zeros((ttotal, nant, nfreq),dtype='complex64'))
+		calpars[p][:,info[p]['subsetant'],:] = ((10**calpar[:,:,3:3+info[p]['nAntenna']])*np.exp(1.j * calpar[:,:,3+info[p]['nAntenna']:3+2*info[p]['nAntenna']] * math.pi / 180)).transpose((0,2,1))
 
+		if os.path.isfile(additivefilenames[p]):
+			adds.append(np.fromfile(additivefilenames[p], dtype='complex64').reshape((ttotal, nfreq, len(info[p]['subsetbl']))))
+		else:
+			adds.append(np.zeros((ttotal, nfreq, info[p]['subsetbl'])))
 
 	#########start processing#######################
 	t = []
@@ -254,12 +275,18 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano,
 		uvi = ap.miriad.UV(uvfile)
 		if len(timing) > 0:
 			print FILENAME + METHODNAME + "MSG:", uvfile + ' after', timing[-1]#uv.nchan
-		uvo = ap.miriad.UV(oppath + os.path.basename(os.path.dirname(uvfile+'/')) + ano + 'omnical', status='new')
+
+		if oppath == None:
+			oppath = os.path.abspath(os.path.dirname(os.path.dirname(uvfile + '/'))) + '/'
+		opuvname = oppath + os.path.basename(os.path.dirname(uvfile+'/')) + ano + 'O'
+		if overwrite and os.path.isdir(opuvname):
+			shutil.rmtree(opuvname)
+		uvo = ap.miriad.UV(opuvname, status='new')
 		uvo.init_from_uv(uvi)
-		historystr = "Applied "
-		for cpfn in calparfilenames:
-			historystr += cpfn
-#		uvo.pipe(uvi, mfunc=applycp, append2hist=historystr + "\n")
+		historystr = "Applied OMNICAL %s: "%time.asctime(time.localtime(time.time()))
+		for cpfn, adfn in zip(calparfilenames, additivefilenames):
+			historystr += os.path.abspath(cpfn) + ' ' + os.path.abspath(adfn) + ' '
+		uvo['history'] += historystr + "\n"
 		for preamble, data, flag in uvi.all(raw=True):
 			uvo.copyvr(uvi)
 			if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
@@ -268,17 +295,23 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano,
 				if len(t) > ttotal:
 					print FILENAME + METHODNAME + " MSG: FATAL ERROR: calpar input array " + calparfilenames[p] + " has length", calpar.shape, "but the total length is exceeded when processing " + uvfile + " Aborted!"
 					return
+			polwanted = False
 			for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 				if wantpols[pol] == uvi['pol']:
 					a1, a2 = preamble[2]
-					bl = info[p]['bl1dmatrix'][a1, a2]
-					if bl < info[p]['ncross']:
-						#datapulled = True
-						#print info[p]['subsetbl'][info[p]['crossindex'][bl]],
-						uvo.write(preamble, data/blcalpar[p][len(t) - 1, info[p]['crossindex'][bl]], flag)
-					#//todo: correct autocorr as well
+					bl = bl1dmatrix[p][a1][a2]
+					if bl > 0:
+						additive = adds[p][len(t) - 1, :, bl - 1]
+					elif bl < 0:
+						additive = adds[p][len(t) - 1, :, - bl - 1].conjugate()
 					else:
-						uvo.write(preamble, data, flag)
+						additive = 0
+					#print data.shape, additive.shape, calpars[p][len(t) - 1, a1].shape
+					uvo.write(preamble, (data-additive)/calpars[p][len(t) - 1, a1].conjugate()/calpars[p][len(t) - 1, a2], flag)
+					polwanted = True
+					break
+			if not polwanted:
+				uvo.write(preamble, data, flag)
 
 		del(uvo)
 		del(uvi)
@@ -518,7 +551,10 @@ class RedundantCalibrator:
 				print self.className + methodName + "System call: " + command
 			os.system(command)
 
-			self.calparPath = self.dataPath + '.omnical'
+			if self.removeAdditive and self.removeAdditivePeriod > 0:
+				self.calparPath = self.dataPath + '_add' + str(self.removeAdditivePeriod) + '.omnical'
+			else:
+				self.calparPath = self.dataPath + '.omnical'
 			self.rawCalpar = np.fromfile(self.calparPath, dtype = 'float32').reshape((self.nTime, self.nFrequency, 3 + 2 * (self.info['nAntenna'] + self.info['nUBL'])))
 			if self.calMode == '0' or self.calMode == '1':
 				self.chisq = self.rawCalpar[:, :, 2]
