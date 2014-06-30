@@ -16,9 +16,9 @@ for dir in ${DIRS}; do
     echo TAG2 ${TAG2}
     echo ==============================================================================================================================
     for CHUNK in `seq 1 1 6`; do
-        echo omnical_PSA64.py -C ${CALFILE} -p xx,yy --tag=${TAG1}_245${TAG2}.${CHUNK} $dir/zen.*.${CHUNK}*.${EXT}
+        echo omnical_PSA64.py -C ${CALFILE} -p xx,yy --tag=${TAG1}_245${TAG2}.${CHUNK}.round2 $dir/zen.*.${CHUNK}*.${EXT}
         echo ----------------------------------------------------------------------------------------------------------------------------
-        omnical_PSA64.py -C ${CALFILE} -p xx,yy --tag=${TAG1}_245${TAG2}.${CHUNK} $dir/zen.*.${CHUNK}*.${EXT} --skip 
+        omnical_PSA64.py -C ${CALFILE} -p xx,yy --tag=${TAG1}_245${TAG2}.${CHUNK}.round2 $dir/zen.*.${CHUNK}*.${EXT} --skip
     done;
 done;
-    
+

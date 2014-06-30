@@ -36,6 +36,7 @@ o = optparse.OptionParser()
 
 ap.scripting.add_standard_options(o, cal=True, pol=True)
 o.add_option('--tag', action = 'store', default = 'PSA64', help = 'tag name of this calculation')
+o.add_option('-i', '--infopath', action = 'store', default = 'results/redundantinfo_PSA64_ba19_38_50.txt', help = 'redundantinfo file to read')
 o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 o.add_option('--skip', action = 'store_true', help = 'whether to skip data importing')
@@ -57,14 +58,15 @@ for p in opts.pol.split(','): wantpols[p] = ap.miriad.str2pol[p]
 
 
 aa = ap.cal.get_aa(opts.cal, np.array([.15]))
+infopathxx = opts.infopath
+infopathyy = opts.infopath
 
 badAntenna = [37]
 badUBL = []
 
 oppath = './results/'
 
-infopaths = {'xx':oppath + 'redundantinfo_PSA64.txt', 'yy':oppath + 'redundantinfo_PSA64.txt'}
-#arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
+infopaths = {'xx': infopathxx, 'yy': infopathyy}
 
 
 removedegen = True
@@ -108,13 +110,14 @@ del(uv)
 
 ####create redundant calibrators################
 #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
-calibrators = [RedundantCalibrator_PAPER(aa) for key in wantpols.keys()]
-for calibrator, key in zip(calibrators, wantpols.keys()):
-	#calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBL = badUBL, antennaLocationTolerance = 1)
-	#calibrator.write_redundantinfo(infoPath = oppath + 'redundantinfo_' + ano + '_' + key + '.txt', overwrite = True)
-	calibrator.read_redundantinfo(infopaths[p])
-	calibrator.dataPath = oppath + 'data_' + ano + '_' + key
-	calibrator.tmpDataPath = calibrator.dataPath
+calibrators = {}
+for key in wantpols.keys():
+	calibrators[key] = RedundantCalibrator_PAPER(aa)
+
+for key in wantpols.keys():
+	calibrators[key].read_redundantinfo(infopaths[key])
+	calibrators[key].dataPath = oppath + 'data_' + ano + '_' + key
+	calibrators[key].tmpDataPath = calibrators[key].dataPath
 	if removeadditive:
 		calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '_add' + str(removeadditiveperiod) + '.omnical'
 	else:
@@ -152,7 +155,7 @@ if not skip:
 	del(data)
 ####calibrate################
 print FILENAME + " MSG: starting calibration."
-for p, calibrator in zip(range(len(wantpols)), calibrators):
+for calibrator in calibrators:
 	calibrator.nTime = len(timing)
 	calibrator.nFrequency = nfreq
 	calibrator.removeDegeneracy = removedegen
