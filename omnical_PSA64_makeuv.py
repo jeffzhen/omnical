@@ -38,7 +38,9 @@ ap.scripting.add_standard_options(o, cal=True, pol=True)
 o.add_option('--tag', action = 'store', default = 'PSA64', help = 'tag name of this calculation')
 o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
+o.add_option('--path', action = 'store', default = None, help = 'Output path, if None, it will be the same folder as input uvs.')
 o.add_option('--skip', action = 'store_true', help = 'whether to skip data importing')
+
 opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
 
@@ -61,7 +63,11 @@ aa = ap.cal.get_aa(opts.cal, np.array([.15]))
 badAntenna = [37]
 badUBL = []
 
-oppath = './results/'
+opuvpath = opts.path
+if opuvpath != None and (not os.path.isdir(opuvpath)):
+	os.makedirs(opuvpath)
+
+oppath = './results'
 
 infopaths = {'xx':oppath + 'redundantinfo_PSA64.txt', 'yy':oppath + 'redundantinfo_PSA64.txt'}
 #arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
@@ -94,6 +100,7 @@ step_size = .3
 
 ########Massage user parameters###################################
 oppath += '/'
+opuvpath += '/'
 
 
 
@@ -117,15 +124,14 @@ for calibrator, key in zip(calibrators, wantpols.keys()):
 
 calparfilenames = [calibrator.calparPath for calibrator in calibrators]
 additivefilenames = [calibrator.dataPath + '.omniadd%d'%removeadditiveperiod for calibrator in calibrators]
-info = omni.read_redundantinfo('results/redundantinfo_PSA64.txt')
+info = omni.read_redundantinfo('results/redundantinfo_PSA64_ba19_37_50.txt')
 info = [info, info]
 
-oppath = '/data4/paper/2012EoR/psa_live/forlstbinning_omnicaled/'
 
 
 ####make uv################
 print FILENAME + " MSG: starting uv creation."
 print calparfilenames
 print additivefilenames
-omni.apply_omnical_uvs(uvfiles, calparfilenames, calibrators[0].totalVisibilityId, info, wantpols, oppath, '', additivefilenames = additivefilenames, nTotalAntenna = None, overwrite = False)
+omni.apply_omnical_uvs(uvfiles, calparfilenames, calibrators[0].totalVisibilityId, info, wantpols, opuvpath, '', additivefilenames = additivefilenames, nTotalAntenna = None, overwrite = False)
 
