@@ -265,7 +265,7 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wan
 		if os.path.isfile(additivefilenames[p]):
 			adds.append(np.fromfile(additivefilenames[p], dtype='complex64').reshape((ttotal, nfreq, len(info[p]['subsetbl']))))
 		else:
-			adds.append(np.zeros((ttotal, nfreq, info[p]['subsetbl'])))
+			adds.append(np.zeros((ttotal, nfreq, len(info[p]['subsetbl']))))
 
 	#########start processing#######################
 	t = []
@@ -279,6 +279,7 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wan
 		if oppath == None:
 			oppath = os.path.abspath(os.path.dirname(os.path.dirname(uvfile + '/'))) + '/'
 		opuvname = oppath + os.path.basename(os.path.dirname(uvfile+'/')) + ano + 'O'
+		print FILENAME + METHODNAME + "MSG: Creating %s"%opuvname
 		if overwrite and os.path.isdir(opuvname):
 			shutil.rmtree(opuvname)
 		uvo = ap.miriad.UV(opuvname, status='new')

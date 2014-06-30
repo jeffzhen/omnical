@@ -115,16 +115,17 @@ for calibrator, key in zip(calibrators, wantpols.keys()):
 
 
 
-uvfilenames = ['/home/omniscope/zen.2456247.17389.uvcRREcAC']
 calparfilenames = [calibrator.calparPath for calibrator in calibrators]
-additivefilenames = [calibrator.dataPath + 'omniadd%d'%removeadditiveperiod for calibrator in calibrators]
+additivefilenames = [calibrator.dataPath + '.omniadd%d'%removeadditiveperiod for calibrator in calibrators]
 info = omni.read_redundantinfo('results/redundantinfo_PSA64.txt')
 info = [info, info]
 
-oppath = None
+oppath = '/data4/paper/2012EoR/psa_live/forlstbinning_omnicaled/'
 
 
 ####make uv################
 print FILENAME + " MSG: starting uv creation."
-omni.apply_omnical_uvs(uvfilenames, calparfilenames, calibrators[0].totalVisibilityId, info, wantpols, None, '', additivefilenames = additivefilenames, nTotalAntenna = None, overwrite = False)
+print calparfilenames
+print additivefilenames
+omni.apply_omnical_uvs(uvfiles, calparfilenames, calibrators[0].totalVisibilityId, info, wantpols, oppath, '', additivefilenames = additivefilenames, nTotalAntenna = None, overwrite = False)
 
