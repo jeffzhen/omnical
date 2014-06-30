@@ -25,7 +25,7 @@ rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
 
 
 keep_binary_data = True
-keep_binary_calpar = False
+keep_binary_calpar = True
 
 
 converge_percent = 0.01
@@ -108,5 +108,5 @@ else:
 			print i, newresult[i], correctresult[i]
 	print "TEST FAILED :("
 
-os.remove(oppath + 'miriadextract_' + ano + "_localtime.dat")
-os.remove(oppath + 'miriadextract_' + ano + "_lsthour.dat")
+#os.remove(oppath + 'miriadextract_' + ano + "_localtime.dat")
+#os.remove(oppath + 'miriadextract_' + ano + "_lsthour.dat")
