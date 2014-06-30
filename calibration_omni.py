@@ -307,6 +307,7 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wan
 						additive = adds[p][len(t) - 1, :, - bl - 1].conjugate()
 					else:
 						additive = 0
+						flag[:] = True
 					#print data.shape, additive.shape, calpars[p][len(t) - 1, a1].shape
 					uvo.write(preamble, (data-additive)/calpars[p][len(t) - 1, a1].conjugate()/calpars[p][len(t) - 1, a2], flag)
 					polwanted = True
