@@ -1,0 +1,14 @@
+txt file format:
+line 1: indices of excluded ants (-1 means no exclusion)
+line 2: excluded baseline types (in undocumented order)
+line 3: tolerance for redundancy (in units of ant coordinate)
+(3-vectors of ant positions, order defines antenna order)
+(i j baseline order, which is order that data read from uv file is put into)
+
+running:
+> omnical_PSA64.py -C calfile -p xx *.uv
+(inside, calibrators[0].calparPath shows where output went)
+creates results/data_PSA64_test_yy.omnical
+d = np.fromfile(omnical_file, dtype=float32).reshape((14,203,353))
+d[0,150,:] = [iters, logcal_chi2, lincal_chi2, ... log10(abs(g_i)) for 64 ants ..., ... degree(g_i) for 64 ants ...,
+    ... uniq bls real+imag sky solution ...]

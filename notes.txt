@@ -1,6 +1,0 @@
-txt file format:
-line 1: indices of excluded ants (-1 means no exclusion)
-line 2: excluded baseline types (in undocumented order)
-line 3: tolerance for redundancy (in units of ant coordinate)
-(3-vectors of ant positions, order defines antenna order)
-(i j baseline order, which is order that data read from uv file is put into)
