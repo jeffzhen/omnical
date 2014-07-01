@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>
-#include <calibration_omni.h>
+#include "include/calibration_omni.h"
 #include <algorithm>
 using namespace std;
 const string FILENAME = "calibration_omni.cc";

@@ -14,7 +14,7 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>
-#include <calibration_omni.h>
+#include "include/calibration_omni.h"
 #include <iomanip>
 
 using namespace std;
