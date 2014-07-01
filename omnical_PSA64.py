@@ -36,7 +36,7 @@ o = optparse.OptionParser()
 
 ap.scripting.add_standard_options(o, cal=True, pol=True)
 o.add_option('--tag', action = 'store', default = 'PSA64', help = 'tag name of this calculation')
-o.add_option('-i', '--infopath', action = 'store', default = 'results/redundantinfo_PSA64_ba19_38_50.txt', help = 'redundantinfo file to read')
+o.add_option('-i', '--infopath', action = 'store', default = 'results/redundantinfo_PSA64_ba19_37_50.txt', help = 'redundantinfo file to read')
 o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 o.add_option('--skip', action = 'store_true', help = 'whether to skip data importing')
@@ -44,6 +44,7 @@ opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
 
 ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
+dataano = ano[:17]#ano for existing data and lst.dat. ugly hardcode!!!
 uvfiles = args
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
@@ -61,8 +62,8 @@ aa = ap.cal.get_aa(opts.cal, np.array([.15]))
 infopathxx = opts.infopath
 infopathyy = opts.infopath
 
-badAntenna = [37]
-badUBL = []
+#badAntenna = [37]
+#badUBL = []
 
 oppath = './results/'
 
@@ -96,8 +97,8 @@ step_size = .3
 
 ########Massage user parameters###################################
 oppath += '/'
-utcPath = oppath + 'miriadextract_' + ano + "_localtime.dat"
-lstPath = oppath + 'miriadextract_' + ano + "_lsthour.dat"
+utcPath = oppath + 'miriadextract_' + dataano + "_localtime.dat"
+lstPath = oppath + 'miriadextract_' + dataano + "_lsthour.dat"
 
 ####get some info from the first uvfile   ################
 uv=ap.miriad.UV(uvfiles[0])
@@ -116,12 +117,12 @@ for key in wantpols.keys():
 
 for key in wantpols.keys():
 	calibrators[key].read_redundantinfo(infopaths[key])
-	calibrators[key].dataPath = oppath + 'data_' + ano + '_' + key
+	calibrators[key].dataPath = oppath + 'data_' + dataano + '_' + key#ugly hard code
 	calibrators[key].tmpDataPath = calibrators[key].dataPath
 	if removeadditive:
-		calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '_add' + str(removeadditiveperiod) + '.omnical'
+		calibrators[key].calparPath = oppath + 'data_' + ano + '_' + key + '_add' + str(removeadditiveperiod) + '.omnical'
 	else:
-		calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
+		calibrators[key].calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
 
 
 ###start reading miriads################
@@ -155,7 +156,7 @@ if not skip:
 	del(data)
 ####calibrate################
 print FILENAME + " MSG: starting calibration."
-for calibrator in calibrators:
+for key, calibrator in calibrators.items():
 	calibrator.nTime = len(timing)
 	calibrator.nFrequency = nfreq
 	calibrator.removeDegeneracy = removedegen
