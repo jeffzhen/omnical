@@ -1160,7 +1160,7 @@ void readSunpos(const char* inputfilename, vector<vector<float> > * sunpos){//re
 	vector<float> antlocraw = readAscii(inputfilename);
 
 	int cnter = 0;
-	float theta, phi;
+	float theta = 0, phi = 0;
 	for (int i = 0; i < min(int(sunpos->size()), realNumberOfLine); i++){
 		for (int j = 0; j < 2; j++){
 			if (j == 0) theta = PI/2 - antlocraw[cnter];
@@ -1771,123 +1771,123 @@ void iqDemod(vector<vector<vector<vector<vector<float> > > > > *data, vector<vec
 	return;
 }
 
-void iqDemodLarge(vector<vector<vector<vector<float> > > > *data, vector<vector<vector<vector<float> > > > *data_out, int nIntegrations, int nFrequencies, int nAnt){
-	string METHODNAME = "iqDemodLarge";
-	int nChannels = nAnt * 4; //a factor of 2 from consolidating x and y polarizations, and another factor of 2 from consolidating iq
-	int n_xxi = nAnt * (nAnt + 1)/2;
+//void iqDemodLarge(vector<vector<vector<vector<float> > > > *data, vector<vector<vector<vector<float> > > > *data_out, int nIntegrations, int nFrequencies, int nAnt){
+	//string METHODNAME = "iqDemodLarge";
+	//int nChannels = nAnt * 4; //a factor of 2 from consolidating x and y polarizations, and another factor of 2 from consolidating iq
+	//int n_xxi = nAnt * (nAnt + 1)/2;
 
-	if ( data->size() != 1 or data_out->size() != 4 or (data->at(0)).size() != nIntegrations or (data_out->at(0)).size() != nIntegrations or (data->at(0))[0].size() != nFrequencies or (data_out->at(0))[0].size() != 2 * nFrequencies or (data->at(0))[0][0].size() != nChannels * ( nChannels + 1 ) or (data_out->at(0))[0][0].size() != nAnt * ( nAnt + 1 ) ){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input array and IQ array are initialized at (p, t, f, bl) = (" << data->size() << ", " << (data->at(0)).size() << ", " <<  (data->at(0))[0].size()  << ", " <<  (data->at(0))[0][0].size() << ") and (" << data_out->size() << ", " << (data_out->at(0)).size() << ", " <<  (data_out->at(0))[0].size()  << ", " <<  (data_out->at(0))[0][0].size() << "), where as the parameters are specified as (t, f_in, f_out, bl_in, bl_out) = (" << nIntegrations << ", "  << nFrequencies << ", "  << 2 * nFrequencies << ", " << nChannels * ( nChannels + 1 ) << ", " << nAnt * ( nAnt + 1 ) << "). Exiting!!" << endl;
-		return;
-	}
-	vector<float> *freq_slice;
-	int prevk, k1i, k1q, prevk1i, prevk1q, k2xi, k2xq, k2yi, k2yq, prevk2xi, prevk2yi, bl;
-	float a1xx_re, a1xx_im, a2xx_re, a2xx_im, a3xx_re, a3xx_im, a1xy_re, a1xy_im, a2xy_re, a2xy_im, a3xy_re, a3xy_im, a1yx_re, a1yx_im, a2yx_re, a2yx_im, a3yx_re, a3yx_im, a1yy_re, a1yy_im, a2yy_re, a2yy_im, a3yy_re, a3yy_im;
-	int c2nchan1 = 2 * nChannels - 1; //frequently used constant
-	for (int t = 0; t < nIntegrations; t++){
-		//cout << t << endl;
-		for (int f = 0; f < nFrequencies; f++){
-			freq_slice = &((data->at(0))[t][f]);
-			//loop for xx and xy
-			for (int k1 = 0; k1 < nAnt; k1++){
-				prevk = (2 * nAnt - k1 - 1) * k1 / 2;
-				k1i = 2*k1;
-				k1q = k1i + 2 * nAnt;
-				prevk1i = (c2nchan1 - k1i)*k1i/2;
-				prevk1q = (c2nchan1 - k1q)*k1q/2;
-				for (int k2 = k1; k2 < nAnt; k2++){
-					k2xi = 2 * k2;
-					k2xq = k2xi + 2 * nAnt;
-					k2yi = k2xi + 1;
-					k2yq = k2xq + 1;
-					prevk2xi = (c2nchan1 - k2xi) * k2xi / 2;
-					prevk2yi = (c2nchan1-k2yi) * k2yi / 2;
-					// performing complex arithmetic: 0 index --> real
-					// 1 index --> imag
-					a1xx_re = freq_slice->at(gc(prevk1i+k2xi, 0)) + freq_slice->at(gc(prevk1q+k2xq, 0));
-					a1xx_im = freq_slice->at(gc(prevk1i+k2xi, 1)) + freq_slice->at(gc(prevk1q+k2xq, 1));
-					a2xx_re = freq_slice->at(gc(prevk1i+k2xq, 0)) - freq_slice->at(gc(prevk2xi+k1q, 0));
-					a2xx_im = freq_slice->at(gc(prevk1i+k2xq, 1)) + freq_slice->at(gc(prevk2xi+k1q, 1));
-					a3xx_re = -1 * a2xx_im;
-					a3xx_im = a2xx_re;
-					a1xy_re = freq_slice->at(gc(prevk1i+k2yi, 0)) + freq_slice->at(gc(prevk1q+k2yq, 0));
-					a1xy_im = freq_slice->at(gc(prevk1i+k2yi, 1)) + freq_slice->at(gc(prevk1q+k2yq, 1));
-					a2xy_re = freq_slice->at(gc(prevk1i+k2yq, 0)) - freq_slice->at(gc(prevk2yi+k1q, 0));
-					a2xy_im = freq_slice->at(gc(prevk1i+k2yq, 1)) + freq_slice->at(gc(prevk2yi+k1q, 1));
-					a3xy_re = -1 * a2xy_im;
-					a3xy_im = a2xy_re;
+	//if ( data->size() != 1 or data_out->size() != 4 or (data->at(0)).size() != nIntegrations or (data_out->at(0)).size() != nIntegrations or (data->at(0))[0].size() != nFrequencies or (data_out->at(0))[0].size() != 2 * nFrequencies or (data->at(0))[0][0].size() != nChannels * ( nChannels + 1 ) or (data_out->at(0))[0][0].size() != nAnt * ( nAnt + 1 ) ){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input array and IQ array are initialized at (p, t, f, bl) = (" << data->size() << ", " << (data->at(0)).size() << ", " <<  (data->at(0))[0].size()  << ", " <<  (data->at(0))[0][0].size() << ") and (" << data_out->size() << ", " << (data_out->at(0)).size() << ", " <<  (data_out->at(0))[0].size()  << ", " <<  (data_out->at(0))[0][0].size() << "), where as the parameters are specified as (t, f_in, f_out, bl_in, bl_out) = (" << nIntegrations << ", "  << nFrequencies << ", "  << 2 * nFrequencies << ", " << nChannels * ( nChannels + 1 ) << ", " << nAnt * ( nAnt + 1 ) << "). Exiting!!" << endl;
+		//return;
+	//}
+	//vector<float> *freq_slice;
+	//int prevk, k1i, k1q, prevk1i, prevk1q, k2xi, k2xq, k2yi, k2yq, prevk2xi, prevk2yi, bl;
+	//float a1xx_re, a1xx_im, a2xx_re, a2xx_im, a3xx_re, a3xx_im, a1xy_re, a1xy_im, a2xy_re, a2xy_im, a3xy_re, a3xy_im, a1yx_re, a1yx_im, a2yx_re, a2yx_im, a3yx_re, a3yx_im, a1yy_re, a1yy_im, a2yy_re, a2yy_im, a3yy_re, a3yy_im;
+	//int c2nchan1 = 2 * nChannels - 1; //frequently used constant
+	//for (int t = 0; t < nIntegrations; t++){
+		////cout << t << endl;
+		//for (int f = 0; f < nFrequencies; f++){
+			//freq_slice = &((data->at(0))[t][f]);
+			////loop for xx and xy
+			//for (int k1 = 0; k1 < nAnt; k1++){
+				//prevk = (2 * nAnt - k1 - 1) * k1 / 2;
+				//k1i = 2*k1;
+				//k1q = k1i + 2 * nAnt;
+				//prevk1i = (c2nchan1 - k1i)*k1i/2;
+				//prevk1q = (c2nchan1 - k1q)*k1q/2;
+				//for (int k2 = k1; k2 < nAnt; k2++){
+					//k2xi = 2 * k2;
+					//k2xq = k2xi + 2 * nAnt;
+					//k2yi = k2xi + 1;
+					//k2yq = k2xq + 1;
+					//prevk2xi = (c2nchan1 - k2xi) * k2xi / 2;
+					//prevk2yi = (c2nchan1-k2yi) * k2yi / 2;
+					//// performing complex arithmetic: 0 index --> real
+					//// 1 index --> imag
+					//a1xx_re = freq_slice->at(gc(prevk1i+k2xi, 0)) + freq_slice->at(gc(prevk1q+k2xq, 0));
+					//a1xx_im = freq_slice->at(gc(prevk1i+k2xi, 1)) + freq_slice->at(gc(prevk1q+k2xq, 1));
+					//a2xx_re = freq_slice->at(gc(prevk1i+k2xq, 0)) - freq_slice->at(gc(prevk2xi+k1q, 0));
+					//a2xx_im = freq_slice->at(gc(prevk1i+k2xq, 1)) + freq_slice->at(gc(prevk2xi+k1q, 1));
+					//a3xx_re = -1 * a2xx_im;
+					//a3xx_im = a2xx_re;
+					//a1xy_re = freq_slice->at(gc(prevk1i+k2yi, 0)) + freq_slice->at(gc(prevk1q+k2yq, 0));
+					//a1xy_im = freq_slice->at(gc(prevk1i+k2yi, 1)) + freq_slice->at(gc(prevk1q+k2yq, 1));
+					//a2xy_re = freq_slice->at(gc(prevk1i+k2yq, 0)) - freq_slice->at(gc(prevk2yi+k1q, 0));
+					//a2xy_im = freq_slice->at(gc(prevk1i+k2yq, 1)) + freq_slice->at(gc(prevk2yi+k1q, 1));
+					//a3xy_re = -1 * a2xy_im;
+					//a3xy_im = a2xy_re;
 
-					//writing to output matrix
-					bl = prevk + k2;
-					if (f == 0){
-						(data_out->at(0))[t][2*nFrequencies-1][gc(bl, 0)] = ( a1xx_re + a3xx_re);
-						(data_out->at(0))[t][2*nFrequencies-1][gc(bl, 1)] = -1*( a1xx_im + a3xx_im);
-						(data_out->at(1))[t][2*nFrequencies-1][gc(bl, 0)] = (a1xy_re + a3xy_re);
-						(data_out->at(1))[t][2*nFrequencies-1][gc(bl, 1)] = -1*(a1xy_im + a3xy_im);
-					}
+					////writing to output matrix
+					//bl = prevk + k2;
+					//if (f == 0){
+						//(data_out->at(0))[t][2*nFrequencies-1][gc(bl, 0)] = ( a1xx_re + a3xx_re);
+						//(data_out->at(0))[t][2*nFrequencies-1][gc(bl, 1)] = -1*( a1xx_im + a3xx_im);
+						//(data_out->at(1))[t][2*nFrequencies-1][gc(bl, 0)] = (a1xy_re + a3xy_re);
+						//(data_out->at(1))[t][2*nFrequencies-1][gc(bl, 1)] = -1*(a1xy_im + a3xy_im);
+					//}
 
-					(data_out->at(0))[t][nFrequencies-1+f][gc(bl, 0)] = ( a1xx_re + a3xx_re);
-					(data_out->at(0))[t][nFrequencies-1+f][gc(bl, 1)] = -1*( a1xx_im + a3xx_im);
-					(data_out->at(0))[t][nFrequencies-1-f][gc(bl, 0)] = a1xx_re - a3xx_re;
-					(data_out->at(0))[t][nFrequencies-1-f][gc(bl, 1)] = a1xx_im - a3xx_im;
-					(data_out->at(1))[t][nFrequencies-1+f][gc(bl, 0)] = (a1xy_re + a3xy_re);
-					(data_out->at(1))[t][nFrequencies-1+f][gc(bl, 1)] = -1*(a1xy_im + a3xy_im);
-					(data_out->at(1))[t][nFrequencies-1-f][gc(bl, 0)] = a1xy_re - a3xy_re;
-					(data_out->at(1))[t][nFrequencies-1-f][gc(bl, 1)] = a1xy_im - a3xy_im;
-				}
-			}
-				//loop for yy and yx
-				//computational difference: k1i = 2*k1 (+ 1)
-			for (int k1=0; k1 < nAnt; k1++){
-				prevk = (2*nAnt-k1-1)*k1/2;
-				k1i = 2*k1 + 1;
-				k1q = k1i + 2 * nAnt;
-				prevk1i = (c2nchan1 - k1i)*k1i/2;
-				prevk1q = (c2nchan1 - k1q)*k1q/2;
-				for (int k2=k1; k2 < nAnt; k2++){
-					k2xi = 2*k2;
-					k2xq = k2xi + 2*nAnt;
-					k2yi = k2xi + 1;
-					k2yq = k2xq + 1;
-					prevk2xi = (c2nchan1-k2xi)*k2xi/2;
-					prevk2yi = (c2nchan1-k2yi)*k2yi/2;
-					// performing complex arithmetic: 0 index --> real
-					// 1 index --> imag
-					a1yx_re = freq_slice->at(gc(prevk1i+k2xi, 0)) + freq_slice->at(gc(prevk1q+k2xq, 0));
-					a1yx_im = freq_slice->at(gc(prevk1i+k2xi, 1)) + freq_slice->at(gc(prevk1q+k2xq, 1));
-					a2yx_re = freq_slice->at(gc(prevk1i+k2xq, 0)) - freq_slice->at(gc(prevk2xi+k1q, 0));
-					a2yx_im = freq_slice->at(gc(prevk1i+k2xq, 1)) + freq_slice->at(gc(prevk2xi+k1q, 1));
-					a3yx_re = -1 * a2yx_im;
-					a3yx_im = a2yx_re;
-					a1yy_re = freq_slice->at(gc(prevk1i+k2yi, 0)) + freq_slice->at(gc(prevk1q+k2yq, 0));
-					a1yy_im = freq_slice->at(gc(prevk1i+k2yi, 1)) + freq_slice->at(gc(prevk1q+k2yq, 1));
-					a2yy_re = freq_slice->at(gc(prevk1i+k2yq, 0)) - freq_slice->at(gc(prevk2yi+k1q, 0));
-					a2yy_im = freq_slice->at(gc(prevk1i+k2yq, 1)) + freq_slice->at(gc(prevk2yi+k1q, 1));
-					a3yy_re = -1 * a2yy_im;
-					a3yy_im = a2yy_re;
+					//(data_out->at(0))[t][nFrequencies-1+f][gc(bl, 0)] = ( a1xx_re + a3xx_re);
+					//(data_out->at(0))[t][nFrequencies-1+f][gc(bl, 1)] = -1*( a1xx_im + a3xx_im);
+					//(data_out->at(0))[t][nFrequencies-1-f][gc(bl, 0)] = a1xx_re - a3xx_re;
+					//(data_out->at(0))[t][nFrequencies-1-f][gc(bl, 1)] = a1xx_im - a3xx_im;
+					//(data_out->at(1))[t][nFrequencies-1+f][gc(bl, 0)] = (a1xy_re + a3xy_re);
+					//(data_out->at(1))[t][nFrequencies-1+f][gc(bl, 1)] = -1*(a1xy_im + a3xy_im);
+					//(data_out->at(1))[t][nFrequencies-1-f][gc(bl, 0)] = a1xy_re - a3xy_re;
+					//(data_out->at(1))[t][nFrequencies-1-f][gc(bl, 1)] = a1xy_im - a3xy_im;
+				//}
+			//}
+				////loop for yy and yx
+				////computational difference: k1i = 2*k1 (+ 1)
+			//for (int k1=0; k1 < nAnt; k1++){
+				//prevk = (2*nAnt-k1-1)*k1/2;
+				//k1i = 2*k1 + 1;
+				//k1q = k1i + 2 * nAnt;
+				//prevk1i = (c2nchan1 - k1i)*k1i/2;
+				//prevk1q = (c2nchan1 - k1q)*k1q/2;
+				//for (int k2=k1; k2 < nAnt; k2++){
+					//k2xi = 2*k2;
+					//k2xq = k2xi + 2*nAnt;
+					//k2yi = k2xi + 1;
+					//k2yq = k2xq + 1;
+					//prevk2xi = (c2nchan1-k2xi)*k2xi/2;
+					//prevk2yi = (c2nchan1-k2yi)*k2yi/2;
+					//// performing complex arithmetic: 0 index --> real
+					//// 1 index --> imag
+					//a1yx_re = freq_slice->at(gc(prevk1i+k2xi, 0)) + freq_slice->at(gc(prevk1q+k2xq, 0));
+					//a1yx_im = freq_slice->at(gc(prevk1i+k2xi, 1)) + freq_slice->at(gc(prevk1q+k2xq, 1));
+					//a2yx_re = freq_slice->at(gc(prevk1i+k2xq, 0)) - freq_slice->at(gc(prevk2xi+k1q, 0));
+					//a2yx_im = freq_slice->at(gc(prevk1i+k2xq, 1)) + freq_slice->at(gc(prevk2xi+k1q, 1));
+					//a3yx_re = -1 * a2yx_im;
+					//a3yx_im = a2yx_re;
+					//a1yy_re = freq_slice->at(gc(prevk1i+k2yi, 0)) + freq_slice->at(gc(prevk1q+k2yq, 0));
+					//a1yy_im = freq_slice->at(gc(prevk1i+k2yi, 1)) + freq_slice->at(gc(prevk1q+k2yq, 1));
+					//a2yy_re = freq_slice->at(gc(prevk1i+k2yq, 0)) - freq_slice->at(gc(prevk2yi+k1q, 0));
+					//a2yy_im = freq_slice->at(gc(prevk1i+k2yq, 1)) + freq_slice->at(gc(prevk2yi+k1q, 1));
+					//a3yy_re = -1 * a2yy_im;
+					//a3yy_im = a2yy_re;
 
-					//writing to output matrix
-					bl = prevk + k2;
-					if (f == 0){
-						(data_out->at(2))[t][2*nFrequencies-1][gc(bl, 0)] = ( a1yx_re + a3yx_re);
-						(data_out->at(2))[t][2*nFrequencies-1][gc(bl, 1)] = -1*( a1yx_im + a3yx_im);
-						(data_out->at(3))[t][2*nFrequencies-1][gc(bl, 0)] = (a1yy_re + a3yy_re);
-						(data_out->at(3))[t][2*nFrequencies-1][gc(bl, 1)] = -1*(a1yy_im + a3yy_im);
-					}
-					(data_out->at(2))[t][nFrequencies-1+f][gc(bl, 0)] = (a1yx_re + a3yx_re);
-					(data_out->at(2))[t][nFrequencies-1+f][gc(bl, 1)] = -1*(a1yx_im + a3yx_im);
-					(data_out->at(2))[t][nFrequencies-1-f][gc(bl, 0)] = a1yx_re - a3yx_re;
-					(data_out->at(2))[t][nFrequencies-1-f][gc(bl, 1)] = a1yx_im - a3yx_im;
-					(data_out->at(3))[t][nFrequencies-1+f][gc(bl, 0)] = (a1yy_re + a3yy_re);
-					(data_out->at(3))[t][nFrequencies-1+f][gc(bl, 1)] = -1*(a1yy_im + a3yy_im);
-					(data_out->at(3))[t][nFrequencies-1-f][gc(bl, 0)] = a1yy_re - a3yy_re;
-					(data_out->at(3))[t][nFrequencies-1-f][gc(bl, 1)] = a1yy_im - a3yy_im;
-				}
-			}
-		}
-	}
-	return;
-}
+					////writing to output matrix
+					//bl = prevk + k2;
+					//if (f == 0){
+						//(data_out->at(2))[t][2*nFrequencies-1][gc(bl, 0)] = ( a1yx_re + a3yx_re);
+						//(data_out->at(2))[t][2*nFrequencies-1][gc(bl, 1)] = -1*( a1yx_im + a3yx_im);
+						//(data_out->at(3))[t][2*nFrequencies-1][gc(bl, 0)] = (a1yy_re + a3yy_re);
+						//(data_out->at(3))[t][2*nFrequencies-1][gc(bl, 1)] = -1*(a1yy_im + a3yy_im);
+					//}
+					//(data_out->at(2))[t][nFrequencies-1+f][gc(bl, 0)] = (a1yx_re + a3yx_re);
+					//(data_out->at(2))[t][nFrequencies-1+f][gc(bl, 1)] = -1*(a1yx_im + a3yx_im);
+					//(data_out->at(2))[t][nFrequencies-1-f][gc(bl, 0)] = a1yx_re - a3yx_re;
+					//(data_out->at(2))[t][nFrequencies-1-f][gc(bl, 1)] = a1yx_im - a3yx_im;
+					//(data_out->at(3))[t][nFrequencies-1+f][gc(bl, 0)] = (a1yy_re + a3yy_re);
+					//(data_out->at(3))[t][nFrequencies-1+f][gc(bl, 1)] = -1*(a1yy_im + a3yy_im);
+					//(data_out->at(3))[t][nFrequencies-1-f][gc(bl, 0)] = a1yy_re - a3yy_re;
+					//(data_out->at(3))[t][nFrequencies-1-f][gc(bl, 1)] = a1yy_im - a3yy_im;
+				//}
+			//}
+		//}
+	//}
+	//return;
+//}
 
 int gc(int a, int b){
 	return 2 * a + b;
@@ -2020,6 +2020,8 @@ float phase(float re, float im){
 	}*/
 	return atan2(im, re);
 }
+
+
 
 float norm(vector<vector<float> > * v){
 	float res = 0;
@@ -2545,7 +2547,7 @@ vector<float> getModel(int i, int j, vector<vector<float> > *antloc, vector<vect
 			return conjugate( UBLcor->at(k) );
 		}
 	}
-
+	return vector<float>(UBLcor->at(0).size(), 0);
 }
 
 vector<vector<float> > ReverseEngineer(vector<float> * ampcalpar, vector<float> * phasecalpar, vector<vector<float> > * UBLcor, vector<vector<float> > * antloc, vector<vector<float> > * listUBL){
@@ -2569,7 +2571,7 @@ vector<vector<float> > ReverseEngineer(vector<float> * ampcalpar, vector<float> 
 
 void ReverseEngineer(vector<vector<float> >* output, vector<float> * calpar, int numAntenna, vector<int> * UBLindex){
 	string METHODNAME = "ReverseEngineer";
-	int numCrosscor = numAntenna * ( numAntenna - 1 ) / 2;
+	//int numCrosscor = numAntenna * ( numAntenna - 1 ) / 2;
 	int cnter = 0;
 	vector<float> cor(2, 0.0);
 	for (int i = 0; i < numAntenna; i++){
@@ -3135,7 +3137,7 @@ void vecmatmul(vector<vector<int> > * A, vector<float> * v, vector<float> * yfit
 void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module){
 	int nant = info->nAntenna;
 	int nubl = info->nUBL;
-	int nbl = info->nBaseline;
+	//int nbl = info->nBaseline;
 	int ncross = info->nCross;
 
 	////read in amp and args
