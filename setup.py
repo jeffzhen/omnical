@@ -1,4 +1,6 @@
 from distutils.core import setup, Extension
+import os, glob, numpy
+
 
 
 #module = Extension('calibration_omni_extension',
@@ -19,8 +21,6 @@ from distutils.core import setup, Extension
 #This is a really long description.
 #''',
        #ext_modules = [module])
-
-import os, glob
 
 __version__ = '0.0.1'
 
@@ -43,8 +43,8 @@ setup(name = 'omnical',
     ext_modules = [
         Extension('omnical._omnical',
             globdir('src/_omnical/',
-                ['*.cpp', '*.c']),
-            include_dirs = ['src/_omnical/include'],
+                ['*.cpp', '*.c', '*.cc']),
+            include_dirs = ['src/_omnical/include', numpy.get_include()],
         )
     ],
     scripts = glob.glob('scripts/*'),
