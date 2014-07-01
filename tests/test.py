@@ -1,7 +1,7 @@
 import aipy as ap
 import numpy as np
 import commands, os, time, math, ephem
-import calibration_omni as omni
+import omnical.calibration_omni as omni
 FILENAME = "test.py"
 
 ######################################################################
@@ -11,8 +11,8 @@ ano = 'test'##This is the file name difference for final calibration parameter r
 uvfiles = ['test.uv']
 wantpols = {'xx':-5}#, 'yy':-6}
 
-infopaths = {'xx':'./redundantinfo_PSA32.txt', 'yy':'./redundantinfo_PSA32.txt'}
-arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
+infopaths = {'xx':'../doc/redundantinfo_PSA32.txt', 'yy':'../doc/redundantinfo_PSA32.txt'}
+arrayinfos = {'xx':'../doc/arrayinfo_apprx_PAPER32.txt', 'yy':'../doc/arrayinfo_apprx_PAPER32.txt'}
 
 oppath = './results/'
 
