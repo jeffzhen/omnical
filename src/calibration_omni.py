@@ -551,10 +551,10 @@ class RedundantCalibrator:
 		if self.readyForCpp(verbose = False):
 			_O.omnical(self.dataPath, self.infoPath, int(self.nTime), int(self.nFrequency), int(self.nTotalAnt), int(self.removeDegeneracy), int(self.removeAdditive), str(self.removeAdditivePeriod), int(self.calMode), float(self.convergePercent), int(self.maxIteration), int(self.stepSize))
 
-			command = "./omnical " + self.dataPath + " " + self.infoPath + " " + str(self.nTime) + " " + str(self.nFrequency) + " "  + str(self.nTotalAnt) + " " + str(int(self.removeDegeneracy)) + " " + str(int(self.removeAdditive)) + " " + str(self.removeAdditivePeriod) + " " + self.calMode + " " + str(self.convergePercent) + " " + str(self.maxIteration) + " " + str(self.stepSize)
-			if verbose:
-				print self.className + methodName + "System call: " + command
-			os.system(command)
+			#command = "./omnical " + self.dataPath + " " + self.infoPath + " " + str(self.nTime) + " " + str(self.nFrequency) + " "  + str(self.nTotalAnt) + " " + str(int(self.removeDegeneracy)) + " " + str(int(self.removeAdditive)) + " " + str(self.removeAdditivePeriod) + " " + self.calMode + " " + str(self.convergePercent) + " " + str(self.maxIteration) + " " + str(self.stepSize)
+			#if verbose:
+				#print self.className + methodName + "System call: " + command
+			#os.system(command)
 
 			if self.removeAdditive and self.removeAdditivePeriod > 0:
 				self.calparPath = self.dataPath + '_add' + str(self.removeAdditivePeriod) + '.omnical'
