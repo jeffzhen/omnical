@@ -43,17 +43,28 @@ PyObject* cal_wrap(PyObject *self, PyObject *args){
     int additivePeriod;
     char* additivePeriodstr_char;
     bool use_logcal;
-    float converge_percent;
-    int max_iter, step_size;
+    float converge_percent, step_size;
+    int max_iter;
 
-    if (!PyArg_ParseTuple(args, "ssiiiiisifii", &visin_char, &infopath_char, &nInt, &nFreq, &nAnt, &removedegen, &removeadd, &additivePeriodstr_char, &use_logcal, &converge_percent, &max_iter, &step_size))
+    if (!PyArg_ParseTuple(args, "ssiiiiisifif", &visin_char, &infopath_char, &nInt, &nFreq, &nAnt, &removedegen, &removeadd, &additivePeriodstr_char, &use_logcal, &converge_percent, &max_iter, &step_size))
         return NULL;
 
     string visin(visin_char);
     string infopath(infopath_char);
     additivePeriod = atoi(additivePeriodstr_char);
     string additivePeriodstr(additivePeriodstr_char);
-
+    //cout << visin << endl;
+    //cout << infopath << endl;
+    //cout << nInt << endl;
+    //cout << nFreq << endl;
+    //cout << nAnt << endl;
+    //cout << removedegen << endl;
+    //cout << removeadd << endl;
+    //cout << additivePeriod << endl;
+    //cout << use_logcal << endl;
+    //cout << converge_percent << endl;
+    //cout << max_iter << endl;
+    //cout << step_size << endl;
     string calparout;
     if (removeadd){
         calparout = visin + "_add" + additivePeriodstr + ".omnical";
