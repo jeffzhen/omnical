@@ -101,9 +101,9 @@ class TestImport(unittest.TestCase):
             calibrator.loglincal(data[p],verbose=True)
 
         #########Test results############
-        correctresult = np.sum(np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165),axis=2).flatten()#summing the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
+        correctresult = np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165)#np.sum(np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165),axis=2).flatten()#summing the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
 
-        newresult = np.sum(calibrators[-1].rawCalpar,axis=2).flatten()
+        newresult = calibrators[-1].rawCalpar#np.sum(calibrators[-1].rawCalpar,axis=2).flatten()
         np.testing.assert_array_equal(correctresult, newresult)
 
     def test_norm(self):
