@@ -38,33 +38,49 @@ PyObject* cal_wrap(PyObject *self, PyObject *args){
     char* infopath_char;
 
 
-    int nInt, nFreq, nAnt;
-    bool removedegen, removeadd;
+    int nInt, nFreq, nAnt, removedegen_int, removeadd_int;
     int additivePeriod;
     char* additivePeriodstr_char;
-    bool use_logcal;
+    int use_logcal_int;
     float converge_percent, step_size;
     int max_iter;
 
-    if (!PyArg_ParseTuple(args, "ssiiiiisifif", &visin_char, &infopath_char, &nInt, &nFreq, &nAnt, &removedegen, &removeadd, &additivePeriodstr_char, &use_logcal, &converge_percent, &max_iter, &step_size))
+    if (!PyArg_ParseTuple(args, "ssiiiiisifif", &visin_char, &infopath_char, &nInt, &nFreq, &nAnt, &removedegen_int, &removeadd_int, &additivePeriodstr_char, &use_logcal_int, &converge_percent, &max_iter, &step_size))
         return NULL;
 
+    bool removedegen, removeadd, use_logcal;
+    if(removedegen_int == 1){
+        removedegen = true;
+    } else{
+        removedegen = false;
+    }
+    
+    if(removeadd_int == 1){
+        removeadd = true;
+    } else{
+        removeadd = false;
+    }
+    if(use_logcal_int == 1){
+        use_logcal = true;
+    } else{
+        use_logcal = false;
+    }
     string visin(visin_char);
     string infopath(infopath_char);
     additivePeriod = atoi(additivePeriodstr_char);
     string additivePeriodstr(additivePeriodstr_char);
-    //cout << visin << endl;
-    //cout << infopath << endl;
-    //cout << nInt << endl;
-    //cout << nFreq << endl;
-    //cout << nAnt << endl;
-    //cout << removedegen << endl;
-    //cout << removeadd << endl;
-    //cout << additivePeriod << endl;
-    //cout << use_logcal << endl;
-    //cout << converge_percent << endl;
-    //cout << max_iter << endl;
-    //cout << step_size << endl;
+    cout << visin << endl;
+    cout << infopath << endl;
+    cout << nInt << endl;
+    cout << nFreq << endl;
+    cout << nAnt << endl;
+    cout << removedegen_int << removedegen << endl;
+    cout << removeadd_int << removeadd << endl;
+    cout << additivePeriod << endl;
+    cout << use_logcal_int << use_logcal << endl;
+    cout << converge_percent << endl;
+    cout << max_iter << endl;
+    cout << step_size << endl;
     string calparout;
     if (removeadd){
         calparout = visin + "_add" + additivePeriodstr + ".omnical";
@@ -296,7 +312,7 @@ static PyMethodDef omnical_methods[] = {
     {"omnical_old", (PyCFunction)cal_wrap_old, METH_VARARGS,
         "omnical outdated version that relies on hard disk I/O."},
     {"omnical", (PyCFunction)cal_wrap, METH_VARARGS,
-        "omnical outdated version that relies on hard disk I/O."},
+        "omnical."},
     {NULL, NULL}  /* Sentinel */
 };
 
