@@ -29,11 +29,13 @@ static int RedInfoObject_init(RedInfoObject *self) {
     return 0;
 }
 
-/*____      _     ____       _   
- / ___| ___| |_  / ___|  ___| |_ 
-| |  _ / _ \ __| \___ \ / _ \ __|
-| |_| |  __/ |_   ___) |  __/ |_ 
- \____|\___|\__| |____/ \___|\__| */
+
+/*___          _ ___        __                    _            _   
+|  _ \ ___  __| |_ _|_ __  / _| ___     __ _  ___| |_ ___  ___| |_ 
+| |_) / _ \/ _` || || '_ \| |_ / _ \   / _` |/ _ \ __/ __|/ _ \ __|
+|  _ <  __/ (_| || || | | |  _| (_) | | (_| |  __/ |_\__ \  __/ |_ 
+|_| \_\___|\__,_|___|_| |_|_|  \___/   \__, |\___|\__|___/\___|\__|
+                                       |___/                       */
 
 // RedundantInfo.nAntenna
 PyObject *RedInfoObject_get_nAntenna(RedInfoObject *self, void *closure) {
@@ -1017,6 +1019,21 @@ int RedInfoObject_set_ImPB(RedInfoObject *self, PyObject *value, void *closure) 
     return 0;
 }
 
+/*___          _ ___        __                        _   _               _ 
+|  _ \ ___  __| |_ _|_ __  / _| ___    _ __ ___   ___| |_| |__   ___   __| |
+| |_) / _ \/ _` || || '_ \| |_ / _ \  | '_ ` _ \ / _ \ __| '_ \ / _ \ / _` |
+|  _ <  __/ (_| || || | | |  _| (_) | | | | | | |  __/ |_| | | | (_) | (_| |
+|_| \_\___|\__,_|___|_| |_|_|  \___/  |_| |_| |_|\___|\__|_| |_|\___/ \__,_|*/
+
+PyObject* RedInfoObject_readredundantinfo(RedInfoObject *self, PyObject *args){
+    char *filename;
+    if (!PyArg_ParseTuple(args, "s", &filename)) return NULL;
+    readredundantinfo(filename, &(self->info));
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 
 /*___          _ ___        __        ___  _     _           _   
 |  _ \ ___  __| |_ _|_ __  / _| ___  / _ \| |__ (_) ___  ___| |_ 
@@ -1026,6 +1043,8 @@ int RedInfoObject_set_ImPB(RedInfoObject *self, PyObject *value, void *closure) 
                                               |__/       */
 
 static PyMethodDef RedInfoObject_methods[] = {
+    {"readredundantinfo", (PyCFunction)RedInfoObject_readredundantinfo, METH_VARARGS,
+        "readredundantinfo(filename)\nRead data in from specified filename."},
     {NULL}  // Sentinel
 };
 
