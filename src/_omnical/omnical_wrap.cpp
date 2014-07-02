@@ -54,7 +54,7 @@ PyObject* cal_wrap(PyObject *self, PyObject *args){
     } else{
         removedegen = false;
     }
-    
+
     if(removeadd_int == 1){
         removeadd = true;
     } else{
@@ -69,18 +69,18 @@ PyObject* cal_wrap(PyObject *self, PyObject *args){
     string infopath(infopath_char);
     additivePeriod = atoi(additivePeriodstr_char);
     string additivePeriodstr(additivePeriodstr_char);
-    cout << visin << endl;
-    cout << infopath << endl;
-    cout << nInt << endl;
-    cout << nFreq << endl;
-    cout << nAnt << endl;
-    cout << removedegen_int << removedegen << endl;
-    cout << removeadd_int << removeadd << endl;
-    cout << additivePeriod << endl;
-    cout << use_logcal_int << use_logcal << endl;
-    cout << converge_percent << endl;
-    cout << max_iter << endl;
-    cout << step_size << endl;
+    //cout << visin << endl;
+    //cout << infopath << endl;
+    //cout << nInt << endl;
+    //cout << nFreq << endl;
+    //cout << nAnt << endl;
+    //cout << removedegen_int << removedegen << endl;
+    //cout << removeadd_int << removeadd << endl;
+    //cout << additivePeriod << endl;
+    //cout << use_logcal_int << use_logcal << endl;
+    //cout << converge_percent << endl;
+    //cout << max_iter << endl;
+    //cout << step_size << endl;
     string calparout;
     if (removeadd){
         calparout = visin + "_add" + additivePeriodstr + ".omnical";

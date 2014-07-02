@@ -549,6 +549,7 @@ class RedundantCalibrator:
 			self.write_redundantinfo()
 
 		if self.readyForCpp(verbose = False):
+			#print self.dataPath, self.infoPath, int(self.nTime), int(self.nFrequency), int(self.nTotalAnt), int(self.removeDegeneracy), int(self.removeAdditive), str(self.removeAdditivePeriod), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize)
 			_O.omnical(self.dataPath, self.infoPath, int(self.nTime), int(self.nFrequency), int(self.nTotalAnt), int(self.removeDegeneracy), int(self.removeAdditive), str(self.removeAdditivePeriod), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize))
 
 			#command = "./omnical " + self.dataPath + " " + self.infoPath + " " + str(self.nTime) + " " + str(self.nFrequency) + " "  + str(self.nTotalAnt) + " " + str(int(self.removeDegeneracy)) + " " + str(int(self.removeAdditive)) + " " + str(self.removeAdditivePeriod) + " " + self.calMode + " " + str(self.convergePercent) + " " + str(self.maxIteration) + " " + str(self.stepSize)
