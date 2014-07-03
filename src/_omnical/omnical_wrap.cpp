@@ -462,13 +462,17 @@ int RedInfoObject_set_ublcount(RedInfoObject *self, PyObject *value, void *closu
 // RedundantInfo.ublindex
 PyObject *RedInfoObject_get_ublindex(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
-    npy_intp data_dims[3] = {self->info.ublindex.size(), self->info.ublindex[0].size(), self->info.ublindex[0][0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(3, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        for (int k=0; k < data_dims[2]; k++) {
-            ((int *) PyArray_GETPTR3(rv,i,j,k))[0] = self->info.ublindex[i][j][k];
-        }
+    npy_intp data_dims[2] = {self->info.crossindex.size(), 5};
+    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
+    int cnter = 0;
+    for (int i=0; i < self->info.ublindex.size(); i++) {
+      for (int j=0; j < self->info.ublindex[i].size(); j++) {
+            ((int *) PyArray_GETPTR2(rv,cnter,0))[0] = i;
+            ((int *) PyArray_GETPTR2(rv,cnter,1))[0] = j;
+            ((int *) PyArray_GETPTR2(rv,cnter,2))[0] = self->info.ublindex[i][j][0];
+            ((int *) PyArray_GETPTR2(rv,cnter,3))[0] = self->info.ublindex[i][j][1];
+            ((int *) PyArray_GETPTR2(rv,cnter,4))[0] = self->info.ublindex[i][j][2];
+            cnter ++;
       }
     }
     return PyArray_Return(rv);
@@ -482,23 +486,39 @@ int RedInfoObject_set_ublindex(RedInfoObject *self, PyObject *value, void *closu
         return -1;
     }
     v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 3 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "ublindex must be a 3D array of ints");
+    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT || PyArray_DIM(v,1) != 5) {
+        PyErr_Format(PyExc_ValueError, "ublindex must be a 2D array of ints consisting of (ublindex, index in this ubl, a1, a2, bl)");
         return -1;
     }
     dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    dim3 = PyArray_DIM(v,2);
-    self->info.ublindex.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.ublindex[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.ublindex[i][j].resize(dim3);
-        for (int k=0; k < dim3; k++) {
-            self->info.ublindex[i][j][k] = ((int *) PyArray_GETPTR3(v,i,j,k))[0];
+    dim2 = PyArray_DIM(v,1);//always5
+    vector<int> dummy (3,0);
+    
+    
+    for (int n=0; n < dim1; n++) {
+        int i = ((int *) PyArray_GETPTR2(v,n,0))[0];
+        int j = ((int *) PyArray_GETPTR2(v,n,1))[0];
+        dummy[0] = ((int *) PyArray_GETPTR2(v,n,2))[0];
+        dummy[1] = ((int *) PyArray_GETPTR2(v,n,3))[0];
+        dummy[2] = ((int *) PyArray_GETPTR2(v,n,4))[0];
+        if (self->info.ublindex.size() < i + 1){
+            self->info.ublindex.resize(i + 1);
         }
-      }
-    }
+        if(self->info.ublindex[i].size() < j + 1){
+            self->info.ublindex[i].resize(j + 1);
+        }
+        self->info.ublindex[i][j] = dummy;
+    }    
+    //self->info.ublindex.resize(dim1);
+    //for (int i=0; i < dim1; i++) {
+      //self->info.ublindex[i].resize(dim2);
+      //for (int j=0; j < dim2; j++) {
+        //self->info.ublindex[i][j].resize(dim3);
+        //for (int k=0; k < dim3; k++) {
+            //self->info.ublindex[i][j][k] = ((int *) PyArray_GETPTR3(v,i,j,k))[0];
+        //}
+      //}
+    //}
     return 0;
 }
 
@@ -653,11 +673,15 @@ int RedInfoObject_set_B(RedInfoObject *self, PyObject *value, void *closure) {
 // RedundantInfo.Atsparse (1D integer array)
 PyObject *RedInfoObject_get_Atsparse(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.Atsparse.size(), self->info.Atsparse[0].size()};
+    npy_intp data_dims[2] = {3 * (self->info.crossindex.size()), 3};
     rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.Atsparse[i][j];
+    int cnter = 0;
+    for (int i=0; i < self->info.Atsparse.size(); i++) {
+      for (int j=0; j < self->info.Atsparse[i].size(); j++) {
+            ((int *) PyArray_GETPTR2(rv,cnter,0))[0] = i;
+            ((int *) PyArray_GETPTR2(rv,cnter,0))[1] = self->info.Atsparse[i][j];
+            ((int *) PyArray_GETPTR2(rv,cnter,0))[2] = 1;
+            cnter++;
       }
     }
     return PyArray_Return(rv);
@@ -671,32 +695,39 @@ int RedInfoObject_set_Atsparse(RedInfoObject *self, PyObject *value, void *closu
         return -1;
     }
     v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "Atsparse must be a 1D array of ints");
+    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT || PyArray_DIM(v,1) != 3) {
+        PyErr_Format(PyExc_ValueError, "Atsparse must be a 2D array of ints consisting of list of (i, j, value)");
         return -1;
     }
     dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.Atsparse.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.Atsparse[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.Atsparse[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
-      }
+    dim2 = PyArray_DIM(v,1);//always 3
+
+    for (int n=0; n < dim1; n++) {
+        int i = ((int *) PyArray_GETPTR2(v,n,0))[0];
+        int j = ((int *) PyArray_GETPTR2(v,n,1))[0];
+        int k = ((int *) PyArray_GETPTR2(v,n,2))[0];//always 1
+        
+        if (self->info.Atsparse.size() < i + 1){
+            self->info.Atsparse.resize(i + 1);
+        }
+
+        self->info.Atsparse[i].push_back(j);
     }
     return 0;
 }
 
-// RedundantInfo.Btsparse (1D integer array)
+// RedundantInfo.Btsparse (2D integer array IO and 3D vector in C++)
 PyObject *RedInfoObject_get_Btsparse(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
-    npy_intp data_dims[3] = {self->info.Btsparse.size(), self->info.Btsparse[0].size(), self->info.Btsparse[0][0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(3, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        for (int k=0; k < data_dims[2]; k++) {
-            ((int *) PyArray_GETPTR3(rv,i,j,k))[0] = self->info.Btsparse[i][j][k];
-        }
+    npy_intp data_dims[2] = {3 * (self->info.crossindex.size()), 3};
+    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
+    int cnter = 0;
+    for (int i=0; i < self->info.Btsparse.size(); i++) {
+      for (int j=0; j < self->info.Btsparse[i].size(); j++) {
+            ((int *) PyArray_GETPTR2(rv,cnter,0))[0] = i;
+            ((int *) PyArray_GETPTR2(rv,cnter,0))[1] = self->info.Btsparse[i][j][0];
+            ((int *) PyArray_GETPTR2(rv,cnter,0))[2] = self->info.Btsparse[i][j][1];
+            cnter++;
       }
     }
     return PyArray_Return(rv);
@@ -710,22 +741,22 @@ int RedInfoObject_set_Btsparse(RedInfoObject *self, PyObject *value, void *closu
         return -1;
     }
     v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 3 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "Btsparse must be a 1D array of ints");
+    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT || PyArray_DIM(v,1) != 3) {
+        PyErr_Format(PyExc_ValueError, "Btsparse must be a 2D array of ints consisting of list of (i, j, value).");
         return -1;
     }
     dim1 = PyArray_DIM(v,0);
     dim2 = PyArray_DIM(v,1);
-    dim3 = PyArray_DIM(v,2);
-    self->info.Btsparse.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.Btsparse[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.Btsparse[i][j].resize(dim3);
-        for (int k=0; k < dim3; k++) {
-            self->info.Btsparse[i][j][k] = ((int *) PyArray_GETPTR3(v,i,j,k))[0];
+
+    vector<int> dummy(2,0);
+    for (int n=0; n < dim1; n++) {
+        int i = ((int *) PyArray_GETPTR2(v,n,0))[0];
+        dummy[0] = ((int *) PyArray_GETPTR2(v,n,1))[0];
+        dummy[1] = ((int *) PyArray_GETPTR2(v,n,2))[0];
+        if (self->info.Btsparse.size() < i + 1){
+            self->info.Btsparse.resize(i + 1);
         }
-      }
+        self->info.Btsparse[i].push_back(dummy);
     }
     return 0;
 }
@@ -1276,17 +1307,33 @@ PyObject* cal_wrap(PyObject *self, PyObject *args){
     char* infopath_char;
 
 
-    int nInt, nFreq, nAnt;
-    bool removedegen, removeadd;
+    int nInt, nFreq, nAnt, removedegen_int, removeadd_int;
     int additivePeriod;
     char* additivePeriodstr_char;
-    bool use_logcal;
+    int use_logcal_int;
     float converge_percent, step_size;
     int max_iter;
 
-    if (!PyArg_ParseTuple(args, "ssiiiiisifif", &visin_char, &infopath_char, &nInt, &nFreq, &nAnt, &removedegen, &removeadd, &additivePeriodstr_char, &use_logcal, &converge_percent, &max_iter, &step_size))
+    if (!PyArg_ParseTuple(args, "ssiiiiisifif", &visin_char, &infopath_char, &nInt, &nFreq, &nAnt, &removedegen_int, &removeadd_int, &additivePeriodstr_char, &use_logcal_int, &converge_percent, &max_iter, &step_size))
         return NULL;
 
+    bool removedegen, removeadd, use_logcal;
+    if(removedegen_int == 1){
+        removedegen = true;
+    } else{
+        removedegen = false;
+    }
+
+    if(removeadd_int == 1){
+        removeadd = true;
+    } else{
+        removeadd = false;
+    }
+    if(use_logcal_int == 1){
+        use_logcal = true;
+    } else{
+        use_logcal = false;
+    }
     string visin(visin_char);
     string infopath(infopath_char);
     additivePeriod = atoi(additivePeriodstr_char);
@@ -1296,10 +1343,10 @@ PyObject* cal_wrap(PyObject *self, PyObject *args){
     //cout << nInt << endl;
     //cout << nFreq << endl;
     //cout << nAnt << endl;
-    //cout << removedegen << endl;
-    //cout << removeadd << endl;
+    //cout << removedegen_int << removedegen << endl;
+    //cout << removeadd_int << removeadd << endl;
     //cout << additivePeriod << endl;
-    //cout << use_logcal << endl;
+    //cout << use_logcal_int << use_logcal << endl;
     //cout << converge_percent << endl;
     //cout << max_iter << endl;
     //cout << step_size << endl;
@@ -1536,7 +1583,7 @@ static PyMethodDef omnical_methods[] = {
     {"omnical_old", (PyCFunction)cal_wrap_old, METH_VARARGS,
         "omnical outdated version that relies on hard disk I/O."},
     {"omnical", (PyCFunction)cal_wrap, METH_VARARGS,
-        "omnical outdated version that relies on hard disk I/O."},
+        "omnical."},
     {NULL, NULL}  /* Sentinel */
 };
 
