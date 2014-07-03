@@ -24,16 +24,17 @@ infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl',
 int_infokeys = ['nAntenna','nUBL','nBaseline']
 intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
 float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
-def read_redundantinfo(infopath):
+def read_redundantinfo(infopath, verbose = False):
 	METHODNAME = "read_redundantinfo"
 	if not os.path.isfile(infopath):
 		raise Exception('Error: file path %s does not exist!'%infopath)
+	timer = time.time()
 	with open(infopath) as f:
 		rawinfo = np.array([np.array([float(x) for x in line.split()]) for line in f])
 	if len(rawinfo) < len(infokeys):
 		raise Exception('Error: number of rows in %s (%i) is less than expected length of %i!'%(infopath, len(rawinfo), len(infokeys)))
-
-	print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
+	if verbose:
+		print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
 
 	info = {}
 	infocount = 0;
@@ -107,12 +108,14 @@ def read_redundantinfo(infopath):
 		info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
 		info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
 		info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
-	print "done. nAntenna, nUBL, nBaseline = ", len(info['subsetant']), info['nUBL'], info['nBaseline']
+	if verbose:
+		print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
 	return info
 
 
-def write_redundantinfo(info, infopath, overwrite = False):
+def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
 	METHODNAME = "*write_redundantinfo*"
+	timer = time.time()
 	if (not overwrite) and os.path.isfile(infopath):
 		raise Exception("Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
 		return
@@ -136,10 +139,13 @@ def write_redundantinfo(info, infopath, overwrite = False):
 		else:
 			np.savetxt(f_handle, [np.array(info[key]).flatten()], fmt = '%d')
 	f_handle.close()
+	if verbose:
+		print "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
 	return
 
-def write_redundantinfo_binary(info, infopath, overwrite = False):
+def write_redundantinfo_binary(info, infopath, overwrite = False, verbose = False):
 	METHODNAME = "*write_redundantinfo*"
+	timer = time.time()
 	if (not overwrite) and os.path.isfile(infopath):
 		raise Exception("Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
 		return
@@ -175,9 +181,18 @@ def write_redundantinfo_binary(info, infopath, overwrite = False):
 			farray.tofile(outfile)
 			array('d',[marker]).tofile(outfile)	
 	outfile.close()
+	if verbose:
+		print "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
 	return
 	
-def read_redundantinfo_binary(infopath):
+def read_redundantinfo_binary(infopath, verbose = False):
+	timer = time.time()
+	METHODNAME = "read_redundantinfo"
+	
+	if not os.path.isfile(infopath):
+		raise Exception('Error: file path %s does not exist!'%infopath)
+	if verbose:
+		print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
 	with open(infopath) as f:
 		farray=array('d')
 		farray.fromstring(f.read())
@@ -185,8 +200,7 @@ def read_redundantinfo_binary(infopath):
 		marker = 9999999
 		markerindex=np.where(datachunk == marker)[0]
 		rawinfo=np.array([np.array(datachunk[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
-	METHODNAME = "read_redundantinfo"
-	print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
+
 
 	info = {}
 	infocount = 0;
@@ -254,7 +268,8 @@ def read_redundantinfo_binary(infopath):
 		info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
 		info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
 		info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
-	print "done. nAntenna, nUBL, nBaseline = ", len(info['subsetant']), info['nUBL'], info['nBaseline']
+	if verbose:
+		print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
 	return info
 
 def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100):#tolerance of timing in radians in lst
