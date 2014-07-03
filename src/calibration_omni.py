@@ -447,63 +447,54 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
 					for i in range(info[key].shape[0]):
 						for j in range(info[key].shape[1]):
 							if info[key][i,j] != 0:
-								tmp += [i, j, info[key][i,j]]
+								tmp += [[i, j, info[key][i,j]]]
 					self.__setattr__(key+'sparse', np.array(tmp, dtype = 'int32'))
 				elif key in ['A','B']:
 					self.__setattr__(key, info[key].todense().astype('int32'))
+				elif key in ['ublindex']:
+					tmp = []
+					for i in range(len(info[key])):
+						for j in range(len(info[key][i])):
+							tmp += [[i, j, info[key][i][j][0], info[key][i][j][1], info[key][i][j][2]]]
+					self.__setattr__(key, np.array(tmp, dtype='int32'))
 				elif key in int_infokeys:
 					self.__setattr__(key, int(info[key]))
-				elif key in intarray_infokeys:
+				elif key in intarray_infokeys and key != 'ublindex':
 					self.__setattr__(key, np.array(info[key]).astype('int32'))
 				elif key in float_infokeys:
 					self.__setattr__(key, np.array(info[key]).astype('float32'))
 			except:
-				print "Error", key
-				try:
-					print np.array(info[key]).shape, np.array(info[key]).dtype
-				except:
-					print info[key]
-				#if key in ['At','Bt']:
-					#tmp = []
-					#for i in range(info[key].shape[0]):
-						#for j in range(info[key].shape[1]):
-							#if info[key][i,j] != 0:
-								#tmp += [i, j, info[key][i,j]]
-					#self.__setattr__(key, np.array(tmp, dtype = 'int32'))
-				#elif key in ['A','B']:
-					#self.__setattr__(key, info[key].todense().astype('int32'))
-				#elif key in int_infokeys:
-					#self.__setattr__(key, int(info[key]))
-				#elif key in intarray_infokeys:
-					#self.__setattr__(key, np.array(info[key]).astype('int32'))
-				#elif key in float_infokeys:
-					#self.__setattr__(key, np.array(info[key]).astype('float32'))
+				raise Exception("Error parsing %s item."%key)
+
 	
 	def get_info(self):
 		info = {}
 		for key in infokeys:
 			try:
 				if key in ['A','B']:
-					print key
+					#print key
 					info[key] = sps.csr_matrix(self.__getattribute__(key))
 				elif key in ['At','Bt']:
-					info[key] = np.zeros((1,1,1))
-					raise Exception(key + 'Error')
-					print key
 					tmp = self.__getattribute__(key+'sparse')
 					matrix = np.zeros((info['nAntenna'] + info['nUBL'], len(info['crossindex'])))
 					for i in tmp:
 						matrix[i[0],i[1]] = i[2]
 					info[key] = sps.csr_matrix(matrix)
 				elif key in ['ublindex']:
-					info[key] = np.zeros((1,1,1))
-					raise Exception(key + 'Error')
+					ublindex = []
+					for i in self.__getattribute__(key):
+						while len(ublindex) < i[0] + 1:
+							ublindex.append(np.zeros((1,3)))
+						while len(ublindex[i[0]]) < i[1] + 1:
+							ublindex[i[0]] = np.array(ublindex[i[0]].tolist() + [[0,0,0]])
+						ublindex[i[0]][i[1]] = np.array(i[2:])
+					info[key] = ublindex
+
 				else:
-					print key
+					#print key
 					info[key] = self.__getattribute__(key)
 			except:
-				print "Error", key
-
+				raise Exception("Error retrieving %s item."%key)
 		return info
 		
 		
@@ -521,6 +512,7 @@ class RedundantCalibrator:
 		self.badUBL = []
 		self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(self.nTotalAnt)])#PAPER miriad convention by default
 		self.info = None
+		self.Info = None
 		self.infoPath = './tmp_redundantinfo'
 		self.infoFileExist = False
 		self.dataFileExist = False
@@ -541,6 +533,7 @@ class RedundantCalibrator:
 		if info != None:
 			if type(info) == type({}):
 				self.info = info
+				self.Info = RedundantInfo(info)
 			elif type(info) == type('a'):
 				self.read_redundantinfo(info)
 			else:
@@ -549,6 +542,7 @@ class RedundantCalibrator:
 	def read_redundantinfo(self, infopath):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
 		self.infoPath = infopath
 		self.info = read_redundantinfo(infopath)
+		self.Info = RedundantInfo(self.info)
 		self.infoFileExist = True
 
 	def write_redundantinfo(self, infoPath = None, overwrite = False):
@@ -611,6 +605,10 @@ class RedundantCalibrator:
 		if not self.infoFileExist :
 			if verbose:
 				print self.className + methodName + "Error: info file existence check failed. Call read_redundantinfo(self, infoPath) function to read in an existing redundant info text file or compute_redundantinfo(arrayinfoPath=None) to compute redundantinfo write_redundantinfo() to write redundantinfo."
+			return False
+		if self.Info == None :
+			if verbose:
+				print self.className + methodName + "Error: self.Info existence check failed."
 			return False
 
 		if self.removeAdditive and self.removeAdditivePeriod <= 0:
@@ -898,6 +896,7 @@ class RedundantCalibrator:
 				self.info['PB'] = self.info['B'].dot(self.info['BtBiBt'])#B(BtB)^-1Bt
 				self.info['ImPA'] = sps.identity(ncross) - self.info['PA']#I-PA
 				self.info['ImPB'] = sps.identity(ncross) - self.info['PB']#I-PB
+		self.Info = RedundantInfo(self.info)
 
 
 
