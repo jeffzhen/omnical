@@ -20,10 +20,18 @@ FILENAME = "calibration_omni.py"
 
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 
+int_infokeys = ['nAntenna','nUBL','nBaseline']
+intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
+float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 def read_redundantinfo(infopath):
+	METHODNAME = "read_redundantinfo"
+	if not os.path.isfile(infopath):
+		raise Exception('Error: file path %s does not exist!'%infopath)
 	with open(infopath) as f:
 		rawinfo = np.array([np.array([float(x) for x in line.split()]) for line in f])
-	METHODNAME = "read_redundantinfo"
+	if len(rawinfo) < len(infokeys):
+		raise Exception('Error: number of rows in %s (%i) is less than expected length of %i!'%(infopath, len(rawinfo), len(infokeys)))
+
 	print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
 
 	info = {}
@@ -60,7 +68,7 @@ def read_redundantinfo(infopath):
 	info['crossindex'] = rawinfo[infocount].astype(int)  #index of cross bls among good bls
 	infocount += 1
 	ncross = len(info['crossindex'])
-	info['ncross'] = ncross
+	#info['ncross'] = ncross
 	info['bl2d'] = rawinfo[infocount].reshape(nbl, 2).astype(int) #from 1d bl index to a pair of antenna numbers
 	infocount += 1
 	info['ublcount'] = rawinfo[infocount].astype(int) #for each ubl, the number of good cross bls corresponding to it
@@ -332,23 +340,35 @@ def stdmatrix(length, polydegree):#to find out the error in fitting y by a polyn
 #input two different redundant info, output True if they are the same and False if they are different
 def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
 	try:
-		floatkeys=['antloc','ubl']
-		intkeys = ['nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+		floatkeys=['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+		intkeys = ['nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix']
 		infomatrices=['A','B','At','Bt']
 		specialkeys = ['ublindex']
 		allkeys= floatkeys + intkeys + infomatrices + specialkeys#['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
 		diff=[]
 		#10**5 for floating point errors
 		for key in floatkeys:
-			diff.append(round(la.norm(np.array(info1[key])-np.array(info2[key]))/tolerance)==0)
+			try:
+				diff.append(round(la.norm(np.array(info1[key])-np.array(info2[key]))/tolerance)==0)
+			except:
+				diff.append(False)
 		for key in intkeys:
-			diff.append(la.norm(np.array(info1[key])-np.array(info2[key]))==0)
+			try:
+				diff.append(la.norm(np.array(info1[key])-np.array(info2[key]))==0)
+			except:
+				diff.append(False)
 		for key in infomatrices:
-			diff.append(la.norm((info1[key]-info2[key]).todense())==0)
+			try:
+				diff.append(la.norm((info1[key]-info2[key]).todense())==0)
+			except:
+				diff.append(False)
 
 		diff.append(True)
-		for i,j in zip(info1['ublindex'],info2['ublindex']):
-			diff[-1] = diff[-1] and (la.norm(np.array(i) - np.array(j))==0)
+		try:
+			for i,j in zip(info1['ublindex'],info2['ublindex']):
+				diff[-1] = diff[-1] and (la.norm(np.array(i) - np.array(j))==0)
+		except:
+			diff[-1] = False
 		bool = True
 		for i in diff:
 			bool = bool and i
@@ -412,7 +432,81 @@ def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputP
 	opomnigain.tofile(outputPath + '.omnigain')
 	opomnifit.tofile(outputPath + '.omnifit')
 
+class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibration information that should only be passed into C++
+	def __init__(self, info):
+		_O.RedundantInfo.__init__(self)
+		if type(info) == type('a'):
+			info = read_redundantinfo(info)
+		elif type(info) != type({}):
+			raise Exception("Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
+		
+		for key in info.keys():
+			try:
+				if key in ['At','Bt']:
+					tmp = []
+					for i in range(info[key].shape[0]):
+						for j in range(info[key].shape[1]):
+							if info[key][i,j] != 0:
+								tmp += [i, j, info[key][i,j]]
+					self.__setattr__(key+'sparse', np.array(tmp, dtype = 'int32'))
+				elif key in ['A','B']:
+					self.__setattr__(key, info[key].todense().astype('int32'))
+				elif key in int_infokeys:
+					self.__setattr__(key, int(info[key]))
+				elif key in intarray_infokeys:
+					self.__setattr__(key, np.array(info[key]).astype('int32'))
+				elif key in float_infokeys:
+					self.__setattr__(key, np.array(info[key]).astype('float32'))
+			except:
+				print "Error", key
+				try:
+					print np.array(info[key]).shape, np.array(info[key]).dtype
+				except:
+					print info[key]
+				#if key in ['At','Bt']:
+					#tmp = []
+					#for i in range(info[key].shape[0]):
+						#for j in range(info[key].shape[1]):
+							#if info[key][i,j] != 0:
+								#tmp += [i, j, info[key][i,j]]
+					#self.__setattr__(key, np.array(tmp, dtype = 'int32'))
+				#elif key in ['A','B']:
+					#self.__setattr__(key, info[key].todense().astype('int32'))
+				#elif key in int_infokeys:
+					#self.__setattr__(key, int(info[key]))
+				#elif key in intarray_infokeys:
+					#self.__setattr__(key, np.array(info[key]).astype('int32'))
+				#elif key in float_infokeys:
+					#self.__setattr__(key, np.array(info[key]).astype('float32'))
+	
+	def get_info(self):
+		info = {}
+		for key in infokeys:
+			try:
+				if key in ['A','B']:
+					print key
+					info[key] = sps.csr_matrix(self.__getattribute__(key))
+				elif key in ['At','Bt']:
+					info[key] = np.zeros((1,1,1))
+					raise Exception(key + 'Error')
+					print key
+					tmp = self.__getattribute__(key+'sparse')
+					matrix = np.zeros((info['nAntenna'] + info['nUBL'], len(info['crossindex'])))
+					for i in tmp:
+						matrix[i[0],i[1]] = i[2]
+					info[key] = sps.csr_matrix(matrix)
+				elif key in ['ublindex']:
+					info[key] = np.zeros((1,1,1))
+					raise Exception(key + 'Error')
+				else:
+					print key
+					info[key] = self.__getattribute__(key)
+			except:
+				print "Error", key
 
+		return info
+		
+		
 class RedundantCalibrator:
 #This class is the main tool for performing redundant calibration on data sets. For a given redundant configuration, say 32 antennas with 3 bad antennas, the user should create one instance of Redundant calibrator and reuse it for all data collected from that array. In general, upon creating an instance, the user need to create the info field of the instance by either computing it or reading it from a text file. readyForCpp(verbose = True) should be a very helpful function to provide information on what information is missing for running the calibration.
 	def __init__(self, nTotalAnt, info = None):
@@ -784,7 +878,7 @@ class RedundantCalibrator:
 		self.info['reversedauto']=reversedauto
 		self.info['autoindex']=autoindex
 		self.info['crossindex']=crossindex
-		self.info['ncross']=ncross
+		#self.info['ncross']=ncross
 		self.info['bl2d']=bl2d
 		self.info['ublcount']=ublcount
 		self.info['ublindex']=ublindex
