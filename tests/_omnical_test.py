@@ -4,10 +4,33 @@ import aipy as ap
 import commands, os, time, math, ephem
 import omnical.calibration_omni as omni
 
-class TestImport(unittest.TestCase):
+class TestMethods(unittest.TestCase):
+    def setUp(self):
+        self.i = _O.RedundantInfo()
+        self.i.readredundantinfo('../doc/redundantinfo_PSA32.txt')
     def test_phase(self):
         self.assertAlmostEqual(_O.phase(1.,0.), 0., 5)
         self.assertAlmostEqual(_O.phase(-1.,0.), np.pi, 5)
+
+    def test_redcal_log(self):
+        data = np.ones((10,20,32*33/2), dtype=np.complex64)
+        additivein = np.zeros_like(data)
+        calpar,additiveout = _O.redcal(data, self.i, additivein)
+        self.assertEqual(calpar.shape, (10,20,3+2*(self.i.nAntenna+self.i.nUBL)))
+        self.assertTrue(np.all(calpar[:,:,:3+2*self.i.nAntenna] == 0))
+        self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna::2] == 1))
+        self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna+1::2] == 0))
+        self.assertTrue(np.all(additiveout == 0))
+    def test_redcal_lin(self):
+        data = np.ones((10,20,32*33/2), dtype=np.complex64)
+        additivein = np.zeros_like(data)
+        calpar,additiveout = _O.redcal(data, self.i, additivein, uselogcal=0)
+        self.assertEqual(calpar.shape, (10,20,3+2*(self.i.nAntenna+self.i.nUBL)))
+        self.assertTrue(np.all(calpar[:,:,:3+2*self.i.nAntenna] == 0)) # not great to be checking an initialization state
+        self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna::2] == 0))
+        self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna+1::2] == 0))
+        self.assertTrue(np.all(additiveout == 0))
+
 
     def test_all(self):
         FILENAME = "test.py"
@@ -152,7 +175,7 @@ class TestRedInfo(unittest.TestCase):
         i.readredundantinfo('../doc/redundantinfo_PSA32.txt')
         self.assertEqual(i.nAntenna, 32)
         self.assertEqual(i.subsetant.shape, (32,))
-        
+
 
 if __name__ == '__main__':
     unittest.main()
