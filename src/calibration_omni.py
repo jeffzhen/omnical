@@ -646,7 +646,7 @@ class RedundantCalibrator:
 		self.badAntenna = []
 		self.badUBL = []
 		self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(self.nTotalAnt)])#PAPER miriad convention by default
-		self.info = None
+		
 		self.Info = None
 		self.infoPath = './tmp_redundantinfo'
 		self.infoFileExist = False
@@ -667,7 +667,7 @@ class RedundantCalibrator:
 
 		if info != None:
 			if type(info) == type({}):
-				self.info = info
+				
 				self.Info = RedundantInfo(info)
 			elif type(info) == type('a'):
 				self.read_redundantinfo(info)
@@ -676,16 +676,16 @@ class RedundantCalibrator:
 
 	def read_redundantinfo(self, infopath):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
 		self.infoPath = infopath
-		self.info = read_redundantinfo(infopath)
-		self.Info = RedundantInfo(self.info)
+		
+		self.Info = RedundantInfo(read_redundantinfo(infopath))
 		self.infoFileExist = True
 
 	def write_redundantinfo(self, infoPath = None, overwrite = False):
 		methodName = '.write_redundantinfo.'
 		if infoPath == None:
 			infoPath = self.infoPath
-		if (self.info != None) and (infoPath != None):
-			write_redundantinfo(self.info, infoPath, overwrite = overwrite)
+		if (self.Info != None) and (infoPath != None):
+			write_redundantinfo(self.Info.get_info(), infoPath, overwrite = overwrite)
 			self.infoPath = infoPath
 			self.infoFileExist = True
 		else:
@@ -788,14 +788,14 @@ class RedundantCalibrator:
 				self.calparPath = self.dataPath + '_add' + str(self.removeAdditivePeriod) + '.omnical'
 			else:
 				self.calparPath = self.dataPath + '.omnical'
-			self.rawCalpar = np.fromfile(self.calparPath, dtype = 'float32').reshape((self.nTime, self.nFrequency, 3 + 2 * (self.info['nAntenna'] + self.info['nUBL'])))
+			self.rawCalpar = np.fromfile(self.calparPath, dtype = 'float32').reshape((self.nTime, self.nFrequency, 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
 			if self.calMode == '0' or self.calMode == '1':
 				self.chisq = self.rawCalpar[:, :, 2]
 			elif self.calMode == '2':
 				self.chisq = self.rawCalpar[:, :, 1]
 			self.calpar = np.zeros((self.nTime, self.nFrequency, self.nTotalAnt), dtype='complex64')
-			self.calpar[:,:,self.info['subsetant']] = (10**(self.rawCalpar[:, :, 3: (3 + self.info['nAntenna'])])) * np.exp(1.j * np.pi * self.rawCalpar[:, :, (3 + self.info['nAntenna']): (3 + 2 * self.info['nAntenna'])] / 180)
-			self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.info['nAntenna']):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.info['nAntenna']):: 2]
+			self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * np.pi * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)] / 180)
+			self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
 			if not self.keepCalpar:
 				os.remove(self.calparPath)
 			if not self.keepData and self.dataPath == self.tmpDataPath:
@@ -998,40 +998,40 @@ class RedundantCalibrator:
 		B=sps.csr_matrix(B)
 		###########################################################################
 		#create info dictionary
-		self.info={}
-		self.info['nAntenna']=nAntenna
-		self.info['nUBL']=nUBL
-		self.info['nBaseline']=nBaseline
-		self.info['subsetant']=subsetant
-		self.info['antloc']=antloc
-		self.info['subsetbl']=subsetbl
-		self.info['ubl']=ubl
-		self.info['bltoubl']=bltoubl
-		self.info['reversed']=reverse
-		self.info['reversedauto']=reversedauto
-		self.info['autoindex']=autoindex
-		self.info['crossindex']=crossindex
-		#self.info['ncross']=ncross
-		self.info['bl2d']=bl2d
-		self.info['ublcount']=ublcount
-		self.info['ublindex']=ublindex
-		self.info['bl1dmatrix']=bl1dmatrix
-		self.info['degenM']=degenM
-		self.info['A']=A
-		self.info['B']=B
+		info={}
+		info['nAntenna']=nAntenna
+		info['nUBL']=nUBL
+		info['nBaseline']=nBaseline
+		info['subsetant']=subsetant
+		info['antloc']=antloc
+		info['subsetbl']=subsetbl
+		info['ubl']=ubl
+		info['bltoubl']=bltoubl
+		info['reversed']=reverse
+		info['reversedauto']=reversedauto
+		info['autoindex']=autoindex
+		info['crossindex']=crossindex
+		#info['ncross']=ncross
+		info['bl2d']=bl2d
+		info['ublcount']=ublcount
+		info['ublindex']=ublindex
+		info['bl1dmatrix']=bl1dmatrix
+		info['degenM']=degenM
+		info['A']=A
+		info['B']=B
 		with warnings.catch_warnings():
 				warnings.filterwarnings("ignore",category=DeprecationWarning)
-				self.info['At'] = self.info['A'].transpose()
-				self.info['Bt'] = self.info['B'].transpose()
-				self.info['AtAi'] = la.pinv(self.info['At'].dot(self.info['A']).todense(), cond = 10**(-6))#(AtA)^-1
-				self.info['BtBi'] = la.pinv(self.info['Bt'].dot(self.info['B']).todense(), cond = 10**(-6))#(BtB)^-1
-				self.info['AtAiAt'] = self.info['AtAi'].dot(self.info['At'].todense())#(AtA)^-1At
-				self.info['BtBiBt'] = self.info['BtBi'].dot(self.info['Bt'].todense())#(BtB)^-1Bt
-				self.info['PA'] = self.info['A'].dot(self.info['AtAiAt'])#A(AtA)^-1At
-				self.info['PB'] = self.info['B'].dot(self.info['BtBiBt'])#B(BtB)^-1Bt
-				self.info['ImPA'] = sps.identity(ncross) - self.info['PA']#I-PA
-				self.info['ImPB'] = sps.identity(ncross) - self.info['PB']#I-PB
-		self.Info = RedundantInfo(self.info)
+				info['At'] = info['A'].transpose()
+				info['Bt'] = info['B'].transpose()
+				info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
+				info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
+				info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+				info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+				info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+				info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+				info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+				info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
+		self.Info = RedundantInfo(info)
 
 
 
@@ -1103,17 +1103,17 @@ class RedundantCalibrator:
 			return
 
 		#check if self.info['bl1dmatrix'] exists
-		if type(self.info) != dict :
-			raise Exception("needs info['bl1dmatrix']")
-		if 'bl1dmatrix' not in self.info:
-			raise Exception("needs info['bl1dmatrix']")
+		try:
+			_ = self.Info.bl1dmatrix
+		except:
+			raise Exception("needs Info.bl1dmatrix")
 
-		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
+		crossblindex=self.Info.bl1dmatrix[antpair[0]][antpair[1]]
 		if antpair[0]==antpair[1]:
 			return "auto correlation"
 		elif crossblindex == 99999:
 			return "bad ubl"
-		return self.info['bltoubl'][crossblindex]
+		return self.Info.bltoubl[crossblindex]
 
 
 	#need to do compute_redundantinfo first
@@ -1131,17 +1131,17 @@ class RedundantCalibrator:
 			return
 
 		#check if self.info['bl1dmatrix'] exists
-		if type(self.info) != dict :
-			raise Exception("needs info['bl1dmatrix']")
-		if 'bl1dmatrix' not in self.info:
-			raise Exception("needs info['bl1dmatrix']")
+		try:
+			_ = self.Info.bl1dmatrix
+		except:
+			raise Exception("needs Info.bl1dmatrix")
 
-		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
+		crossblindex=self.Info.bl1dmatrix[antpair[0]][antpair[1]]
 		if antpair[0] == antpair[1]:
 			return 1
 		if crossblindex == 99999:
 			return 'badbaseline'
-		return self.info['reversed'][crossblindex]
+		return self.Info.reversed[crossblindex]
 
 
 
