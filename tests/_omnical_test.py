@@ -126,9 +126,9 @@ class TestMethods(unittest.TestCase):
             calibrator.loglincal(data[p],verbose=True)
 
         #########Test results############
-        correctresult = np.sum(np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165),axis=2).flatten()#summing the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
+        correctresult = np.sum(np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165)[:,:,3:],axis=2).flatten()#summing the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
 
-        newresult = np.sum(calibrators[-1].rawCalpar,axis=2).flatten()
+        newresult = np.sum(calibrators[-1].rawCalpar[:,:,3:],axis=2).flatten()
         np.testing.assert_almost_equal(correctresult[20:-20], newresult[20:-20], decimal = 4)
 
     def test_norm(self):
