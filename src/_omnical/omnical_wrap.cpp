@@ -1170,7 +1170,7 @@ PyTypeObject RedInfoType = {
 |_|  |_|\___/ \__,_|\__,_|_|\___| |_| |_| |_|\___|\__|_| |_|\___/ \__,_|___/ */
 
 PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
-    int command=1, uselogcal=1, removedegen=0, maxiter=20;
+    int uselogcal=1, removedegen=0, maxiter=20;
     float stepsize=.3, tol=.001;
     npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
     npy_intp nint, nfreq, nbls;
@@ -1178,11 +1178,11 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
     PyArrayObject *data, *additivein; // input arrays
     PyArrayObject *calpar=NULL, *additiveout=NULL; // output arrays
     PyObject *rv;
-    static char *kwlist[] = {"data", "info", "additivein", "command", "uselogcal", 
+    static char *kwlist[] = {"data", "info", "additivein", "uselogcal", 
         "removedegen", "maxiter", "stepsize", "tol"};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!|iiiiff", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!|iiiff", kwlist,
             &PyArray_Type, &data, &RedInfoType, &redinfo, &PyArray_Type, &additivein,
-            &command, &uselogcal, &removedegen, &maxiter, &stepsize, &tol))
+            &uselogcal, &removedegen, &maxiter, &stepsize, &tol))
         return NULL;
     // check shape and type of data
     if (PyArray_NDIM(data) != 3 || PyArray_TYPE(data) != PyArray_CFLOAT) {
@@ -1234,8 +1234,20 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                     &(redinfo->info), 
                     &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0), 
                     &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0), 
-                    command, 
+                    1, 
                     &module
+                );
+                lincal(
+                    &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0), 
+                    &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0), 
+                    &(redinfo->info), 
+                    &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0), 
+                    &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0), 
+                    0, 
+                    &module,
+                    tol,
+                    maxiter,
+                    stepsize
                 );
             } else {
                 lincal(
@@ -1244,7 +1256,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                     &(redinfo->info), 
                     &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0), 
                     &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0), 
-                    command, 
+                    1, 
                     &module,
                     tol,
                     maxiter,
@@ -1579,7 +1591,7 @@ static PyMethodDef omnical_methods[] = {
     {"norm", (PyCFunction)norm_wrap, METH_VARARGS,
         "Return the norm of input array."},
     {"redcal", (PyCFunction)redcal_wrap, METH_VARARGS | METH_KEYWORDS,
-        "redcal(data,info,additivein,command=1,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,tol=.001)\nRun redundant calibration on data (3D array of complex floats)."},
+        "redcal(data,info,additivein,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,tol=.001)\nRun redundant calibration on data (3D array of complex floats)."},
     {"omnical_old", (PyCFunction)cal_wrap_old, METH_VARARGS,
         "omnical outdated version that relies on hard disk I/O."},
     {"omnical", (PyCFunction)cal_wrap, METH_VARARGS,
