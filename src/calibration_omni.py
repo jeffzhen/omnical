@@ -728,28 +728,28 @@ class RedundantCalibrator:
 
 	def readyForCpp(self, verbose = True):#check if all necessary parameters are specified to call Cpp
 		methodName = '.readyForCpp.'
-		if not (self.dataFileExist and os.path.isfile(self.dataPath)):
-			if verbose:
-				print self.className + methodName + "Error: data file check failed. No data file specified or specified filename does not exist."
-			return False
-		if os.path.getsize(self.dataPath) / 8 != self.nTime * self.nFrequency * self.nTotalBaselineAuto:
-			if verbose:
-				print self.className + methodName + "Error: data size check failed. File on disk seems to contain " + str(os.path.getsize(self.dataPath) / 8) + " complex64 numbers, where as we expect " + str(self.nTime * self.nFrequency * self.nTotalBaselineAuto) + '.'
-			return False
+		#if not (self.dataFileExist and os.path.isfile(self.dataPath)):
+			#if verbose:
+				#print self.className + methodName + "Error: data file check failed. No data file specified or specified filename does not exist."
+			#return False
+		#if os.path.getsize(self.dataPath) / 8 != self.nTime * self.nFrequency * self.nTotalBaselineAuto:
+			#if verbose:
+				#print self.className + methodName + "Error: data size check failed. File on disk seems to contain " + str(os.path.getsize(self.dataPath) / 8) + " complex64 numbers, where as we expect " + str(self.nTime * self.nFrequency * self.nTotalBaselineAuto) + '.'
+			#return False
 
-		if not self.infoFileExist :
-			if verbose:
-				print self.className + methodName + "Error: info file existence check failed. Call read_redundantinfo(self, infoPath) function to read in an existing redundant info text file or compute_redundantinfo(arrayinfoPath=None) to compute redundantinfo write_redundantinfo() to write redundantinfo."
-			return False
+		#if not self.infoFileExist :
+			#if verbose:
+				#print self.className + methodName + "Error: info file existence check failed. Call read_redundantinfo(self, infoPath) function to read in an existing redundant info text file or compute_redundantinfo(arrayinfoPath=None) to compute redundantinfo write_redundantinfo() to write redundantinfo."
+			#return False
 		if self.Info == None :
 			if verbose:
 				print self.className + methodName + "Error: self.Info existence check failed."
 			return False
 
-		if self.removeAdditive and self.removeAdditivePeriod <= 0:
-			if verbose:
-				print self.className + methodName + "Error: removeAdditive option is True but the removeAdditivePeriod parameter is negative (invalid)."
-			return False
+		#if self.removeAdditive and self.removeAdditivePeriod <= 0:
+			#if verbose:
+				#print self.className + methodName + "Error: removeAdditive option is True but the removeAdditivePeriod parameter is negative (invalid)."
+			#return False
 
 		if abs(self.convergePercent - 0.5) >= 0.5 or self.maxIteration <= 0 or abs(self.stepSize - 0.5) >= 0.5:
 			if verbose:
@@ -759,12 +759,11 @@ class RedundantCalibrator:
 			print self.className + methodName + "Check passed."
 		return True
 
-	def cal(self, data, verbose = False):#data can be either 3d numpy array or a binary file path
+	def cal(self, data, additivein, verbose = False):#data can be either 3d numpy array or a binary file path
 		methodName = '.cal.'
 		if type(data) == type(' '):
-			self.dataPath = data
-			self.dataFileExist = True
-		elif type(data) == type(np.zeros(1)) and len(data.shape) == 3 and len(data[0,0]) == self.nTotalBaselineAuto and self.dataPath == self.tmpDataPath:
+			raise Exception("passing in file on disk no longer supported!")
+		elif type(data) == type(np.zeros(1)) and len(data.shape) == 3 and len(data[0,0]) == self.Info.nBaseline and self.dataPath == self.tmpDataPath:
 			(self.nTime, self.nFrequency, _) = data.shape
 			np.array(data, dtype = 'complex64').tofile(self.tmpDataPath)
 			self.dataPath = self.tmpDataPath
@@ -772,12 +771,15 @@ class RedundantCalibrator:
 		else:
 			raise Exception(self.className + methodName + "Error: data type must be a file path name to a binary file *OR* a 3D numpy array of dimensions (nTime, nFrequency, nTotalBaselineAuto). You have either 1) passed in the wrong type, or 2) passed in a correct data array but have mismatching self.dataPath and self.tmpDataPath (these paths will be overwritten if you pass in an array as data!).")
 
-		if (not self.infoFileExist):
-			self.write_redundantinfo()
+		#if (not self.infoFileExist):
+			#self.write_redundantinfo()
 
 		if self.readyForCpp(verbose = False):
 			#print self.dataPath, self.infoPath, int(self.nTime), int(self.nFrequency), int(self.nTotalAnt), int(self.removeDegeneracy), int(self.removeAdditive), str(self.removeAdditivePeriod), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize)
-			_O.omnical(self.dataPath, self.infoPath, int(self.nTime), int(self.nFrequency), int(self.nTotalAnt), int(self.removeDegeneracy), int(self.removeAdditive), str(self.removeAdditivePeriod), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize))
+			print data[0,0,:5], self.Info.ubl[:2], additivein[0,0,:5], int(self.removeDegeneracy), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize)
+			self.rawCalpar, _ =_O.redcal(data, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = int(self.calMode),maxiter=int(self.maxIteration), stepsize=float(self.stepSize),  tol=0.01)#))
+			#, removedegen = int(self.removeDegeneracy), uselogcal = int(self.calMode), tol = float(self.convergePercent), maxiter=int(self.maxIteration), stepsize=float(self.stepSize)
+			#_O.omnical(self.dataPath, self.infoPath, int(self.nTime), int(self.nFrequency), int(self.nTotalAnt), int(self.removeDegeneracy), int(self.removeAdditive), str(self.removeAdditivePeriod), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize))
 
 			#command = "./omnical " + self.dataPath + " " + self.infoPath + " " + str(self.nTime) + " " + str(self.nFrequency) + " "  + str(self.nTotalAnt) + " " + str(int(self.removeDegeneracy)) + " " + str(int(self.removeAdditive)) + " " + str(self.removeAdditivePeriod) + " " + self.calMode + " " + str(self.convergePercent) + " " + str(self.maxIteration) + " " + str(self.stepSize)
 			#if verbose:
@@ -788,7 +790,7 @@ class RedundantCalibrator:
 				self.calparPath = self.dataPath + '_add' + str(self.removeAdditivePeriod) + '.omnical'
 			else:
 				self.calparPath = self.dataPath + '.omnical'
-			self.rawCalpar = np.fromfile(self.calparPath, dtype = 'float32').reshape((self.nTime, self.nFrequency, 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
+			#self.rawCalpar = np.fromfile(self.calparPath, dtype = 'float32').reshape((self.nTime, self.nFrequency, 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
 			if self.calMode == '0' or self.calMode == '1':
 				self.chisq = self.rawCalpar[:, :, 2]
 			elif self.calMode == '2':
@@ -796,17 +798,17 @@ class RedundantCalibrator:
 			self.calpar = np.zeros((self.nTime, self.nFrequency, self.nTotalAnt), dtype='complex64')
 			self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * np.pi * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)] / 180)
 			self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
-			if not self.keepCalpar:
-				os.remove(self.calparPath)
-			if not self.keepData and self.dataPath == self.tmpDataPath:
-				os.remove(self.dataPath)
+			#if not self.keepCalpar:
+				#os.remove(self.calparPath)
+			#if not self.keepData and self.dataPath == self.tmpDataPath:
+				#os.remove(self.dataPath)
 		else:
 			raise Exception(self.className + methodName + "Error: function is called prematurely. The current instance failed the readyForCpp() check. Try instance.readyForCpp() for more info.")
 
 
-	def loglincal(self, data, verbose = False):
+	def loglincal(self, data, additivein, verbose = False):
 		self.calMode = '1'
-		self.cal(data, verbose)
+		self.cal(data, additivein, verbose)
 
 	def lincal(self, data, verbose = False):
 		self.calMode = '0'

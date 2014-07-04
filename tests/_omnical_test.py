@@ -85,7 +85,7 @@ class TestMethods(unittest.TestCase):
         calibrators = [omni.RedundantCalibrator(nant) for key in wantpols.keys()]
         for calibrator, key in zip(calibrators, wantpols.keys()):
             calibrator.compute_redundantinfo(arrayinfoPath = arrayinfos[key])
-            calibrator.write_redundantinfo(infoPath = './redundantinfo_test_' + key + '.txt', overwrite = True)
+            #calibrator.write_redundantinfo(infoPath = './redundantinfo_test_' + key + '.txt', overwrite = True)
         ###start reading miriads################
         print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
         data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols, nTotalAntenna = 32,timingTolerance = 2*math.pi)
@@ -123,10 +123,13 @@ class TestMethods(unittest.TestCase):
             calibrator.stepSize = step_size
             print calibrator.nTime, calibrator.nFrequency
             #calibrator.readyForCpp()
-            calibrator.loglincal(data[p],verbose=True)
+            #print data[p][:,:,calibrator.Info.subsetbl].shape, data[p][:,:,calibrator.Info.subsetbl].dtype
+            calibrator.loglincal(data[p][:,:,calibrator.Info.subsetbl], np.zeros_like(data[p][:,:,calibrator.Info.subsetbl]), verbose=True)
 
         #########Test results############
-        correctresult = np.sum(np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165)[:,:,3:],axis=2).flatten()#summing the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
+        correctresult = np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165)[:,:,3:]
+        correctresult[:,:, calibrators[-1].Info.nAntenna:calibrators[-1].Info.nAntenna * 2] = correctresult[:,:, calibrators[-1].Info.nAntenna:calibrators[-1].Info.nAntenna * 2]*np.pi/180
+        correctresult = np.sum(correctresult,axis=2).flatten()#summing the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
 
         newresult = np.sum(calibrators[-1].rawCalpar[:,:,3:],axis=2).flatten()
         np.testing.assert_almost_equal(correctresult[20:-20], newresult[20:-20], decimal = 4)

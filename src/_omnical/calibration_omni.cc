@@ -278,7 +278,7 @@ void initcalmodule(calmemmodule* module, redundantinfo* info){
 	int nant = info->nAntenna;
 	int nbl = info->nBaseline;
 	int nubl = info->nUBL;
-	int ncross = info->nCross;
+	int ncross = info->crossindex.size();
 	(module->amp1).resize(ncross);
 	(module->amp2).resize(ncross);
 	(module->amp3).resize(ncross);
@@ -3138,27 +3138,26 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	int nant = info->nAntenna;
 	int nubl = info->nUBL;
 	//int nbl = info->nBaseline;
-	int ncross = info->nCross;
-
+	int ncross = info->crossindex.size();
 	////read in amp and args
 	for (int b = 0; b < ncross; b++){
 		module->amp1[b] = log10(amp(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]));
 		module->pha1[b] = phase(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]) * info->reversed[b];
 	}
-
 	////rewrap args
 	for(int i = 0; i < nubl; i ++){
 		for(int j = 0; j < (module->ublgrp1)[i].size(); j ++){
 			(module->ublgrp1)[i][j] = module->pha1[info->ublindex[i][j][2]];
 		}
 	}
+
 	for (int i = 0; i < nubl; i++){
 		(module->ubl1)[i][1] = medianAngle(&((module->ublgrp1)[i]));
 	}
+
 	for (int b = 0; b < ncross; b++) {
 		module->pha1[b] = phaseWrap(module->pha1[b], (module->ubl1)[info->bltoubl[b]][1] - PI);
 	}
-
 
 	fill(module->x3.begin(), module->x3.end(), 0);////At.y
 	for (int i = 0; i < info->Atsparse.size(); i++){

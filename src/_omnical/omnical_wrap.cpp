@@ -1170,8 +1170,8 @@ PyTypeObject RedInfoType = {
 |_|  |_|\___/ \__,_|\__,_|_|\___| |_| |_| |_|\___|\__|_| |_|\___/ \__,_|___/ */
 
 PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
-    int uselogcal=1, removedegen=0, maxiter=20;
-    float stepsize=.3, tol=.001;
+    int uselogcal=1, removedegen=1, maxiter=10;
+    float stepsize=.3, tol=.01;
     npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
     npy_intp nint, nfreq, nbls;
     RedInfoObject *redinfo;
@@ -1214,10 +1214,8 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
     dims[2] = nbls;
     additiveout = (PyArrayObject *) PyArray_SimpleNew(3, dims, PyArray_CFLOAT);
     CHK_NULL(additiveout);
-
     calmemmodule module;////memory module to be reused in order to avoid redeclaring all sorts of long vectors
     initcalmodule(&module, &(redinfo->info));
-
     for (int t = 0; t < nint; t++){
         for (int f = 0; f < nfreq; f++){
             // copy from input arrays
