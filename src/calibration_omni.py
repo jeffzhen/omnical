@@ -776,8 +776,8 @@ class RedundantCalibrator:
 
 		if self.readyForCpp(verbose = False):
 			#print self.dataPath, self.infoPath, int(self.nTime), int(self.nFrequency), int(self.nTotalAnt), int(self.removeDegeneracy), int(self.removeAdditive), str(self.removeAdditivePeriod), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize)
-			print data[0,0,:5], self.Info.ubl[:2], additivein[0,0,:5], int(self.removeDegeneracy), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize)
-			self.rawCalpar, _ =_O.redcal(data, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = int(self.calMode),maxiter=int(self.maxIteration), stepsize=float(self.stepSize),  tol=0.01)#))
+			#print data[0,0,:5], self.Info.ubl[:2], additivein[0,0,:5], int(self.removeDegeneracy), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize)
+			self.rawCalpar, _ =_O.redcal(data, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = int(self.calMode),maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize))#))
 			#, removedegen = int(self.removeDegeneracy), uselogcal = int(self.calMode), tol = float(self.convergePercent), maxiter=int(self.maxIteration), stepsize=float(self.stepSize)
 			#_O.omnical(self.dataPath, self.infoPath, int(self.nTime), int(self.nFrequency), int(self.nTotalAnt), int(self.removeDegeneracy), int(self.removeAdditive), str(self.removeAdditivePeriod), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize))
 
