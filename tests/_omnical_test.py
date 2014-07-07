@@ -15,8 +15,8 @@ class TestMethods(unittest.TestCase):
     def test_redcal_log(self):
         data = np.ones((10,20,32*33/2), dtype=np.complex64)
         additivein = np.zeros_like(data)
-        calpar,additiveout = _O.redcal(data, self.i, additivein)
-        self.assertEqual(calpar.shape, (10,20,3+2*(self.i.nAntenna+self.i.nUBL)))
+        calpar = np.zeros((10,20,3+2*(self.i.nAntenna+self.i.nUBL)),dtype='float32')
+        additiveout = _O.redcal(data, calpar, self.i, additivein)
         self.assertTrue(np.all(calpar[:,:,:3+2*self.i.nAntenna] == 0))
         self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna::2] == 1))
         self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna+1::2] == 0))
@@ -24,8 +24,8 @@ class TestMethods(unittest.TestCase):
     def test_redcal_lin(self):
         data = np.ones((10,20,32*33/2), dtype=np.complex64)
         additivein = np.zeros_like(data)
-        calpar,additiveout = _O.redcal(data, self.i, additivein, uselogcal=0)
-        self.assertEqual(calpar.shape, (10,20,3+2*(self.i.nAntenna+self.i.nUBL)))
+        calpar = np.zeros((10,20,3+2*(self.i.nAntenna+self.i.nUBL)),dtype='float32')
+        additiveout = _O.redcal(data, calpar, self.i, additivein, uselogcal=0)
         self.assertTrue(np.all(calpar[:,:,:3+2*self.i.nAntenna] == 0)) # not great to be checking an initialization state
         self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna::2] == 0))
         self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna+1::2] == 0))

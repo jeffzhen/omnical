@@ -775,9 +775,8 @@ class RedundantCalibrator:
 			#self.write_redundantinfo()
 
 		if self.readyForCpp(verbose = False):
-			#print self.dataPath, self.infoPath, int(self.nTime), int(self.nFrequency), int(self.nTotalAnt), int(self.removeDegeneracy), int(self.removeAdditive), str(self.removeAdditivePeriod), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize)
-			#print data[0,0,:5], self.Info.ubl[:2], additivein[0,0,:5], int(self.removeDegeneracy), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize)
-			self.rawCalpar, _ =_O.redcal(data, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = int(self.calMode),maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize))#))
+			#print data.shape, self.rawCalpar.shape, self.Info.nUBL, additivein.shape, int(self.removeDegeneracy), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize)
+			_ =_O.redcal(data, self.rawCalpar, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = int(self.calMode),maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize))
 			#, removedegen = int(self.removeDegeneracy), uselogcal = int(self.calMode), tol = float(self.convergePercent), maxiter=int(self.maxIteration), stepsize=float(self.stepSize)
 			#_O.omnical(self.dataPath, self.infoPath, int(self.nTime), int(self.nFrequency), int(self.nTotalAnt), int(self.removeDegeneracy), int(self.removeAdditive), str(self.removeAdditivePeriod), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize))
 
@@ -796,7 +795,7 @@ class RedundantCalibrator:
 			elif self.calMode == '2':
 				self.chisq = self.rawCalpar[:, :, 1]
 			self.calpar = np.zeros((self.nTime, self.nFrequency, self.nTotalAnt), dtype='complex64')
-			self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * np.pi * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)] / 180)
+			self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
 			self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
 			#if not self.keepCalpar:
 				#os.remove(self.calparPath)
@@ -808,6 +807,7 @@ class RedundantCalibrator:
 
 	def loglincal(self, data, additivein, verbose = False):
 		self.calMode = '1'
+		self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
 		self.cal(data, additivein, verbose)
 
 	def lincal(self, data, verbose = False):

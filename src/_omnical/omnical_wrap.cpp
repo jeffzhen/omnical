@@ -1175,12 +1175,12 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
     npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
     npy_intp nint, nfreq, nbls;
     RedInfoObject *redinfo;
-    PyArrayObject *data, *additivein; // input arrays
-    PyArrayObject *calpar=NULL, *additiveout=NULL; // output arrays
+    PyArrayObject *data, *additivein, *calpar; // input arrays
+    PyArrayObject *additiveout=NULL; // output arrays
     PyObject *rv;
-    static char *kwlist[] = {"data", "info", "additivein", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "dummy"};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!|iiiffi", kwlist,
-            &PyArray_Type, &data, &RedInfoType, &redinfo, &PyArray_Type, &additivein,
+    static char *kwlist[] = {"data", "calpar", "info", "additivein", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "dummy"};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!|iiiffi", kwlist,
+            &PyArray_Type, &data, &PyArray_Type, &calpar, &RedInfoType, &redinfo, &PyArray_Type, &additivein,
             &uselogcal, &removedegen, &maxiter, &stepsize, &conv, &dummy))
         return NULL;
     // check shape and type of data
@@ -1201,20 +1201,21 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
         PyErr_Format(PyExc_ValueError, "additivein must be of the same type and shape as data");
         return NULL;
     }
-    // allocate output calpar array
-    //vector<vector<vector<float> > > calpar(nInt, vector<vector<float> >(nFreq, vector<float>(3 + 2*(info.nUBL + info.nAntenna), 0)));
+    if (PyArray_NDIM(calpar) != 3 || PyArray_TYPE(calpar) != PyArray_FLOAT
+            || PyArray_DIM(calpar,0) != nint || PyArray_DIM(calpar,1) != nfreq || PyArray_DIM(calpar,2) != calpar_v.size()) {
+        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data");
+        return NULL;
+    }
+
+    // allocate output additiveout array
     dims[0] = nint;
     dims[1] = nfreq;
-    dims[2] = 3 + 2 * (redinfo->info.nUBL + redinfo->info.nAntenna);
-    calpar = (PyArrayObject *) PyArray_SimpleNew(3, dims, PyArray_FLOAT);
-    CHK_NULL(calpar);
-    // allocate output additiveout array
-    //vector<vector<vector<vector<float> > > > additiveout(nInt, vector<vector<vector<float> > >(nFreq, vector<vector<float> >
     dims[2] = nbls;
     additiveout = (PyArrayObject *) PyArray_SimpleNew(3, dims, PyArray_CFLOAT);
     CHK_NULL(additiveout);
     calmemmodule module;////memory module to be reused in order to avoid redeclaring all sorts of long vectors
     initcalmodule(&module, &(redinfo->info));
+
     for (int t = 0; t < nint; t++){
         for (int f = 0; f < nfreq; f++){
             // copy from input arrays
@@ -1224,6 +1225,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                 additivein_v[b][0] = ((float *) PyArray_GETPTR3(additivein,t,f,b))[0];
                 additivein_v[b][1] = ((float *) PyArray_GETPTR3(additivein,t,f,b))[1];
             }
+
             if (uselogcal) {
                 logcaladd(
                     &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0), 
@@ -1247,6 +1249,9 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                     stepsize
                 );
             } else {
+                for (int n = 0; n < calpar_v.size(); n ++){
+                    calpar_v[n] = ((float *) PyArray_GETPTR2(calpar,t,f))[n];
+                }
                 lincal(
                     &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0), 
                     &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0), 
@@ -1272,9 +1277,11 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
             }
         }
     }
+
     // Make sure to DECREF when using Py_BuildValue() with objects!!
-    rv = Py_BuildValue("(OO)", PyArray_Return(calpar), PyArray_Return(additiveout));
-    Py_DECREF(calpar); Py_DECREF(additiveout);
+    ////rv = Py_BuildValue("(OO)", PyArray_Return(calpar), PyArray_Return(additiveout));
+    rv = Py_BuildValue("O", PyArray_Return(additiveout));
+    Py_DECREF(additiveout);
     return rv;
 }
 
@@ -1438,7 +1445,7 @@ static PyMethodDef omnical_methods[] = {
     {"norm", (PyCFunction)norm_wrap, METH_VARARGS,
         "Return the norm of input array."},
     {"redcal", (PyCFunction)redcal_wrap, METH_VARARGS | METH_KEYWORDS,
-        "redcal(data,info,additivein,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,conv=.001)\nRun redundant calibration on data (3D array of complex floats)."},
+        "redcal(data,calpar,info,additivein,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,conv=.001)\nRun redundant calibration on data (3D array of complex floats)."},
     {"omnical_old", (PyCFunction)cal_wrap_old, METH_VARARGS,
         "omnical outdated version that relies on hard disk I/O."},
     //{"omnical", (PyCFunction)cal_wrap, METH_VARARGS,
