@@ -664,7 +664,8 @@ class RedundantCalibrator:
 		self.convergePercent = 0.01 #convergence criterion in relative change of chi^2. By default it stops when reaches 0.01, namely 1% decrease in chi^2.
 		self.maxIteration = 50 #max number of iterations in lincal
 		self.stepSize = 0.3 #step size for lincal. (0, 1]. < 0.4 recommended.
-
+		self.computeUBLFit = True
+		
 		if info != None:
 			if type(info) == type({}):
 				
@@ -807,17 +808,24 @@ class RedundantCalibrator:
 
 	def loglincal(self, data, additivein, verbose = False):
 		self.calMode = '1'
-		self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
 		self.cal(data, additivein, verbose)
 
 	def lincal(self, data, verbose = False):
-		self.calMode = '0'
-		self.cal(data, verbose)
-
-	def logcal(self, data, verbose = False):#todo
-		raise Exception(self.className + "Error: logcal function is not yet implemented.")
-		#self.calMode = '2'
-		#self.cal(data, verbose)
+		if self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
+			raise Exception("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
+		_O.redcal(data, self.rawCalpar, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+		self.chisq = self.rawCalpar[:, :, 2]
+		self.calpar = np.zeros((self.nTime, self.nFrequency, self.nTotalAnt), dtype='complex64')
+		self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
+		self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
+			
+	def logcal(self, data, verbose = False):
+		self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
+		_O.redcal(data, self.rawCalpar, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+		self.chisq = self.rawCalpar[:, :, 2]
+		self.calpar = np.zeros((self.nTime, self.nFrequency, self.nTotalAnt), dtype='complex64')
+		self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
+		self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
 
 	def set_badUBL(self, badUBL):
 		if np.array(badUBL).shape[-1] != 3 or len(np.array(badUBL).shape) != 2:

@@ -124,8 +124,10 @@ class TestMethods(unittest.TestCase):
             print calibrator.nTime, calibrator.nFrequency
             #calibrator.readyForCpp()
             #print data[p][:,:,calibrator.Info.subsetbl].shape, data[p][:,:,calibrator.Info.subsetbl].dtype
-            calibrator.loglincal(data[p][:,:,calibrator.Info.subsetbl], np.zeros_like(data[p][:,:,calibrator.Info.subsetbl]), verbose=True)
-
+            ##calibrator.loglincal(data[p][:,:,calibrator.Info.subsetbl], np.zeros_like(data[p][:,:,calibrator.Info.subsetbl]), verbose=True)
+            calibrator.computeUBLFit = False
+            calibrator.logcal(data[p][:,:,calibrator.Info.subsetbl], np.zeros_like(data[p][:,:,calibrator.Info.subsetbl]), verbose=True)
+            calibrator.lincal(data[p][:,:,calibrator.Info.subsetbl], np.zeros_like(data[p][:,:,calibrator.Info.subsetbl]), verbose=True)
         #########Test results############
         correctresult = np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165)[:,:,3:]
         correctresult[:,:, calibrators[-1].Info.nAntenna:calibrators[-1].Info.nAntenna * 2] = correctresult[:,:, calibrators[-1].Info.nAntenna:calibrators[-1].Info.nAntenna * 2]*np.pi/180

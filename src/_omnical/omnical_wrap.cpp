@@ -1170,7 +1170,7 @@ PyTypeObject RedInfoType = {
 |_|  |_|\___/ \__,_|\__,_|_|\___| |_| |_| |_|\___|\__|_| |_|\___/ \__,_|___/ */
 
 PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
-    int uselogcal=1, removedegen=1, maxiter=10, dummy=0;
+    int uselogcal = 1, removedegen = 1, maxiter = 10, dummy = 0, computeUBLFit = 1;
     float stepsize=.3, conv=.01;
     npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
     npy_intp nint, nfreq, nbls;
@@ -1178,10 +1178,10 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
     PyArrayObject *data, *additivein, *calpar; // input arrays
     PyArrayObject *additiveout=NULL; // output arrays
     PyObject *rv;
-    static char *kwlist[] = {"data", "calpar", "info", "additivein", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "dummy"};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!|iiiffi", kwlist,
+    static char *kwlist[] = {"data", "calpar", "info", "additivein", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "computeUBLFit", "dummy"};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!|iiiffii", kwlist,
             &PyArray_Type, &data, &PyArray_Type, &calpar, &RedInfoType, &redinfo, &PyArray_Type, &additivein,
-            &uselogcal, &removedegen, &maxiter, &stepsize, &conv, &dummy))
+            &uselogcal, &removedegen, &maxiter, &stepsize, &conv, &computeUBLFit, &dummy))
         return NULL;
     // check shape and type of data
     if (PyArray_NDIM(data) != 3 || PyArray_TYPE(data) != PyArray_CFLOAT) {
@@ -1236,18 +1236,18 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                     1, 
                     &module
                 );
-                lincal(
-                    &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0), 
-                    &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0), 
-                    &(redinfo->info), 
-                    &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0), 
-                    &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0), 
-                    0, 
-                    &module,
-                    conv,
-                    maxiter,
-                    stepsize
-                );
+                //lincal(
+                    //&data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0), 
+                    //&additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0), 
+                    //&(redinfo->info), 
+                    //&calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0), 
+                    //&additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0), 
+                    //0, 
+                    //&module,
+                    //conv,
+                    //maxiter,
+                    //stepsize
+                //);
             } else {
                 for (int n = 0; n < calpar_v.size(); n ++){
                     calpar_v[n] = ((float *) PyArray_GETPTR2(calpar,t,f))[n];
@@ -1258,7 +1258,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                     &(redinfo->info), 
                     &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0), 
                     &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0), 
-                    1, 
+                    computeUBLFit, 
                     &module,
                     conv,
                     maxiter,
