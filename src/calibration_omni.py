@@ -648,16 +648,6 @@ class RedundantCalibrator:
 		self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(self.nTotalAnt)])#PAPER miriad convention by default
 		
 		self.Info = None
-		self.infoPath = './tmp_redundantinfo'
-		self.infoFileExist = False
-		self.dataFileExist = False
-		self.keepData = False
-		self.tmpDataPath = './tmp_calibration_omni_data'
-		self.dataPath = self.tmpDataPath #complex128 type binary visibility file
-		self.keepCalpar = False
-		self.calparPath = None
-		self.nFrequency = -1
-		self.nTime = -1
 		self.removeDegeneracy = True
 		self.removeAdditive = False
 		self.removeAdditivePeriod = -1
@@ -676,21 +666,11 @@ class RedundantCalibrator:
 				raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
 
 	def read_redundantinfo(self, infopath):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
-		self.infoPath = infopath
-		
 		self.Info = RedundantInfo(read_redundantinfo(infopath))
-		self.infoFileExist = True
 
-	def write_redundantinfo(self, infoPath = None, overwrite = False):
+	def write_redundantinfo(self, infoPath, overwrite = False):
 		methodName = '.write_redundantinfo.'
-		if infoPath == None:
-			infoPath = self.infoPath
-		if (self.Info != None) and (infoPath != None):
-			write_redundantinfo(self.Info.get_info(), infoPath, overwrite = overwrite)
-			self.infoPath = infoPath
-			self.infoFileExist = True
-		else:
-			raise Exception(self.className + methodName + "Error: either 1) info does not yet exist for the current instance, or 2) an info file already exists on disk, or 3) no file path is ever specified.")
+		write_redundantinfo(self.Info.get_info(), infoPath, overwrite = overwrite)
 
 	def read_arrayinfo(self, arrayinfopath, verbose = False):#array info is the minimum set of information to uniquely describe a redundant array, and is needed to compute redundant info. It includes, in each line, bad antenna indices, bad unique baseline indices, tolerance of error when checking redundancy, antenna locations, and visibility's antenna pairing conventions. Unlike redundant info which is a self-contained dictionary, items in array info each have their own fields in the instance.
 		methodName = ".read_arrayinfo."
@@ -727,95 +707,12 @@ class RedundantCalibrator:
 			print "Bad UBL indices:", self.badUBL
 
 
-	def readyForCpp(self, verbose = True):#check if all necessary parameters are specified to call Cpp
-		methodName = '.readyForCpp.'
-		#if not (self.dataFileExist and os.path.isfile(self.dataPath)):
-			#if verbose:
-				#print self.className + methodName + "Error: data file check failed. No data file specified or specified filename does not exist."
-			#return False
-		#if os.path.getsize(self.dataPath) / 8 != self.nTime * self.nFrequency * self.nTotalBaselineAuto:
-			#if verbose:
-				#print self.className + methodName + "Error: data size check failed. File on disk seems to contain " + str(os.path.getsize(self.dataPath) / 8) + " complex64 numbers, where as we expect " + str(self.nTime * self.nFrequency * self.nTotalBaselineAuto) + '.'
-			#return False
-
-		#if not self.infoFileExist :
-			#if verbose:
-				#print self.className + methodName + "Error: info file existence check failed. Call read_redundantinfo(self, infoPath) function to read in an existing redundant info text file or compute_redundantinfo(arrayinfoPath=None) to compute redundantinfo write_redundantinfo() to write redundantinfo."
-			#return False
-		if self.Info == None :
-			if verbose:
-				print self.className + methodName + "Error: self.Info existence check failed."
-			return False
-
-		#if self.removeAdditive and self.removeAdditivePeriod <= 0:
-			#if verbose:
-				#print self.className + methodName + "Error: removeAdditive option is True but the removeAdditivePeriod parameter is negative (invalid)."
-			#return False
-
-		if abs(self.convergePercent - 0.5) >= 0.5 or self.maxIteration <= 0 or abs(self.stepSize - 0.5) >= 0.5:
-			if verbose:
-				print self.className + methodName + "Error: lincal parameter check failed. convergePercent and stepSize should be between 0 and 1, and maxIteration has to be positive integer."
-			return False
-		if verbose:
-			print self.className + methodName + "Check passed."
-		return True
-
-	def cal(self, data, additivein, verbose = False):#data can be either 3d numpy array or a binary file path
-		methodName = '.cal.'
-		if type(data) == type(' '):
-			raise Exception("passing in file on disk no longer supported!")
-		elif type(data) == type(np.zeros(1)) and len(data.shape) == 3 and len(data[0,0]) == self.Info.nBaseline and self.dataPath == self.tmpDataPath:
-			(self.nTime, self.nFrequency, _) = data.shape
-			np.array(data, dtype = 'complex64').tofile(self.tmpDataPath)
-			self.dataPath = self.tmpDataPath
-			self.dataFileExist = True
-		else:
-			raise Exception(self.className + methodName + "Error: data type must be a file path name to a binary file *OR* a 3D numpy array of dimensions (nTime, nFrequency, nTotalBaselineAuto). You have either 1) passed in the wrong type, or 2) passed in a correct data array but have mismatching self.dataPath and self.tmpDataPath (these paths will be overwritten if you pass in an array as data!).")
-
-		#if (not self.infoFileExist):
-			#self.write_redundantinfo()
-
-		if self.readyForCpp(verbose = False):
-			#print data.shape, self.rawCalpar.shape, self.Info.nUBL, additivein.shape, int(self.removeDegeneracy), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize)
-			_ =_O.redcal(data, self.rawCalpar, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = int(self.calMode),maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize))
-			#, removedegen = int(self.removeDegeneracy), uselogcal = int(self.calMode), tol = float(self.convergePercent), maxiter=int(self.maxIteration), stepsize=float(self.stepSize)
-			#_O.omnical(self.dataPath, self.infoPath, int(self.nTime), int(self.nFrequency), int(self.nTotalAnt), int(self.removeDegeneracy), int(self.removeAdditive), str(self.removeAdditivePeriod), int(self.calMode), float(self.convergePercent), int(self.maxIteration), float(self.stepSize))
-
-			#command = "./omnical " + self.dataPath + " " + self.infoPath + " " + str(self.nTime) + " " + str(self.nFrequency) + " "  + str(self.nTotalAnt) + " " + str(int(self.removeDegeneracy)) + " " + str(int(self.removeAdditive)) + " " + str(self.removeAdditivePeriod) + " " + self.calMode + " " + str(self.convergePercent) + " " + str(self.maxIteration) + " " + str(self.stepSize)
-			#if verbose:
-				#print self.className + methodName + "System call: " + command
-			#os.system(command)
-
-			if self.removeAdditive and self.removeAdditivePeriod > 0:
-				self.calparPath = self.dataPath + '_add' + str(self.removeAdditivePeriod) + '.omnical'
-			else:
-				self.calparPath = self.dataPath + '.omnical'
-			#self.rawCalpar = np.fromfile(self.calparPath, dtype = 'float32').reshape((self.nTime, self.nFrequency, 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
-			if self.calMode == '0' or self.calMode == '1':
-				self.chisq = self.rawCalpar[:, :, 2]
-			elif self.calMode == '2':
-				self.chisq = self.rawCalpar[:, :, 1]
-			self.calpar = np.zeros((self.nTime, self.nFrequency, self.nTotalAnt), dtype='complex64')
-			self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
-			self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
-			#if not self.keepCalpar:
-				#os.remove(self.calparPath)
-			#if not self.keepData and self.dataPath == self.tmpDataPath:
-				#os.remove(self.dataPath)
-		else:
-			raise Exception(self.className + methodName + "Error: function is called prematurely. The current instance failed the readyForCpp() check. Try instance.readyForCpp() for more info.")
-
-
-	def loglincal(self, data, additivein, verbose = False):
-		self.calMode = '1'
-		self.cal(data, additivein, verbose)
-
 	def lincal(self, data, additivein, verbose = False):
 		if self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
 			raise Exception("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
 		_O.redcal(data, self.rawCalpar, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
 		self.chisq = self.rawCalpar[:, :, 2]
-		self.calpar = np.zeros((self.nTime, self.nFrequency, self.nTotalAnt), dtype='complex64')
+		self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
 		self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
 		self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
 			
@@ -823,7 +720,7 @@ class RedundantCalibrator:
 		self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
 		_O.redcal(data, self.rawCalpar, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
 		self.chisq = self.rawCalpar[:, :, 2]
-		self.calpar = np.zeros((self.nTime, self.nFrequency, self.nTotalAnt), dtype='complex64')
+		self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
 		self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
 		self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
 

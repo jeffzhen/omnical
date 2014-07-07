@@ -112,8 +112,6 @@ class TestMethods(unittest.TestCase):
         ####calibrate################
         print FILENAME + " MSG: starting calibration."
         for p, calibrator in zip(range(len(wantpols)), calibrators):
-            calibrator.nTime = len(t)
-            calibrator.nFrequency = nfreq
             calibrator.removeDegeneracy = removedegen
             calibrator.removeAdditive = removeadditive
             calibrator.keepData = keep_binary_data
@@ -121,11 +119,9 @@ class TestMethods(unittest.TestCase):
             calibrator.convergePercent = converge_percent
             calibrator.maxIteration = max_iter
             calibrator.stepSize = step_size
-            print calibrator.nTime, calibrator.nFrequency
-            #calibrator.readyForCpp()
-            #print data[p][:,:,calibrator.Info.subsetbl].shape, data[p][:,:,calibrator.Info.subsetbl].dtype
-            ##calibrator.loglincal(data[p][:,:,calibrator.Info.subsetbl], np.zeros_like(data[p][:,:,calibrator.Info.subsetbl]), verbose=True)
             calibrator.computeUBLFit = False
+
+
             calibrator.logcal(data[p][:,:,calibrator.Info.subsetbl], np.zeros_like(data[p][:,:,calibrator.Info.subsetbl]), verbose=True)
             calibrator.lincal(data[p][:,:,calibrator.Info.subsetbl], np.zeros_like(data[p][:,:,calibrator.Info.subsetbl]), verbose=True)
         #########Test results############
