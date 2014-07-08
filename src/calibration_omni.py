@@ -573,7 +573,7 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
 			info = read_redundantinfo(info)
 		elif type(info) != type({}):
 			raise Exception("Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
-		
+
 		for key in info.keys():
 			try:
 				if key in ['At','Bt']:
@@ -600,7 +600,7 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
 			except:
 				raise Exception("Error parsing %s item."%key)
 
-	
+
 	def get_info(self):
 		info = {}
 		for key in infokeys:
@@ -630,8 +630,8 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
 			except:
 				raise Exception("Error retrieving %s item."%key)
 		return info
-		
-		
+
+
 class RedundantCalibrator:
 #This class is the main tool for performing redundant calibration on data sets. For a given redundant configuration, say 32 antennas with 3 bad antennas, the user should create one instance of Redundant calibrator and reuse it for all data collected from that array. In general, upon creating an instance, the user need to create the info field of the instance by either computing it or reading it from a text file. readyForCpp(verbose = True) should be a very helpful function to provide information on what information is missing for running the calibration.
 	def __init__(self, nTotalAnt, info = None):
@@ -645,7 +645,7 @@ class RedundantCalibrator:
 		self.badAntenna = []
 		self.badUBL = []
 		self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(self.nTotalAnt)])#PAPER miriad convention by default
-		
+
 		self.Info = None
 		self.removeDegeneracy = True
 		self.removeAdditive = False
@@ -654,22 +654,22 @@ class RedundantCalibrator:
 		self.maxIteration = 50 #max number of iterations in lincal
 		self.stepSize = 0.3 #step size for lincal. (0, 1]. < 0.4 recommended.
 		self.computeUBLFit = True
-		
+
 		if info != None:
 			if type(info) == type({}):
-				
+
 				self.Info = RedundantInfo(info)
 			elif type(info) == type('a'):
 				self.read_redundantinfo(info)
 			else:
 				raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
 
-	def read_redundantinfo(self, infopath):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
-		self.Info = RedundantInfo(read_redundantinfo(infopath))
+	def read_redundantinfo(self, infopath, verbose = False):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
+		self.Info = RedundantInfo(read_redundantinfo(infopath, verbose = verbose))
 
-	def write_redundantinfo(self, infoPath, overwrite = False):
+	def write_redundantinfo(self, infoPath, overwrite = False, verbose = False):
 		methodName = '.write_redundantinfo.'
-		write_redundantinfo(self.Info.get_info(), infoPath, overwrite = overwrite)
+		write_redundantinfo(self.Info.get_info(), infoPath, overwrite = overwrite, verbose = verbose)
 
 	def read_arrayinfo(self, arrayinfopath, verbose = False):#array info is the minimum set of information to uniquely describe a redundant array, and is needed to compute redundant info. It includes, in each line, bad antenna indices, bad unique baseline indices, tolerance of error when checking redundancy, antenna locations, and visibility's antenna pairing conventions. Unlike redundant info which is a self-contained dictionary, items in array info each have their own fields in the instance.
 		methodName = ".read_arrayinfo."
@@ -714,7 +714,7 @@ class RedundantCalibrator:
 		self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
 		self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
 		self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
-			
+
 	def logcal(self, data, additivein, verbose = False):
 		self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
 		_O.redcal(data, self.rawCalpar, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))

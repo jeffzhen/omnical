@@ -3,9 +3,9 @@
 import aipy as ap
 import numpy as np
 import commands, os, time, math, ephem
-import calibration_omni as omni
+import omnical.calibration_omni as omni
 import optparse, sys
-FILENAME = "omnical_PSA64.py"
+FILENAME = "generate_redundantinfo.py"
 
 ##########################Sub-class#############################
 class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
@@ -62,6 +62,6 @@ print 'Bad unique baselines:', badUBL
 
 calibrator = RedundantCalibrator_PAPER(aa)
 calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBL = badUBL, antennaLocationTolerance = opts.tol)
-calibrator.write_redundantinfo(infoPath = opts.path, overwrite = opts.overwrite)
+calibrator.write_redundantinfo(infoPath = opts.path, overwrite = opts.overwrite, verbose = True)
 
 
