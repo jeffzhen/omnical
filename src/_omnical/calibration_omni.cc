@@ -2798,9 +2798,9 @@ vector<float> stdevAngle(vector<float> *v){
 
 ///////////////MAJOR STUFF///////////////////
 /////////////////////////////////////////////
-void pointSourceCalAccordingTo(int referenceAnt, vector<vector<float> > *data, vector<vector<float> > *ampcalparArray, vector<vector<float> > *phasecalparArray){//referenceAnt is 0 indexed, ampcalparArray has first dimension represent each antenna's calibration parameter, the second dimention represent the same parameter computed using different reference antennas. This method fills up one column of ampcalparArray (which is essentially a square matrix) at a time
+void pointSourceCalAccordingTo(uint referenceAnt, vector<vector<float> > *data, vector<vector<float> > *ampcalparArray, vector<vector<float> > *phasecalparArray){//referenceAnt is 0 indexed, ampcalparArray has first dimension represent each antenna's calibration parameter, the second dimention represent the same parameter computed using different reference antennas. This method fills up one column of ampcalparArray (which is essentially a square matrix) at a time
 	string METHODNAME = "pointSourceCalAccordingTo";
-	int nAnt = ampcalparArray->size();
+	uint nAnt = ampcalparArray->size();
 	if ( data->size() != ( nAnt * (nAnt + 1) / 2 ) ){
 		cout << "#!#" << FILENAME << "#!#" << METHODNAME << ": !!!!FATAL ERROR!!!! Length of data is " << data->size() << ", not consistent with expected number of crosscorrelations " << nAnt * (nAnt + 1) / 2 << " computed from " << nAnt << " antennas!" << endl;
 		return;
@@ -2808,17 +2808,17 @@ void pointSourceCalAccordingTo(int referenceAnt, vector<vector<float> > *data, v
 
 	//Extracting amplitudes off all cross-correlations related to the reference ant
 	vector<float> amps (nAnt - 1);
-	for ( int i = 0; i < referenceAnt; i ++){
+	for ( uint i = 0; i < referenceAnt; i ++){
 		amps[i] = amp( &(data->at(get1DBL(i, referenceAnt, nAnt))) );
 	}
-	for ( int i = referenceAnt + 1; i < nAnt; i ++){
+	for ( uint i = referenceAnt + 1; i < nAnt; i ++){
 		amps[i - 1] = amp( &(data->at(get1DBL(i, referenceAnt, nAnt))) );
 	}
 	float standardAmp = median(amps);
 	standardAmp = max(standardAmp , MIN_NONE_ZERO);
 
 	float refphase = phase( (data->at(referenceAnt))[0], -(data->at(referenceAnt))[1] );//reference phase, < x_ref*, x_0>. If we were not to demand x_0's phase correction to be 0, this would have been x_0's phase correction for < x_ref*, x_0> to have 0 phase. However, we substract this from all subsequent phase corrections to demand phase correction for x_0 is 0.
-	for (int i = 0; i < nAnt; i++){
+	for (uint i = 0; i < nAnt; i++){
 		(&(ampcalparArray->at(i)))->at(referenceAnt) = log10( max( amp(&(data->at(get1DBL(referenceAnt, i, nAnt)))) / standardAmp, MIN_NONE_ZERO ) );
 		//cout << amp( &(data->at(get1DBL(referenceAnt, i, nAnt))) ) << " " << standardAmp << endl;
 
@@ -2834,7 +2834,7 @@ void pointSourceCalAccordingTo(int referenceAnt, vector<vector<float> > *data, v
 
 void pointSourceCal(vector<vector<float> > *data, vector<float> *ampcalpar, vector<float> *phasecalpar, vector<vector<float> > *UBLcalpar){
 	string METHODNAME = "pointSourceCal";
-	int nAnt = ampcalpar->size();
+	uint nAnt = ampcalpar->size();
 	if ( data->size() != ( nAnt * (nAnt + 1) / 2 ) ){
 		cout << "#!#" << FILENAME << "#!#" << METHODNAME << ": !!!!FATAL ERROR!!!! Length of data is " << data->size() << ", not consistent with expected number of crosscorrelations " << nAnt * (nAnt + 1) / 2 << " computed from " << nAnt << " antennas!" << endl;
 		return;
@@ -2844,10 +2844,10 @@ void pointSourceCal(vector<vector<float> > *data, vector<float> *ampcalpar, vect
 	vector<vector<float> > ampcalparArray (nAnt, dummy);//contains an aray of ampcalpar parameters from different ampcalpars based on different reference antennas
 	vector<vector<float> > phasecalparArray (nAnt, dummy);
 
-	for (int i = 0; i < nAnt; i++){
+	for (uint i = 0; i < nAnt; i++){
 		pointSourceCalAccordingTo(i, data, &ampcalparArray, &phasecalparArray);
 	}
-	for (int i = 0; i < nAnt; i++){
+	for (uint i = 0; i < nAnt; i++){
 		ampcalpar->at(i) = median(ampcalparArray[i]);
 		phasecalpar->at(i) = medianAngle(&(phasecalparArray[i]));
 		//if ( i == 14 ){
@@ -2857,7 +2857,7 @@ void pointSourceCal(vector<vector<float> > *data, vector<float> *ampcalpar, vect
 		//}
 	}
 	vector<float> autocor(nAnt);
-	for (int i = 0; i < nAnt; i++){
+	for (uint i = 0; i < nAnt; i++){
 		autocor[i] = (data->at(get1DBL(i, i, nAnt)))[0];
 	}
 	float autoMedian = median(autocor);

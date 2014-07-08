@@ -7,10 +7,10 @@
         PyErr_Format(PyExc_MemoryError, "Failed to allocate %s", QUOTE(a)); \
         return NULL; }
 
-/*____                           _                    _    
+/*____                           _                    _
  / ___|_ __ ___  _   _ _ __   __| |_      _____  _ __| | __
 | |  _| '__/ _ \| | | | '_ \ / _` \ \ /\ / / _ \| '__| |/ /
-| |_| | | | (_) | |_| | | | | (_| |\ V  V / (_) | |  |   < 
+| |_| | | | (_) | |_| | | | | (_| |\ V  V / (_) | |  |   <
  \____|_|  \___/ \__,_|_| |_|\__,_| \_/\_/ \___/|_|  |_|\_\
 */
 // Python object that holds instance of redundantinfo
@@ -37,10 +37,10 @@ static int RedInfoObject_init(RedInfoObject *self) {
 }
 
 
-/*___          _ ___        __                    _            _   
-|  _ \ ___  __| |_ _|_ __  / _| ___     __ _  ___| |_ ___  ___| |_ 
+/*___          _ ___        __                    _            _
+|  _ \ ___  __| |_ _|_ __  / _| ___     __ _  ___| |_ ___  ___| |_
 | |_) / _ \/ _` || || '_ \| |_ / _ \   / _` |/ _ \ __/ __|/ _ \ __|
-|  _ <  __/ (_| || || | | |  _| (_) | | (_| |  __/ |_\__ \  __/ |_ 
+|  _ <  __/ (_| || || | | |  _| (_) | | (_| |  __/ |_\__ \  __/ |_
 |_| \_\___|\__,_|___|_| |_|_|  \___/   \__, |\___|\__|___/\___|\__|
                                        |___/                       */
 
@@ -75,8 +75,8 @@ int RedInfoObject_set_nUBL(RedInfoObject *self, PyObject *value, void *closure) 
 // RedundantInfo.nBaseline
 PyObject *RedInfoObject_get_nBaseline(RedInfoObject *self, void *closure) {
     return Py_BuildValue("l", self->info.nBaseline);
-}   
-    
+}
+
 int RedInfoObject_set_nBaseline(RedInfoObject *self, PyObject *value, void *closure) {
     if (!PyInt_Check(value)) {
         PyErr_Format(PyExc_ValueError, "nBaseline must be an integer");
@@ -84,13 +84,13 @@ int RedInfoObject_set_nBaseline(RedInfoObject *self, PyObject *value, void *clos
     }
     self->info.nBaseline = (int) PyInt_AsLong(value);
     return 0;
-} 
+}
 
 // RedundantInfo.nCross
 PyObject *RedInfoObject_get_nCross(RedInfoObject *self, void *closure) {
     return Py_BuildValue("l", self->info.nCross);
-}   
-    
+}
+
 int RedInfoObject_set_nCross(RedInfoObject *self, PyObject *value, void *closure) {
     if (!PyInt_Check(value)) {
         PyErr_Format(PyExc_ValueError, "nCross must be an integer");
@@ -98,7 +98,7 @@ int RedInfoObject_set_nCross(RedInfoObject *self, PyObject *value, void *closure
     }
     self->info.nCross = (int) PyInt_AsLong(value);
     return 0;
-} 
+}
 
 // RedundantInfo.subsetant (1D integer array)
 PyObject *RedInfoObject_get_subsetant(RedInfoObject *self, void *closure) {
@@ -109,8 +109,8 @@ PyObject *RedInfoObject_get_subsetant(RedInfoObject *self, void *closure) {
         ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.subsetant[i];
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_subsetant(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1;
@@ -142,8 +142,8 @@ PyObject *RedInfoObject_get_antloc(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_antloc(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -177,8 +177,8 @@ PyObject *RedInfoObject_get_subsetbl(RedInfoObject *self, void *closure) {
         ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.subsetbl[i];
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_subsetbl(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1;
@@ -210,8 +210,8 @@ PyObject *RedInfoObject_get_ubl(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_ubl(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -245,8 +245,8 @@ PyObject *RedInfoObject_get_bltoubl(RedInfoObject *self, void *closure) {
         ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.bltoubl[i];
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_bltoubl(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1;
@@ -276,8 +276,8 @@ PyObject *RedInfoObject_get_reversed(RedInfoObject *self, void *closure) {
         ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.reversed[i];
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_reversed(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1;
@@ -307,8 +307,8 @@ PyObject *RedInfoObject_get_reversedauto(RedInfoObject *self, void *closure) {
         ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.reversedauto[i];
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_reversedauto(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1;
@@ -338,8 +338,8 @@ PyObject *RedInfoObject_get_autoindex(RedInfoObject *self, void *closure) {
         ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.autoindex[i];
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_autoindex(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1;
@@ -369,8 +369,8 @@ PyObject *RedInfoObject_get_crossindex(RedInfoObject *self, void *closure) {
         ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.crossindex[i];
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_crossindex(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1;
@@ -402,8 +402,8 @@ PyObject *RedInfoObject_get_bl2d(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_bl2d(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1,dim2;
@@ -437,8 +437,8 @@ PyObject *RedInfoObject_get_ublcount(RedInfoObject *self, void *closure) {
         ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.ublcount[i];
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_ublcount(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1;
@@ -476,8 +476,8 @@ PyObject *RedInfoObject_get_ublindex(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_ublindex(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1;
@@ -493,8 +493,8 @@ int RedInfoObject_set_ublindex(RedInfoObject *self, PyObject *value, void *closu
     dim1 = PyArray_DIM(v,0);
     //dim2 = PyArray_DIM(v,1);//always5
     vector<int> dummy (3,0);
-    
-    
+
+
     for (int n=0; n < dim1; n++) {
         uint i = ((uint *) PyArray_GETPTR2(v,n,0))[0];
         uint j = ((uint *) PyArray_GETPTR2(v,n,1))[0];
@@ -508,7 +508,7 @@ int RedInfoObject_set_ublindex(RedInfoObject *self, PyObject *value, void *closu
             self->info.ublindex[i].resize(j + 1);
         }
         self->info.ublindex[i][j] = dummy;
-    }    
+    }
     //self->info.ublindex.resize(dim1);
     //for (int i=0; i < dim1; i++) {
       //self->info.ublindex[i].resize(dim2);
@@ -533,8 +533,8 @@ PyObject *RedInfoObject_get_bl1dmatrix(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_bl1dmatrix(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -570,8 +570,8 @@ PyObject *RedInfoObject_get_degenM(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_degenM(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -607,8 +607,8 @@ PyObject *RedInfoObject_get_A(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_A(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -644,8 +644,8 @@ PyObject *RedInfoObject_get_B(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_B(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -685,8 +685,8 @@ PyObject *RedInfoObject_get_Atsparse(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_Atsparse(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1;
@@ -706,7 +706,7 @@ int RedInfoObject_set_Atsparse(RedInfoObject *self, PyObject *value, void *closu
         uint i = ((uint *) PyArray_GETPTR2(v,n,0))[0];
         uint j = ((uint *) PyArray_GETPTR2(v,n,1))[0];
         ////uint k = ((uint *) PyArray_GETPTR2(v,n,2))[0];//always 1
-        
+
         if (self->info.Atsparse.size() < i + 1){
             self->info.Atsparse.resize(i + 1);
         }
@@ -731,8 +731,8 @@ PyObject *RedInfoObject_get_Btsparse(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_Btsparse(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1;
@@ -772,8 +772,8 @@ PyObject *RedInfoObject_get_AtAi(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_AtAi(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -809,8 +809,8 @@ PyObject *RedInfoObject_get_BtBi(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_BtBi(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -846,8 +846,8 @@ PyObject *RedInfoObject_get_AtAiAt(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_AtAiAt(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -883,8 +883,8 @@ PyObject *RedInfoObject_get_BtBiBt(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_BtBiBt(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -920,8 +920,8 @@ PyObject *RedInfoObject_get_PA(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_PA(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -957,8 +957,8 @@ PyObject *RedInfoObject_get_PB(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_PB(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -994,8 +994,8 @@ PyObject *RedInfoObject_get_ImPA(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_ImPA(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -1031,8 +1031,8 @@ PyObject *RedInfoObject_get_ImPB(RedInfoObject *self, void *closure) {
       }
     }
     return PyArray_Return(rv);
-}   
-    
+}
+
 int RedInfoObject_set_ImPB(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
     npy_intp dim1, dim2;
@@ -1057,7 +1057,7 @@ int RedInfoObject_set_ImPB(RedInfoObject *self, PyObject *value, void *closure) 
     return 0;
 }
 
-/*___          _ ___        __                        _   _               _ 
+/*___          _ ___        __                        _   _               _
 |  _ \ ___  __| |_ _|_ __  / _| ___    _ __ ___   ___| |_| |__   ___   __| |
 | |_) / _ \/ _` || || '_ \| |_ / _ \  | '_ ` _ \ / _ \ __| '_ \ / _ \ / _` |
 |  _ <  __/ (_| || || | | |  _| (_) | | | | | | |  __/ |_| | | | (_) | (_| |
@@ -1073,10 +1073,10 @@ PyObject* RedInfoObject_readredundantinfo(RedInfoObject *self, PyObject *args){
 }
 
 
-/*___          _ ___        __        ___  _     _           _   
-|  _ \ ___  __| |_ _|_ __  / _| ___  / _ \| |__ (_) ___  ___| |_ 
+/*___          _ ___        __        ___  _     _           _
+|  _ \ ___  __| |_ _|_ __  / _| ___  / _ \| |__ (_) ___  ___| |_
 | |_) / _ \/ _` || || '_ \| |_ / _ \| | | | '_ \| |/ _ \/ __| __|
-|  _ <  __/ (_| || || | | |  _| (_) | |_| | |_) | |  __/ (__| |_ 
+|  _ <  __/ (_| || || | | |  _| (_) | |_| | |_) | |  __/ (__| |_
 |_| \_\___|\__,_|___|_| |_|_|  \___/ \___/|_.__// |\___|\___|\__|
                                               |__/       */
 
@@ -1163,8 +1163,8 @@ PyTypeObject RedInfoType = {
 };
 
 
-/*_  __           _       _                       _   _               _     
-|  \/  | ___   __| |_   _| | ___   _ __ ___   ___| |_| |__   ___   __| |___ 
+/*_  __           _       _                       _   _               _
+|  \/  | ___   __| |_   _| | ___   _ __ ___   ___| |_| |__   ___   __| |___
 | |\/| |/ _ \ / _` | | | | |/ _ \ | '_ ` _ \ / _ \ __| '_ \ / _ \ / _` / __|
 | |  | | (_) | (_| | |_| | |  __/ | | | | | |  __/ |_| | | | (_) | (_| \__ \
 |_|  |_|\___/ \__,_|\__,_|_|\___| |_| |_| |_|\___|\__|_| |_|\___/ \__,_|___/ */
@@ -1202,7 +1202,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
         return NULL;
     }
     if (PyArray_NDIM(calpar) != 3 || PyArray_TYPE(calpar) != PyArray_FLOAT
-            || PyArray_DIM(calpar,0) != nint || PyArray_DIM(calpar,1) != nfreq || PyArray_DIM(calpar,2) != calpar_v.size()) {
+            || PyArray_DIM(calpar,0) != nint || PyArray_DIM(calpar,1) != nfreq || (uint)PyArray_DIM(calpar,2) != calpar_v.size()) {
         PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data");
         return NULL;
     }
@@ -1228,21 +1228,21 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
 
             if (uselogcal) {
                 logcaladd(
-                    &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0), 
-                    &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0), 
-                    &(redinfo->info), 
-                    &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0), 
-                    &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0), 
-                    1, 
+                    &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
+                    &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0),
+                    &(redinfo->info),
+                    &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0),
+                    &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0),
+                    1,
                     &module
                 );
                 //lincal(
-                    //&data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0), 
-                    //&additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0), 
-                    //&(redinfo->info), 
-                    //&calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0), 
-                    //&additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0), 
-                    //0, 
+                    //&data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
+                    //&additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0),
+                    //&(redinfo->info),
+                    //&calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0),
+                    //&additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0),
+                    //0,
                     //&module,
                     //conv,
                     //maxiter,
@@ -1253,18 +1253,18 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                     calpar_v[n] = ((float *) PyArray_GETPTR2(calpar,t,f))[n];
                 }
                 lincal(
-                    &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0), 
-                    &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0), 
-                    &(redinfo->info), 
-                    &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0), 
-                    &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0), 
-                    computeUBLFit, 
+                    &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
+                    &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0),
+                    &(redinfo->info),
+                    &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0),
+                    &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0),
+                    computeUBLFit,
                     &module,
                     conv,
                     maxiter,
                     stepsize
                 );
-            } 
+            }
             //if (removedegen) removeDegen((vector<float> *) PyArray_GETPTR3(calpar,t,f,0), &(redinfo->info), &module);
             if (removedegen) removeDegen(&calpar_v, &(redinfo->info), &module);
             // copy to output arrays

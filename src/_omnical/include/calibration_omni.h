@@ -324,7 +324,7 @@ vector<float> stdevAngle(vector<float> *v);
 
 //float mode (vector<float> list);//Didn't finish!!!! Decided to write medianAngle() instead.
 
-void pointSourceCalAccordingTo(int referenceAnt, vector<vector<float> > *data, vector<vector<float> > *ampcalparArray, vector<vector<float> > *phasecalparArray);
+void pointSourceCalAccordingTo(uint referenceAnt, vector<vector<float> > *data, vector<vector<float> > *ampcalparArray, vector<vector<float> > *phasecalparArray);
 
 void pointSourceCal(vector<vector<float> > *data, vector<float> *ampcalpar, vector<float> *phasecalpar, vector<vector<float> > *UBLcalpar);
 
