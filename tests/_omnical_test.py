@@ -31,6 +31,14 @@ class TestMethods(unittest.TestCase):
         self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna+1::2] == 0))
         self.assertTrue(np.all(additiveout == 0))
 
+    def test_infoIO(self):
+        correctinfo = omni.read_redundantinfo_txt('../doc/redundantinfo_PSA32.txt', verbose = False)
+        infotestpath = './redundantinfo_test.bin'
+        omni.write_redundantinfo(correctinfo, infotestpath, overwrite = True, verbose = False)
+        Info = omni.RedundantInfo(infotestpath)
+        self.assertTrue(omni.compare_info(correctinfo, Info.get_info(), tolerance = 1e-3))
+
+
 
     def test_all(self):
         ##FILENAME = "test.py"

@@ -20,12 +20,14 @@ FILENAME = "calibration_omni.py"
 
 
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
+
 
 int_infokeys = ['nAntenna','nUBL','nBaseline']
 intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
 float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
-def read_redundantinfo(infopath, verbose = False):
-	METHODNAME = "read_redundantinfo"
+def read_redundantinfo_txt(infopath, verbose = False):
+	METHODNAME = "read_redundantinfo_txt"
 	if not os.path.isfile(infopath):
 		raise Exception('Error: file path %s does not exist!'%infopath)
 	timer = time.time()
@@ -113,8 +115,8 @@ def read_redundantinfo(infopath, verbose = False):
 	return info
 
 
-def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
-	METHODNAME = "*write_redundantinfo*"
+def write_redundantinfo_txt(info, infopath, overwrite = False, verbose = False):
+	METHODNAME = "*write_redundantinfo_txt*"
 	timer = time.time()
 	if (not overwrite) and os.path.isfile(infopath):
 		raise Exception("Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
@@ -140,10 +142,11 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
 			np.savetxt(f_handle, [np.array(info[key]).flatten()], fmt = '%d')
 	f_handle.close()
 	if verbose:
-		print "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
+		print FILENAME + "*" + METHODNAME + " MSG:", "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
 	return
 
-def write_redundantinfo_binary(info, infopath, overwrite = False, verbose = False):
+
+def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
 	METHODNAME = "*write_redundantinfo*"
 	timer = time.time()
 	if (not overwrite) and os.path.isfile(infopath):
@@ -151,48 +154,42 @@ def write_redundantinfo_binary(info, infopath, overwrite = False, verbose = Fals
 		return
 	if (overwrite) and os.path.isfile(infopath):
 		os.remove(infopath)
-	outfile=open(infopath,'wb')
 	marker = 9999999
-	array('d',[marker]).tofile(outfile)     #start with a marker
-	for key in infokeys:
+	datachunk = [0 for i in range(len(binaryinfokeys)+1)]
+	count = 0
+	datachunk[count] = np.array([marker])         #start with a marker
+	count += 1
+	for key in binaryinfokeys:
 		if key in ['antloc', 'ubl','degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:  #'antloc',
-			farray = array('d',np.array(info[key]).flatten())
-			farray.tofile(outfile)
-			array('d',[marker]).tofile(outfile)
+			add = np.append(np.array(info[key]).flatten(),[marker])
+			datachunk[count] = add
+			count += 1
 		elif key == 'ublindex':
-			farray = array('d',np.vstack(info[key]).flatten())
-			farray.tofile(outfile)
-			array('d',[marker]).tofile(outfile)
-		elif key in ['At','Bt']:
-			tmp = []
-			for i in range(info[key].shape[0]):
-				for j in range(info[key].shape[1]):
-					if info[key][i,j] != 0:
-						tmp += [i, j, info[key][i,j]]
-			farray = array('d',np.array(tmp).flatten())
-			farray.tofile(outfile)
-			array('d',[marker]).tofile(outfile)
+			add = np.append(np.vstack(info[key]).flatten(),[marker])
+			datachunk[count] = add
+			count += 1
 		elif key in ['A','B']:
-			farray = array('d',np.array(info[key].todense().flatten()).flatten())
-			farray.tofile(outfile)
-			array('d',[marker]).tofile(outfile)
+			add = np.append(np.array(info[key].todense().flatten()).flatten(),[marker])
+			datachunk[count] = add
+			count += 1
 		else:
-			farray = array('d',np.array(info[key]).flatten())
-			farray.tofile(outfile)
-			array('d',[marker]).tofile(outfile)	
+			add = np.append(np.array(info[key]).flatten(),[marker])
+			datachunk[count] = add
+			count += 1
+	datachunkarray = array('d',np.concatenate(tuple(datachunk)))
+	outfile=open(infopath,'wb')
+	datachunkarray.tofile(outfile)
 	outfile.close()
 	if verbose:
-		print "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
+		print FILENAME + "*" + METHODNAME + " MSG:", "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
 	return
-	
-def read_redundantinfo_binary(infopath, verbose = False):
-	timer = time.time()
+
+
+def read_redundantinfo(infopath, verbose = False):
 	METHODNAME = "read_redundantinfo"
-	
+	timer = time.time()
 	if not os.path.isfile(infopath):
 		raise Exception('Error: file path %s does not exist!'%infopath)
-	if verbose:
-		print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
 	with open(infopath) as f:
 		farray=array('d')
 		farray.fromstring(f.read())
@@ -201,6 +198,8 @@ def read_redundantinfo_binary(infopath, verbose = False):
 		markerindex=np.where(datachunk == marker)[0]
 		rawinfo=np.array([np.array(datachunk[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
 
+	if verbose:
+		print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
 
 	info = {}
 	infocount = 0;
