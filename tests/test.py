@@ -1,7 +1,7 @@
 import aipy as ap
 import numpy as np
 import commands, os, time, math, ephem
-import calibration_omni as omni
+import omnical.calibration_omni as omni
 FILENAME = "test.py"
 
 ######################################################################
@@ -11,8 +11,8 @@ ano = 'test'##This is the file name difference for final calibration parameter r
 uvfiles = ['test.uv']
 wantpols = {'xx':-5}#, 'yy':-6}
 
-infopaths = {'xx':'./redundantinfo_PSA32.txt', 'yy':'./redundantinfo_PSA32.txt'}
-arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
+infopaths = {'xx':'../doc/redundantinfo_PSA32.txt', 'yy':'../doc/redundantinfo_PSA32.txt'}
+arrayinfos = {'xx':'../doc/arrayinfo_apprx_PAPER32.txt', 'yy':'../doc/arrayinfo_apprx_PAPER32.txt'}
 
 oppath = './results/'
 
@@ -25,7 +25,7 @@ rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
 
 
 keep_binary_data = True
-keep_binary_calpar = False
+keep_binary_calpar = True
 
 
 converge_percent = 0.01
@@ -108,5 +108,5 @@ else:
 			print i, newresult[i], correctresult[i]
 	print "TEST FAILED :("
 
-os.remove(oppath + 'miriadextract_' + ano + "_localtime.dat")
-os.remove(oppath + 'miriadextract_' + ano + "_lsthour.dat")
+#os.remove(oppath + 'miriadextract_' + ano + "_localtime.dat")
+#os.remove(oppath + 'miriadextract_' + ano + "_lsthour.dat")

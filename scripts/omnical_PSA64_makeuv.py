@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import aipy as ap
 import numpy as np
 import commands, os, time, math, ephem
@@ -16,7 +18,11 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
 		self.antennaLocationTolerance = antennaLocationTolerance
 		self.badAntenna = badAntenna
 		self.badUBL = badUBL
-		self.antennaLocation = np.array([ant.pos for ant in self.aa])
+		self.antennaLocation = np.zeros((self.nTotalAnt,3))
+		for i in range(len(self.aa.ant_layout)):
+			for j in range(len(self.aa.ant_layout[0])):
+				self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
+		self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
 		omni.RedundantCalibrator.compute_redundantinfo(self)
 
 
@@ -27,12 +33,26 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
 ##############Config parameters###################################
 ######################################################################
 o = optparse.OptionParser()
+
 ap.scripting.add_standard_options(o, cal=True, pol=True)
+o.add_option('--tag', action = 'store', default = 'PSA64', help = 'tag name of this calculation')
+o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
+o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
+o.add_option('--path', action = 'store', default = None, help = 'Output path, if None, it will be the same folder as input uvs.')
+o.add_option('--skip', action = 'store_true', help = 'whether to skip data importing')
+
 opts,args = o.parse_args(sys.argv[1:])
+skip = opts.skip
 
-
-ano = 'PSA64_test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
+ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 uvfiles = args
+for uvf in uvfiles:
+	if not os.path.isdir(uvf):
+		uvfiles.remove(uvf)
+if len(uvfiles) == 0:
+	print "ERROR: No valid uv files detected in input. Exiting!"
+	quit()
+
 wantpols = {}
 for p in opts.pol.split(','): wantpols[p] = ap.miriad.str2pol[p]
 #wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo:
@@ -43,14 +63,23 @@ aa = ap.cal.get_aa(opts.cal, np.array([.15]))
 badAntenna = [37]
 badUBL = []
 
-oppath = './results/'
+opuvpath = opts.path
+if opuvpath != None and (not os.path.isdir(opuvpath)):
+	os.makedirs(opuvpath)
 
-infopaths = {'xx':oppath + 'redundantinfo_PSA64_test_xx.txt', 'yy':oppath + 'redundantinfo_PSA64_test_xx.txt'}
+oppath = './results'
+
+infopaths = {'xx':oppath + 'redundantinfo_PSA64.txt', 'yy':oppath + 'redundantinfo_PSA64.txt'}
 #arrayinfos = {'xx':'./arrayinfo_apprx_PAPER32.txt', 'yy':'./arrayinfo_apprx_PAPER32.txt'}
 
 
-removedegen = False
-removeadditive = False
+removedegen = True
+if opts.add and opts.nadd > 0:
+	removeadditive = True
+	removeadditiveperiod = opts.nadd
+else:
+	removeadditive = False
+	removeadditiveperiod = -1
 
 needrawcal = False #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
 #rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
@@ -71,15 +100,8 @@ step_size = .3
 
 ########Massage user parameters###################################
 oppath += '/'
+opuvpath += '/'
 
-
-####get some info from the first uvfile   ################
-uv=ap.miriad.UV(uvfiles[0])
-nfreq = uv.nchan;
-nant = uv['nants'] / 2 # 'nants' counting ant-pols, so divide 2
-startfreq = uv['sfreq']
-dfreq = uv['sdf']
-del(uv)
 
 
 ####create redundant calibrators################
@@ -88,46 +110,28 @@ calibrators = [RedundantCalibrator_PAPER(aa) for key in wantpols.keys()]
 for calibrator, key in zip(calibrators, wantpols.keys()):
 	#calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBL = badUBL, antennaLocationTolerance = 1)
 	#calibrator.write_redundantinfo(infoPath = oppath + 'redundantinfo_' + ano + '_' + key + '.txt', overwrite = True)
-	calibrator.read_redundantinfo(infopaths[p])
+	#calibrator.read_redundantinfo(infopaths[p])
 	calibrator.dataPath = oppath + 'data_' + ano + '_' + key
 	calibrator.tmpDataPath = calibrator.dataPath
-	calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
-###start reading miriads################
-print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
-data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols)#, nTotalAntenna = len(aa))
-print FILENAME + " MSG:",  len(t), "slices read."
-
-###raw calibration################
-if needrawcal:
-	for p, key in zip(range(len(wantpols)), wantpols.keys()):
-		rawcalpar = np.fromfile(rawpaths[key], dtype="complex64").reshape(nfreq, nant)
-		data[p] = omni.apply_calpar(data[p], rawcalpar, calibrators[p].totalVisibilityId)
-
-###Save various files read################
-#np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')
-f = open(oppath + 'miriadextract_' + ano + "_localtime.dat",'w')
-for time in timing:
-	f.write("%s\n"%time)
-f.close()
-f = open(oppath + 'miriadextract_' + ano + "_lsthour.dat",'w')
-for l in lst:
-	f.write("%s\n"%l)
-f.close()
+	if removeadditive:
+		calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '_add' + str(removeadditiveperiod) + '.omnical'
+	else:
+		calibrator.calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
 
 
-####calibrate################
-print FILENAME + " MSG: starting calibration."
-for p, calibrator in zip(range(len(wantpols)), calibrators):
-	calibrator.nTime = len(t)
-	calibrator.nFrequency = nfreq
-	calibrator.removeDegeneracy = removedegen
-	calibrator.removeAdditive = removeadditive
-	calibrator.keepData = keep_binary_data
-	calibrator.keepCalpar = keep_binary_calpar
-	calibrator.convergePercent = converge_percent
-	calibrator.maxIteration = max_iter
-	calibrator.stepSize = step_size
-	print calibrator.nTime, calibrator.nFrequency
-#	calibrator.readyForCpp()
-	calibrator.loglincal(data[p],verbose=True)
+
+
+
+calparfilenames = [calibrator.calparPath for calibrator in calibrators]
+additivefilenames = [calibrator.dataPath + '.omniadd%d'%removeadditiveperiod for calibrator in calibrators]
+info = omni.read_redundantinfo('results/redundantinfo_PSA64_ba19_37_50.txt')
+info = [info, info]
+
+
+
+####make uv################
+print FILENAME + " MSG: starting uv creation."
+print calparfilenames
+print additivefilenames
+omni.apply_omnical_uvs(uvfiles, calparfilenames, calibrators[0].totalVisibilityId, info, wantpols, opuvpath, '', additivefilenames = additivefilenames, nTotalAntenna = None, overwrite = False)
 

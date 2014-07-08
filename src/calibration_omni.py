@@ -1,14 +1,15 @@
 import datetime
-import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime
+import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime, shutil
 import time
 from time import ctime
 import aipy as ap
 import struct
 import numpy as np
 import os, sys
-import datetime
 from optparse import OptionParser
+import omnical._omnical as _O
 import warnings
+from array import array
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import scipy as sp
@@ -20,11 +21,20 @@ FILENAME = "calibration_omni.py"
 
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 
-def read_redundantinfo(infopath):
+int_infokeys = ['nAntenna','nUBL','nBaseline']
+intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
+float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+def read_redundantinfo(infopath, verbose = False):
+	METHODNAME = "read_redundantinfo"
+	if not os.path.isfile(infopath):
+		raise Exception('Error: file path %s does not exist!'%infopath)
+	timer = time.time()
 	with open(infopath) as f:
 		rawinfo = np.array([np.array([float(x) for x in line.split()]) for line in f])
-	METHODNAME = "read_redundantinfo"
-	print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
+	if len(rawinfo) < len(infokeys):
+		raise Exception('Error: number of rows in %s (%i) is less than expected length of %i!'%(infopath, len(rawinfo), len(infokeys)))
+	if verbose:
+		print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
 
 	info = {}
 	infocount = 0;
@@ -45,6 +55,166 @@ def read_redundantinfo(infopath):
 	info['antloc'] = rawinfo[infocount].reshape((info['nAntenna'],3)) #the index of good antennas in all (64) antennas
 	infocount += 1
 
+	info['subsetbl'] = rawinfo[infocount].astype(int) #the index of good baselines (auto included) in all baselines
+	infocount += 1
+	info['ubl'] = rawinfo[infocount].reshape((info['nUBL'],3)) #unique baseline vectors
+	infocount += 1
+	info['bltoubl'] = rawinfo[infocount].astype(int) #cross bl number to ubl index
+	infocount += 1
+	info['reversed'] = rawinfo[infocount].astype(int) #cross only bl if reversed -1, otherwise 1
+	infocount += 1
+	info['reversedauto'] = rawinfo[infocount].astype(int) #the index of good baselines (auto included) in all baselines
+	infocount += 1
+	info['autoindex'] = rawinfo[infocount].astype(int)  #index of auto bls among good bls
+	infocount += 1
+	info['crossindex'] = rawinfo[infocount].astype(int)  #index of cross bls among good bls
+	infocount += 1
+	ncross = len(info['crossindex'])
+	#info['ncross'] = ncross
+	info['bl2d'] = rawinfo[infocount].reshape(nbl, 2).astype(int) #from 1d bl index to a pair of antenna numbers
+	infocount += 1
+	info['ublcount'] = rawinfo[infocount].astype(int) #for each ubl, the number of good cross bls corresponding to it
+	infocount += 1
+	info['ublindex'] = range((info['nUBL'])) #//for each ubl, the vector<int> contains (ant1, ant2, crossbl)
+	tmp = rawinfo[infocount].reshape(ncross, 3).astype(int)
+	infocount += 1
+	cnter = 0
+	for i in range(info['nUBL']):
+		info['ublindex'][i] = np.zeros((info['ublcount'][i],3))
+		for j in range(len(info['ublindex'][i])):
+			info['ublindex'][i][j] = tmp[cnter]
+			cnter+=1
+	info['ublindex'] = np.asarray(info['ublindex'])
+
+	info['bl1dmatrix'] = rawinfo[infocount].reshape((info['nAntenna'], info['nAntenna'])).astype(int) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
+	infocount += 1
+	#matrices
+	info['degenM'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'], info['nAntenna']))
+	infocount += 1
+	info['A'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #A matrix for logcal amplitude
+	infocount += 1
+	info['B'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #B matrix for logcal phase
+	infocount += 1
+	##The sparse matrices are treated a little differently because they are not rectangular
+	with warnings.catch_warnings():
+		warnings.filterwarnings("ignore",category=DeprecationWarning)
+		info['At'] = info['A'].transpose()
+		info['Bt'] = info['B'].transpose()
+		info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
+		info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
+		info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+		info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+		info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+		info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+		info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+		info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
+	if verbose:
+		print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
+	return info
+
+
+def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
+	METHODNAME = "*write_redundantinfo*"
+	timer = time.time()
+	if (not overwrite) and os.path.isfile(infopath):
+		raise Exception("Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
+		return
+	if (overwrite) and os.path.isfile(infopath):
+		os.remove(infopath)
+	f_handle = open(infopath,'a')
+	for key in infokeys:
+		if key in ['antloc', 'ubl', 'degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:
+			np.savetxt(f_handle, [np.array(info[key]).flatten()])
+		elif key == 'ublindex':
+			np.savetxt(f_handle, [np.vstack(info[key]).flatten()], fmt = '%d')
+		elif key in ['At','Bt']:
+			tmp = []
+			for i in range(info[key].shape[0]):
+				for j in range(info[key].shape[1]):
+					if info[key][i,j] != 0:
+						tmp += [i, j, info[key][i,j]]
+			np.savetxt(f_handle, [np.array(tmp).flatten()], fmt = '%d')
+		elif key in ['A','B']:
+			np.savetxt(f_handle, info[key].todense().flatten(), fmt = '%d')
+		else:
+			np.savetxt(f_handle, [np.array(info[key]).flatten()], fmt = '%d')
+	f_handle.close()
+	if verbose:
+		print "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
+	return
+
+def write_redundantinfo_binary(info, infopath, overwrite = False, verbose = False):
+	METHODNAME = "*write_redundantinfo*"
+	timer = time.time()
+	if (not overwrite) and os.path.isfile(infopath):
+		raise Exception("Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
+		return
+	if (overwrite) and os.path.isfile(infopath):
+		os.remove(infopath)
+	outfile=open(infopath,'wb')
+	marker = 9999999
+	array('d',[marker]).tofile(outfile)     #start with a marker
+	for key in infokeys:
+		if key in ['antloc', 'ubl','degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:  #'antloc',
+			farray = array('d',np.array(info[key]).flatten())
+			farray.tofile(outfile)
+			array('d',[marker]).tofile(outfile)
+		elif key == 'ublindex':
+			farray = array('d',np.vstack(info[key]).flatten())
+			farray.tofile(outfile)
+			array('d',[marker]).tofile(outfile)
+		elif key in ['At','Bt']:
+			tmp = []
+			for i in range(info[key].shape[0]):
+				for j in range(info[key].shape[1]):
+					if info[key][i,j] != 0:
+						tmp += [i, j, info[key][i,j]]
+			farray = array('d',np.array(tmp).flatten())
+			farray.tofile(outfile)
+			array('d',[marker]).tofile(outfile)
+		elif key in ['A','B']:
+			farray = array('d',np.array(info[key].todense().flatten()).flatten())
+			farray.tofile(outfile)
+			array('d',[marker]).tofile(outfile)
+		else:
+			farray = array('d',np.array(info[key]).flatten())
+			farray.tofile(outfile)
+			array('d',[marker]).tofile(outfile)	
+	outfile.close()
+	if verbose:
+		print "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
+	return
+	
+def read_redundantinfo_binary(infopath, verbose = False):
+	timer = time.time()
+	METHODNAME = "read_redundantinfo"
+	
+	if not os.path.isfile(infopath):
+		raise Exception('Error: file path %s does not exist!'%infopath)
+	if verbose:
+		print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
+	with open(infopath) as f:
+		farray=array('d')
+		farray.fromstring(f.read())
+		datachunk = np.array(farray)
+		marker = 9999999
+		markerindex=np.where(datachunk == marker)[0]
+		rawinfo=np.array([np.array(datachunk[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
+
+
+	info = {}
+	infocount = 0;
+	info['nAntenna'] = int(rawinfo[infocount][0]) #number of good antennas among all (64) antennas, same as the length of subsetant
+	infocount += 1
+	info['nUBL'] = int(rawinfo[infocount][0]) #number of unique baselines
+	infocount += 1
+	nbl = int(rawinfo[infocount][0])
+	info['nBaseline'] = nbl
+	infocount += 1
+	info['subsetant'] = rawinfo[infocount].astype(int) #the index of good antennas in all (64) antennas
+	infocount += 1
+	info['antloc'] = rawinfo[infocount].reshape((info['nAntenna'],3)) #the index of good antennas in all (64) antennas
+	infocount += 1
 	info['subsetbl'] = rawinfo[infocount].astype(int) #the index of good baselines (auto included) in all baselines
 	infocount += 1
 	info['ubl'] = rawinfo[infocount].reshape((info['nUBL'],3)) #unique baseline vectors
@@ -98,36 +268,9 @@ def read_redundantinfo(infopath):
 		info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
 		info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
 		info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
-	print "done. nAntenna, nUBL, nBaseline = ", len(info['subsetant']), info['nUBL'], info['nBaseline']
+	if verbose:
+		print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
 	return info
-
-
-def write_redundantinfo(info, infopath, overwrite = False):
-	METHODNAME = "*write_redundantinfo*"
-	if (not overwrite) and os.path.isfile(infopath):
-		raise Exception("Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
-		return
-	if (overwrite) and os.path.isfile(infopath):
-		os.remove(infopath)
-	f_handle = open(infopath,'a')
-	for key in infokeys:
-		if key in ['antloc', 'ubl', 'degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:
-			np.savetxt(f_handle, [np.array(info[key]).flatten()])
-		elif key == 'ublindex':
-			np.savetxt(f_handle, [np.vstack(info[key]).flatten()], fmt = '%d')
-		elif key in ['At','Bt']:
-			tmp = []
-			for i in range(info[key].shape[0]):
-				for j in range(info[key].shape[1]):
-					if info[key][i,j] != 0:
-						tmp += [i, j, info[key][i,j]]
-			np.savetxt(f_handle, [np.array(tmp).flatten()], fmt = '%d')
-		elif key in ['A','B']:
-			np.savetxt(f_handle, info[key].todense().flatten(), fmt = '%d')
-		else:
-			np.savetxt(f_handle, [np.array(info[key]).flatten()], fmt = '%d')
-	f_handle.close()
-	return
 
 def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100):#tolerance of timing in radians in lst
 	METHODNAME = "*importuvs*"
@@ -141,8 +284,6 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
 		nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
 	else:
 		nant = nTotalAntenna
-
-
 	if nant * (nant + 1) / 2 < len(totalVisibilityId):
 		raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
 	startfreq = uv['sfreq']
@@ -218,19 +359,43 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
 	else:
 		raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
-def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano):
+def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wantpols, oppath, ano, additivefilenames = None, nTotalAntenna = None, overwrite= False):
 	METHODNAME = "*apply_omnical_uvs*"
+	if len(additivefilenames) != len(calparfilenames) and additivefilenames != None:
+		raise Exception("Error: additivefilenames and calparfilenames have different lengths!")
+	if len(info) != len(calparfilenames):
+		raise Exception("Error: info and calparfilenames have different lengths!")
+	if additivefilenames == None:
+		additivefilenames = ["iDontThinkYouHaveAFileCalledThis" for _ in calparfilenames]
 
 	####get some info from the first uvfile
 	uv=ap.miriad.UV(uvfilenames[0])
 	nfreq = uv.nchan;
-	nant = uv['nants'] / 2 # 'nants' counting ant-pols, so divide 2
+	if nTotalAntenna == None:
+		nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
+	else:
+		nant = nTotalAntenna
+
+	if nant * (nant + 1) / 2 < len(totalVisibilityId):
+		raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
 	startfreq = uv['sfreq']
 	dfreq = uv['sdf']
 	del(uv)
 
+	#######compute bl1dmatrix####each entry is 1 indexed with minus meaning conjugate, the bl here is not number in totalVisibilityId, but in info['subsetbl'], so it's different from bl1dmatrix in import_uvs method. it also has 2 pols
+	bl1dmatrix = [np.zeros((nant, nant), dtype = 'int32') for p in range(len(info))]
+
+	for a1a2, bl in zip(totalVisibilityId, range(len(totalVisibilityId))):
+		a1, a2 = a1a2
+		for p in range(len(info)):
+			for sbl, bl2 in zip(range(len(info[p]['subsetbl'])), info[p]['subsetbl']):
+				if bl == bl2:
+					bl1dmatrix[p][a1, a2] = sbl + 1
+					bl1dmatrix[p][a2, a1] = - (sbl + 1)
+					break
 	####load calpar and check dimensions, massage calpar from txfx(3+2a+2u) to t*goodabl*f
-	blcalpar = []#calpar for each baseline, auto included
+	calpars = []#bad antenna included
+	adds = []#badubl not included
 	for p in range(len(wantpols)):
 		calpar = np.fromfile(calparfilenames[p], dtype='float32')
 		if len(calpar)%(nfreq *( 3 + 2 * (info[p]['nAntenna'] + info[p]['nUBL']))) != 0:
@@ -238,12 +403,13 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano)
 			return
 		ttotal = len(calpar)/(nfreq *( 3 + 2 * (info[p]['nAntenna'] + info[p]['nUBL'])))
 		calpar = calpar.reshape((ttotal, nfreq, ( 3 + 2 * (info[p]['nAntenna'] + info[p]['nUBL']))))
-		calpar = (10**calpar[:,:,3:3+info[p]['nAntenna']])*np.exp(1.j * calpar[:,:,3+info[p]['nAntenna']:3+2*info[p]['nAntenna']] * math.pi / 180)
-		blcalpar.append(1 + np.zeros((ttotal, info[p]['nBaseline'], nfreq),dtype='complex64'))
-		for bl in range(info[p]['nBaseline']):
-			blcalpar[p][:, bl, :] *= (calpar[:, :, info[p]['bl2d'][bl,0]].conj() * calpar[:, :, info[p]['bl2d'][bl, 1]])
+		calpars.append(1 + np.zeros((ttotal, nant, nfreq),dtype='complex64'))
+		calpars[p][:,info[p]['subsetant'],:] = ((10**calpar[:,:,3:3+info[p]['nAntenna']])*np.exp(1.j * calpar[:,:,3+info[p]['nAntenna']:3+2*info[p]['nAntenna']] * math.pi / 180)).transpose((0,2,1))
 
-
+		if os.path.isfile(additivefilenames[p]):
+			adds.append(np.fromfile(additivefilenames[p], dtype='complex64').reshape((ttotal, nfreq, len(info[p]['subsetbl']))))
+		else:
+			adds.append(np.zeros((ttotal, nfreq, len(info[p]['subsetbl']))))
 
 	#########start processing#######################
 	t = []
@@ -253,12 +419,19 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano)
 		uvi = ap.miriad.UV(uvfile)
 		if len(timing) > 0:
 			print FILENAME + METHODNAME + "MSG:", uvfile + ' after', timing[-1]#uv.nchan
-		uvo = ap.miriad.UV(oppath + os.path.basename(os.path.dirname(uvfile+'/')) + ano + 'omnical', status='new')
+
+		if oppath == None:
+			oppath = os.path.abspath(os.path.dirname(os.path.dirname(uvfile + '/'))) + '/'
+		opuvname = oppath + os.path.basename(os.path.dirname(uvfile+'/')) + ano + 'O'
+		print FILENAME + METHODNAME + "MSG: Creating %s"%opuvname
+		if overwrite and os.path.isdir(opuvname):
+			shutil.rmtree(opuvname)
+		uvo = ap.miriad.UV(opuvname, status='new')
 		uvo.init_from_uv(uvi)
-		historystr = "Applied "
-		for cpfn in calparfilenames:
-			historystr += cpfn
-#		uvo.pipe(uvi, mfunc=applycp, append2hist=historystr + "\n")
+		historystr = "Applied OMNICAL %s: "%time.asctime(time.localtime(time.time()))
+		for cpfn, adfn in zip(calparfilenames, additivefilenames):
+			historystr += os.path.abspath(cpfn) + ' ' + os.path.abspath(adfn) + ' '
+		uvo['history'] += historystr + "\n"
 		for preamble, data, flag in uvi.all(raw=True):
 			uvo.copyvr(uvi)
 			if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
@@ -267,17 +440,24 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, info, wantpols, oppath, ano)
 				if len(t) > ttotal:
 					print FILENAME + METHODNAME + " MSG: FATAL ERROR: calpar input array " + calparfilenames[p] + " has length", calpar.shape, "but the total length is exceeded when processing " + uvfile + " Aborted!"
 					return
+			polwanted = False
 			for p, pol in zip(range(len(wantpols)), wantpols.keys()):
 				if wantpols[pol] == uvi['pol']:
 					a1, a2 = preamble[2]
-					bl = info[p]['bl1dmatrix'][a1, a2]
-					if bl < info[p]['ncross']:
-						#datapulled = True
-						#print info[p]['subsetbl'][info[p]['crossindex'][bl]],
-						uvo.write(preamble, data/blcalpar[p][len(t) - 1, info[p]['crossindex'][bl]], flag)
-					#//todo: correct autocorr as well
+					bl = bl1dmatrix[p][a1][a2]
+					if bl > 0:
+						additive = adds[p][len(t) - 1, :, bl - 1]
+					elif bl < 0:
+						additive = adds[p][len(t) - 1, :, - bl - 1].conjugate()
 					else:
-						uvo.write(preamble, data, flag)
+						additive = 0
+						flag[:] = True
+					#print data.shape, additive.shape, calpars[p][len(t) - 1, a1].shape
+					uvo.write(preamble, (data-additive)/calpars[p][len(t) - 1, a1].conjugate()/calpars[p][len(t) - 1, a2], flag)
+					polwanted = True
+					break
+			if not polwanted:
+				uvo.write(preamble, data, flag)
 
 		del(uvo)
 		del(uvi)
@@ -295,23 +475,35 @@ def stdmatrix(length, polydegree):#to find out the error in fitting y by a polyn
 #input two different redundant info, output True if they are the same and False if they are different
 def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
 	try:
-		floatkeys=['antloc','ubl']
-		intkeys = ['nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+		floatkeys=['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+		intkeys = ['nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix']
 		infomatrices=['A','B','At','Bt']
 		specialkeys = ['ublindex']
 		allkeys= floatkeys + intkeys + infomatrices + specialkeys#['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
 		diff=[]
 		#10**5 for floating point errors
 		for key in floatkeys:
-			diff.append(round(la.norm(np.array(info1[key])-np.array(info2[key]))/tolerance)==0)
+			try:
+				diff.append(round(la.norm(np.array(info1[key])-np.array(info2[key]))/tolerance)==0)
+			except:
+				diff.append(False)
 		for key in intkeys:
-			diff.append(la.norm(np.array(info1[key])-np.array(info2[key]))==0)
+			try:
+				diff.append(la.norm(np.array(info1[key])-np.array(info2[key]))==0)
+			except:
+				diff.append(False)
 		for key in infomatrices:
-			diff.append(la.norm((info1[key]-info2[key]).todense())==0)
+			try:
+				diff.append(la.norm((info1[key]-info2[key]).todense())==0)
+			except:
+				diff.append(False)
 
 		diff.append(True)
-		for i,j in zip(info1['ublindex'],info2['ublindex']):
-			diff[-1] = diff[-1] and (la.norm(np.array(i) - np.array(j))==0)
+		try:
+			for i,j in zip(info1['ublindex'],info2['ublindex']):
+				diff[-1] = diff[-1] and (la.norm(np.array(i) - np.array(j))==0)
+		except:
+			diff[-1] = False
 		bool = True
 		for i in diff:
 			bool = bool and i
@@ -325,7 +517,122 @@ def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
 		print "info doesn't have the same shape"
 		return False
 
+def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputPath should be a path without extensions like .omnigain which will be appended
+	if outputPath == None:
+		outputPath = omnicalPath.replace('.omnical', '')
+	julDelta = 2415020
+	#info = redundantCalibrator.info
 
+
+	with open(utctimePath) as f:
+		utctimes = f.readlines()
+	calpars = np.fromfile(omnicalPath, dtype='float32')
+
+	nT = len(utctimes)
+	nF = len(calpars) / nT / (3 + 2 * info['nAntenna'] + 2 * info['nUBL'])
+	#if nF != redundantCalibrator.nFrequency:
+		#raise Exception('Error: time and frequency count implied in the infput files (%d %d) does not agree with those speficied in redundantCalibrator (%d %d). Exiting!'%(nT, nF, redundantCalibrator.nTime, redundantCalibrator.nFrequency))
+	calpars = calpars.reshape((nT, nF, (3 + 2 * info['nAntenna'] + 2 * info['nUBL'])))
+
+	jd = np.zeros((len(utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
+	sa = ephem.Observer()
+	for utctime, t in zip(utctimes, range(len(utctimes))):
+		sa.date = utctime
+		jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
+
+	opchisq = np.zeros((nT, 2 + 1 + 2 * nF), dtype = 'float32')
+	opomnigain = np.zeros((nT, info['nAntenna'], 2 + 1 + 1 + 2 * nF), dtype = 'float32')
+	opomnifit = np.zeros((nT, info['nUBL'], 2 + 3 + 1 + 2 * nF), dtype = 'float32')
+
+	opchisq[:, :2] = jd
+	opchisq[:, 2] = float(nF)
+	opchisq[:, 3::2] = calpars[:, :, 0]#number of lincal iters
+	opchisq[:, 4::2] = calpars[:, :, 2]#chisq which is sum of squares of errors in each visbility
+
+	opomnigain[:, :, :2] = jd[:, None]
+	opomnigain[:, :, 2] = np.array(info['subsetant']).astype('float32')
+	opomnigain[:, :, 3] = float(nF)
+	gains = (10**calpars[:, :, 3:(3 + info['nAntenna'])] * np.exp(1.j * math.pi * calpars[:, :, (3 + info['nAntenna']):(3 + 2 * info['nAntenna'])] / 180)).transpose((0,2,1))
+	opomnigain[:, :, 4::2] = np.real(gains)
+	opomnigain[:, :, 5::2] = np.imag(gains)
+
+	opomnifit[:, :, :2] = jd[:, None]
+	opomnifit[:, :, 2:5] = np.array(info['ubl']).astype('float32')
+	opomnifit[:, :, 5] = float(nF)
+	opomnifit[:, :, 6::2] = calpars[:, :, 3 + 2 * info['nAntenna']::2].transpose((0,2,1))
+	opomnifit[:, :, 7::2] = calpars[:, :, 3 + 2 * info['nAntenna'] + 1::2].transpose((0,2,1))
+
+
+	opchisq.tofile(outputPath + '.omnichisq')
+	opomnigain.tofile(outputPath + '.omnigain')
+	opomnifit.tofile(outputPath + '.omnifit')
+
+class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibration information that should only be passed into C++
+	def __init__(self, info):
+		_O.RedundantInfo.__init__(self)
+		if type(info) == type('a'):
+			info = read_redundantinfo(info)
+		elif type(info) != type({}):
+			raise Exception("Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
+		
+		for key in info.keys():
+			try:
+				if key in ['At','Bt']:
+					tmp = []
+					for i in range(info[key].shape[0]):
+						for j in range(info[key].shape[1]):
+							if info[key][i,j] != 0:
+								tmp += [[i, j, info[key][i,j]]]
+					self.__setattr__(key+'sparse', np.array(tmp, dtype = 'int32'))
+				elif key in ['A','B']:
+					self.__setattr__(key, info[key].todense().astype('int32'))
+				elif key in ['ublindex']:
+					tmp = []
+					for i in range(len(info[key])):
+						for j in range(len(info[key][i])):
+							tmp += [[i, j, info[key][i][j][0], info[key][i][j][1], info[key][i][j][2]]]
+					self.__setattr__(key, np.array(tmp, dtype='int32'))
+				elif key in int_infokeys:
+					self.__setattr__(key, int(info[key]))
+				elif key in intarray_infokeys and key != 'ublindex':
+					self.__setattr__(key, np.array(info[key]).astype('int32'))
+				elif key in float_infokeys:
+					self.__setattr__(key, np.array(info[key]).astype('float32'))
+			except:
+				raise Exception("Error parsing %s item."%key)
+
+	
+	def get_info(self):
+		info = {}
+		for key in infokeys:
+			try:
+				if key in ['A','B']:
+					#print key
+					info[key] = sps.csr_matrix(self.__getattribute__(key))
+				elif key in ['At','Bt']:
+					tmp = self.__getattribute__(key+'sparse')
+					matrix = np.zeros((info['nAntenna'] + info['nUBL'], len(info['crossindex'])))
+					for i in tmp:
+						matrix[i[0],i[1]] = i[2]
+					info[key] = sps.csr_matrix(matrix)
+				elif key in ['ublindex']:
+					ublindex = []
+					for i in self.__getattribute__(key):
+						while len(ublindex) < i[0] + 1:
+							ublindex.append(np.zeros((1,3)))
+						while len(ublindex[i[0]]) < i[1] + 1:
+							ublindex[i[0]] = np.array(ublindex[i[0]].tolist() + [[0,0,0]])
+						ublindex[i[0]][i[1]] = np.array(i[2:])
+					info[key] = ublindex
+
+				else:
+					#print key
+					info[key] = self.__getattribute__(key)
+			except:
+				raise Exception("Error retrieving %s item."%key)
+		return info
+		
+		
 class RedundantCalibrator:
 #This class is the main tool for performing redundant calibration on data sets. For a given redundant configuration, say 32 antennas with 3 bad antennas, the user should create one instance of Redundant calibrator and reuse it for all data collected from that array. In general, upon creating an instance, the user need to create the info field of the instance by either computing it or reading it from a text file. readyForCpp(verbose = True) should be a very helpful function to provide information on what information is missing for running the calibration.
 	def __init__(self, nTotalAnt, info = None):
@@ -339,47 +646,31 @@ class RedundantCalibrator:
 		self.badAntenna = []
 		self.badUBL = []
 		self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(self.nTotalAnt)])#PAPER miriad convention by default
-		self.info = None
-		self.infoPath = './tmp_redundantinfo'
-		self.infoFileExist = False
-		self.dataFileExist = False
-		self.keepData = False
-		self.tmpDataPath = './tmp_calibration_omni_data'
-		self.dataPath = self.tmpDataPath #complex128 type binary visibility file
-		self.keepCalpar = False
-		self.calparPath = None
-		self.nFrequency = -1
-		self.nTime = -1
+		
+		self.Info = None
 		self.removeDegeneracy = True
 		self.removeAdditive = False
 		self.removeAdditivePeriod = -1
 		self.convergePercent = 0.01 #convergence criterion in relative change of chi^2. By default it stops when reaches 0.01, namely 1% decrease in chi^2.
 		self.maxIteration = 50 #max number of iterations in lincal
 		self.stepSize = 0.3 #step size for lincal. (0, 1]. < 0.4 recommended.
-
+		self.computeUBLFit = True
+		
 		if info != None:
 			if type(info) == type({}):
-				self.info = info
+				
+				self.Info = RedundantInfo(info)
 			elif type(info) == type('a'):
 				self.read_redundantinfo(info)
 			else:
 				raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
 
 	def read_redundantinfo(self, infopath):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
-		self.infoPath = infopath
-		self.info = read_redundantinfo(infopath)
-		self.infoFileExist = True
+		self.Info = RedundantInfo(read_redundantinfo(infopath))
 
-	def write_redundantinfo(self, infoPath = None, overwrite = False):
+	def write_redundantinfo(self, infoPath, overwrite = False):
 		methodName = '.write_redundantinfo.'
-		if infoPath == None:
-			infoPath = self.infoPath
-		if (self.info != None) and (infoPath != None):
-			write_redundantinfo(self.info, infoPath, overwrite = overwrite)
-			self.infoPath = infoPath
-			self.infoFileExist = True
-		else:
-			raise Exception(self.className + methodName + "Error: either 1) info does not yet exist for the current instance, or 2) an info file already exists on disk, or 3) no file path is ever specified.")
+		write_redundantinfo(self.Info.get_info(), infoPath, overwrite = overwrite)
 
 	def read_arrayinfo(self, arrayinfopath, verbose = False):#array info is the minimum set of information to uniquely describe a redundant array, and is needed to compute redundant info. It includes, in each line, bad antenna indices, bad unique baseline indices, tolerance of error when checking redundancy, antenna locations, and visibility's antenna pairing conventions. Unlike redundant info which is a self-contained dictionary, items in array info each have their own fields in the instance.
 		methodName = ".read_arrayinfo."
@@ -416,86 +707,22 @@ class RedundantCalibrator:
 			print "Bad UBL indices:", self.badUBL
 
 
-	def readyForCpp(self, verbose = True):#check if all necessary parameters are specified to call Cpp
-		methodName = '.readyForCpp.'
-		if not (self.dataFileExist and os.path.isfile(self.dataPath)):
-			if verbose:
-				print self.className + methodName + "Error: data file check failed. No data file specified or specified filename does not exist."
-			return False
-		if os.path.getsize(self.dataPath) / 8 != self.nTime * self.nFrequency * self.nTotalBaselineAuto:
-			if verbose:
-				print self.className + methodName + "Error: data size check failed. File on disk seems to contain " + str(os.path.getsize(self.dataPath) / 8) + " complex64 numbers, where as we expect " + str(self.nTime * self.nFrequency * self.nTotalBaselineAuto) + '.'
-			return False
-
-		if not self.infoFileExist :
-			if verbose:
-				print self.className + methodName + "Error: info file existence check failed. Call read_redundantinfo(self, infoPath) function to read in an existing redundant info text file or compute_redundantinfo(arrayinfoPath=None) to compute redundantinfo write_redundantinfo() to write redundantinfo."
-			return False
-
-		if self.removeAdditive and self.removeAdditivePeriod <= 0:
-			if verbose:
-				print self.className + methodName + "Error: removeAdditive option is True but the removeAdditivePeriod parameter is negative (invalid)."
-			return False
-
-		if abs(self.convergePercent - 0.5) >= 0.5 or self.maxIteration <= 0 or abs(self.stepSize - 0.5) >= 0.5:
-			if verbose:
-				print self.className + methodName + "Error: lincal parameter check failed. convergePercent and stepSize should be between 0 and 1, and maxIteration has to be positive integer."
-			return False
-		if verbose:
-			print self.className + methodName + "Check passed."
-		return True
-
-	def cal(self, data, verbose = False):#data can be either 3d numpy array or a binary file path
-		methodName = '.cal.'
-		if type(data) == type(' '):
-			self.dataPath = data
-			self.dataFileExist = True
-		elif type(data) == type(np.zeros(1)) and len(data.shape) == 3 and len(data[0,0]) == self.nTotalBaselineAuto and self.dataPath == self.tmpDataPath:
-			(self.nTime, self.nFrequency, _) = data.shape
-			np.array(data, dtype = 'complex64').tofile(self.tmpDataPath)
-			self.dataPath = self.tmpDataPath
-			self.dataFileExist = True
-		else:
-			raise Exception(self.className + methodName + "Error: data type must be a file path name to a binary file *OR* a 3D numpy array of dimensions (nTime, nFrequency, nTotalBaselineAuto). You have either 1) passed in the wrong type, or 2) passed in a correct data array but have mismatching self.dataPath and self.tmpDataPath (these paths will be overwritten if you pass in an array as data!).")
-
-		if (not self.infoFileExist):
-			self.write_redundantinfo()
-
-		if self.readyForCpp(verbose = False):
-			command = "./omnical " + self.dataPath + " " + self.infoPath + " " + str(self.nTime) + " " + str(self.nFrequency) + " "  + str(self.nTotalAnt) + " " + str(int(self.removeDegeneracy)) + " " + str(int(self.removeAdditive)) + " " + str(self.removeAdditivePeriod) + " " + self.calMode + " " + str(self.convergePercent) + " " + str(self.maxIteration) + " " + str(self.stepSize)
-			if verbose:
-				print self.className + methodName + "System call: " + command
-			os.system(command)
-
-			self.calparPath = self.dataPath + '.omnical'
-			self.rawCalpar = np.fromfile(self.calparPath, dtype = 'float32').reshape((self.nTime, self.nFrequency, 3 + 2 * (self.info['nAntenna'] + self.info['nUBL'])))
-			if self.calMode == '0' or self.calMode == '1':
-				self.chisq = self.rawCalpar[:, :, 2]
-			elif self.calMode == '2':
-				self.chisq = self.rawCalpar[:, :, 1]
-			self.calpar = np.zeros((self.nTime, self.nFrequency, self.nTotalAnt), dtype='complex64')
-			self.calpar[:,:,self.info['subsetant']] = (10**(self.rawCalpar[:, :, 3: (3 + self.info['nAntenna'])])) * np.exp(1.j * np.pi * self.rawCalpar[:, :, (3 + self.info['nAntenna']): (3 + 2 * self.info['nAntenna'])] / 180)
-			self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.info['nAntenna']):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.info['nAntenna']):: 2]
-			if not self.keepCalpar:
-				os.remove(self.calparPath)
-			if not self.keepData and self.dataPath == self.tmpDataPath:
-				os.remove(self.dataPath)
-		else:
-			raise Exception(self.className + methodName + "Error: function is called prematurely. The current instance failed the readyForCpp() check. Try instance.readyForCpp() for more info.")
-
-
-	def loglincal(self, data, verbose = False):
-		self.calMode = '1'
-		self.cal(data, verbose)
-
-	def lincal(self, data, verbose = False):
-		self.calMode = '0'
-		self.cal(data, verbose)
-
-	def logcal(self, data, verbose = False):#todo
-		raise Exception(self.className + "Error: logcal function is not yet implemented.")
-		#self.calMode = '2'
-		#self.cal(data, verbose)
+	def lincal(self, data, additivein, verbose = False):
+		if self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
+			raise Exception("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
+		_O.redcal(data, self.rawCalpar, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+		self.chisq = self.rawCalpar[:, :, 2]
+		self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
+		self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
+		self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
+			
+	def logcal(self, data, additivein, verbose = False):
+		self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
+		_O.redcal(data, self.rawCalpar, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+		self.chisq = self.rawCalpar[:, :, 2]
+		self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
+		self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
+		self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
 
 	def set_badUBL(self, badUBL):
 		if np.array(badUBL).shape[-1] != 3 or len(np.array(badUBL).shape) != 2:
@@ -678,39 +905,40 @@ class RedundantCalibrator:
 		B=sps.csr_matrix(B)
 		###########################################################################
 		#create info dictionary
-		self.info={}
-		self.info['nAntenna']=nAntenna
-		self.info['nUBL']=nUBL
-		self.info['nBaseline']=nBaseline
-		self.info['subsetant']=subsetant
-		self.info['antloc']=antloc
-		self.info['subsetbl']=subsetbl
-		self.info['ubl']=ubl
-		self.info['bltoubl']=bltoubl
-		self.info['reversed']=reverse
-		self.info['reversedauto']=reversedauto
-		self.info['autoindex']=autoindex
-		self.info['crossindex']=crossindex
-		self.info['ncross']=ncross
-		self.info['bl2d']=bl2d
-		self.info['ublcount']=ublcount
-		self.info['ublindex']=ublindex
-		self.info['bl1dmatrix']=bl1dmatrix
-		self.info['degenM']=degenM
-		self.info['A']=A
-		self.info['B']=B
+		info={}
+		info['nAntenna']=nAntenna
+		info['nUBL']=nUBL
+		info['nBaseline']=nBaseline
+		info['subsetant']=subsetant
+		info['antloc']=antloc
+		info['subsetbl']=subsetbl
+		info['ubl']=ubl
+		info['bltoubl']=bltoubl
+		info['reversed']=reverse
+		info['reversedauto']=reversedauto
+		info['autoindex']=autoindex
+		info['crossindex']=crossindex
+		#info['ncross']=ncross
+		info['bl2d']=bl2d
+		info['ublcount']=ublcount
+		info['ublindex']=ublindex
+		info['bl1dmatrix']=bl1dmatrix
+		info['degenM']=degenM
+		info['A']=A
+		info['B']=B
 		with warnings.catch_warnings():
 				warnings.filterwarnings("ignore",category=DeprecationWarning)
-				self.info['At'] = self.info['A'].transpose()
-				self.info['Bt'] = self.info['B'].transpose()
-				self.info['AtAi'] = la.pinv(self.info['At'].dot(self.info['A']).todense(), cond = 10**(-6))#(AtA)^-1
-				self.info['BtBi'] = la.pinv(self.info['Bt'].dot(self.info['B']).todense(), cond = 10**(-6))#(BtB)^-1
-				self.info['AtAiAt'] = self.info['AtAi'].dot(self.info['At'].todense())#(AtA)^-1At
-				self.info['BtBiBt'] = self.info['BtBi'].dot(self.info['Bt'].todense())#(BtB)^-1Bt
-				self.info['PA'] = self.info['A'].dot(self.info['AtAiAt'])#A(AtA)^-1At
-				self.info['PB'] = self.info['B'].dot(self.info['BtBiBt'])#B(BtB)^-1Bt
-				self.info['ImPA'] = sps.identity(ncross) - self.info['PA']#I-PA
-				self.info['ImPB'] = sps.identity(ncross) - self.info['PB']#I-PB
+				info['At'] = info['A'].transpose()
+				info['Bt'] = info['B'].transpose()
+				info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
+				info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
+				info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+				info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+				info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+				info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+				info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+				info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
+		self.Info = RedundantInfo(info)
 
 
 
@@ -782,17 +1010,17 @@ class RedundantCalibrator:
 			return
 
 		#check if self.info['bl1dmatrix'] exists
-		if type(self.info) != dict :
-			raise Exception("needs info['bl1dmatrix']")
-		if 'bl1dmatrix' not in self.info:
-			raise Exception("needs info['bl1dmatrix']")
+		try:
+			_ = self.Info.bl1dmatrix
+		except:
+			raise Exception("needs Info.bl1dmatrix")
 
-		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
+		crossblindex=self.Info.bl1dmatrix[antpair[0]][antpair[1]]
 		if antpair[0]==antpair[1]:
 			return "auto correlation"
 		elif crossblindex == 99999:
 			return "bad ubl"
-		return self.info['bltoubl'][crossblindex]
+		return self.Info.bltoubl[crossblindex]
 
 
 	#need to do compute_redundantinfo first
@@ -810,17 +1038,17 @@ class RedundantCalibrator:
 			return
 
 		#check if self.info['bl1dmatrix'] exists
-		if type(self.info) != dict :
-			raise Exception("needs info['bl1dmatrix']")
-		if 'bl1dmatrix' not in self.info:
-			raise Exception("needs info['bl1dmatrix']")
+		try:
+			_ = self.Info.bl1dmatrix
+		except:
+			raise Exception("needs Info.bl1dmatrix")
 
-		crossblindex=self.info['bl1dmatrix'][antpair[0]][antpair[1]]
+		crossblindex=self.Info.bl1dmatrix[antpair[0]][antpair[1]]
 		if antpair[0] == antpair[1]:
 			return 1
 		if crossblindex == 99999:
 			return 'badbaseline'
-		return self.info['reversed'][crossblindex]
+		return self.Info.reversed[crossblindex]
 
 
 
