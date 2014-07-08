@@ -17,6 +17,7 @@
 #include <numeric>
 #include "include/calibration_omni.h"
 #include <algorithm>
+#define uint unsigned int
 using namespace std;
 const string FILENAME = "calibration_omni.cc";
 const float SPEEDC = 299.792458;
@@ -38,7 +39,7 @@ const int NUM_OBJECTS = 30;//Number of satellites we have in tracked_bodies_X4.t
 
 bool readredundantinfo(string filepath, redundantinfo* info){//data file generated from 16. additive noise investigation _from_17.nb
 	string METHODNAME = "readredundantinfo";
-	int parser = 0;
+	uint parser = 0;
 	vector<float> rawinfo = readAscii(filepath.c_str());
 	if(rawinfo.size() < 3){
 		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": length inconsistency when parsing " << filepath << "! Make sure file exists." << endl;
@@ -351,7 +352,7 @@ void printv(vector<float> *v, int mini, int maxi){
 void printvv(vector<vector<float> > *v, int mini, int maxi){
 	for (int i = max(0,mini); i < min(int(v->size()),maxi); i++){
 		cout << "(";
-		for (int j = 0; j < (v->at(i)).size(); j++){
+		for (uint j = 0; j < (v->at(i)).size(); j++){
 			printf("%10.5f,", (v->at(i))[j]);
 		}
 		cout << ") ";
@@ -364,7 +365,7 @@ void printvv(vector<vector<float> > *v, int mini, int maxi){
 void printvv(vector<vector<int> > *v, int mini, int maxi){
 	for (int i = max(0,mini); i < min(int(v->size()),maxi); i++){
 		cout << "(";
-		for (int j = 0; j < (v->at(i)).size(); j++){
+		for (uint j = 0; j < (v->at(i)).size(); j++){
 			printf("%10i,", (v->at(i))[j]);
 		}
 		cout << ") ";
@@ -417,7 +418,7 @@ string ftostr(float f){
 	return buffer.str();
 }
 
-string itostr(int i, int len){
+string itostr(int i, uint len){
 	ostringstream buffer;
 	buffer << abs(i);
 	string raw = buffer.str();//unpadded int
@@ -427,7 +428,7 @@ string itostr(int i, int len){
 	} else {
 		output = "-";
 	}
-	for( int n = 0; n < len - raw.size(); n ++) output += "0";
+	for (uint n = 0; n < len - raw.size(); n ++) output += "0";
 	output += raw;
 	return output;
 };
@@ -446,462 +447,462 @@ vector<float> strtovf(string in){
 	return output;
 }
 
-vector<float> pySunPosForks(string date, string time, float time_offset){//date and time in UTC such as ($python sunpos.py '2012/5/24' '12:22:56') and returns altitude(degree from horizon to north) and az (degree from north towards east)
+////vector<float> pySunPosForks(string date, string time, float time_offset){//date and time in UTC such as ($python sunpos.py '2012/5/24' '12:22:56') and returns altitude(degree from horizon to north) and az (degree from north towards east)
 
-	string system_command = "python sunPos.py ";
-	system_command += date;
-	system_command += " ";
-	system_command += time;
-	system_command += " ";
-	ostringstream buffer;
-	buffer << time_offset;
-	system_command += buffer.str();
-	//cout << system_command << endl;
-	return strtovf(exec(system_command));
+	////string system_command = "python sunPos.py ";
+	////system_command += date;
+	////system_command += " ";
+	////system_command += time;
+	////system_command += " ";
+	////ostringstream buffer;
+	////buffer << time_offset;
+	////system_command += buffer.str();
+	//////cout << system_command << endl;
+	////return strtovf(exec(system_command));
 
-}
+////}
 
-void pyStarPosForks(string date, string time, float time_offset, vector<vector<float> >* results){
-	string METHODNAME = "pyStarPosForks";
-	string system_command = "python starPos.py ";
-	int objects = 6;
-	if (results->size() != objects or (results->at(0)).size() != 2){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! the receiver array is not initialized as " << objects << " by 2. Exiting!!" << endl;
-		return;
-	}
-	system_command += date;
-	system_command += " ";
-	system_command += time;
-	system_command += " ";
-	ostringstream buffer;
-	buffer << time_offset;
-	system_command += buffer.str();
-	//cout << system_command << endl;
-	vector<float> pos = strtovf(exec(system_command));
-	if (pos.size() < objects * 2){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << system_command << "! Most likely the fixed_bodies_X4.db file is not places under the same folder as starPos.py. Exiting!!" << endl;
-		return;
-	}
-	for (int i = 0; i < results->size(); i++){
-		(results->at(i))[0] = pos[2 * i];
-		(results->at(i))[1] = pos[2 * i + 1];
-	}
-	return;
+////void pyStarPosForks(string date, string time, float time_offset, vector<vector<float> >* results){
+	////string METHODNAME = "pyStarPosForks";
+	////string system_command = "python starPos.py ";
+	////uint objects = 6;
+	////if (results->size() != objects or (results->at(0)).size() != 2){
+		////cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! the receiver array is not initialized as " << objects << " by 2. Exiting!!" << endl;
+		////return;
+	////}
+	////system_command += date;
+	////system_command += " ";
+	////system_command += time;
+	////system_command += " ";
+	////ostringstream buffer;
+	////buffer << time_offset;
+	////system_command += buffer.str();
+	//////cout << system_command << endl;
+	////vector<float> pos = strtovf(exec(system_command));
+	////if (pos.size() < objects * 2){
+		////cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << system_command << "! Most likely the fixed_bodies_X4.db file is not places under the same folder as starPos.py. Exiting!!" << endl;
+		////return;
+	////}
+	////for (int i = 0; i < results->size(); i++){
+		////(results->at(i))[0] = pos[2 * i];
+		////(results->at(i))[1] = pos[2 * i + 1];
+	////}
+	////return;
 
-}
+////}
 
-void pySatPosForks(string date, string time, float time_offset, vector<vector<float> >* results){
-	string METHODNAME = "pySatPosForks";
-	string system_command = "python satPos.py ";
-	if (results->size() != NUM_OBJECTS or (results->at(0)).size() != 3){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! the receiver array is not initialized as " << NUM_OBJECTS << " by 3. Exiting!!" << endl;
-		return;
-	}
-	system_command += date;
-	system_command += " ";
-	system_command += time;
-	system_command += " ";
-	ostringstream buffer;
-	buffer << time_offset;
-	system_command += buffer.str();
-	//cout << system_command << endl;
-	vector<float> pos = strtovf(exec(system_command));
-	if (pos.size() < NUM_OBJECTS * 3){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << system_command << "! Only grabbed " << pos.size() << " numbers from python. " << exec(system_command) << " Most likely the fixed_bodies_X4.tle file is not places under the same folder as starPos.py. Exiting!!" << endl;
-		return;
-	}
-	for (int i = 0; i < results->size(); i++){
-		(results->at(i))[0] = pos[3 * i];
-		(results->at(i))[1] = pos[3 * i + 1];
-		(results->at(i))[2] = pos[3 * i + 2];
-	}
-	return;
+////void pySatPosForks(string date, string time, float time_offset, vector<vector<float> >* results){
+	////string METHODNAME = "pySatPosForks";
+	////string system_command = "python satPos.py ";
+	////if (results->size() != NUM_OBJECTS or (results->at(0)).size() != 3){
+		////cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! the receiver array is not initialized as " << NUM_OBJECTS << " by 3. Exiting!!" << endl;
+		////return;
+	////}
+	////system_command += date;
+	////system_command += " ";
+	////system_command += time;
+	////system_command += " ";
+	////ostringstream buffer;
+	////buffer << time_offset;
+	////system_command += buffer.str();
+	//////cout << system_command << endl;
+	////vector<float> pos = strtovf(exec(system_command));
+	////if (pos.size() < NUM_OBJECTS * 3){
+		////cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << system_command << "! Only grabbed " << pos.size() << " numbers from python. " << exec(system_command) << " Most likely the fixed_bodies_X4.tle file is not places under the same folder as starPos.py. Exiting!!" << endl;
+		////return;
+	////}
+	////for (int i = 0; i < results->size(); i++){
+		////(results->at(i))[0] = pos[3 * i];
+		////(results->at(i))[1] = pos[3 * i + 1];
+		////(results->at(i))[2] = pos[3 * i + 2];
+	////}
+	////return;
 
-}
-
-
-void pySatPos(string date, string time, float time_offset, float lat, float lon, float ele, vector<vector<float> >* results){//lat lon in degrees, ele in meters
-	string METHODNAME = "pySatPos";
-	string system_command = "python satPos.py ";
-	if (results->size() != NUM_OBJECTS or (results->at(0)).size() != 3){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! the receiver array is not initialized as " << NUM_OBJECTS << " by 3. Exiting!!" << endl;
-		return;
-	}
-	system_command += date;
-	system_command += " ";
-	system_command += time;
-	system_command += " ";
-	ostringstream buffer;
-	buffer << time_offset << " " << lat << " " << lon << " " << ele;
-	system_command += buffer.str();
-	//cout << system_command << endl;
-	vector<float> pos = strtovf(exec(system_command));
-	if (pos.size() < NUM_OBJECTS * 3){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << system_command << "! Only grabbed " << pos.size() << " numbers from python. " << exec(system_command) << " Most likely the fixed_bodies_X4.tle file is not places under the same folder as starPos.py. Exiting!!" << endl;
-		return;
-	}
-	for (int i = 0; i < results->size(); i++){
-		(results->at(i))[0] = pos[3 * i];
-		(results->at(i))[1] = pos[3 * i + 1];
-		(results->at(i))[2] = pos[3 * i + 2];
-	}
-	return;
-
-}
-
-void pyRequ2hor(string date, string time, float time_offset, float lat, float lon, vector<vector<float> >* results){//lat lon in degrees. Using this matrix in mathematica generates results that agree with pyephem output within 0.02 degrees on the few sources I checked at Forks
-	string METHODNAME = "pyRequtohor";
-	string system_command = "python rotationmatrix.py ";
-	if (results->size() != 3 or (results->at(0)).size() != 3){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! the receiver array is not initialized as 3 by 3. Exiting!!" << endl;
-		return;
-	}
-	system_command += date;
-	system_command += " ";
-	system_command += time;
-	system_command += " ";
-	ostringstream buffer;
-	buffer << time_offset << " " << lat << " " << lon;
-	system_command += buffer.str();
-	//cout << system_command << endl;
-	vector<float> pos = strtovf(exec(system_command));
-	if (pos.size() < 9){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << system_command << "! Only grabbed " << pos.size() << " numbers from python. " << exec(system_command) << " Most likely the C++ code is not places under the same folder as rotationmatrix.py. Exiting!!" << endl;
-		return;
-	}
-	for (int i = 0; i < 3; i++){
-		for (int j = 0; j < 3; j++){
-			(results->at(j))[i] = pos[3 * i + j];
-		}
-	}
-	return;
+////}
 
 
-}
+////void pySatPos(string date, string time, float time_offset, float lat, float lon, float ele, vector<vector<float> >* results){//lat lon in degrees, ele in meters
+	////string METHODNAME = "pySatPos";
+	////string system_command = "python satPos.py ";
+	////if (results->size() != NUM_OBJECTS or (results->at(0)).size() != 3){
+		////cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! the receiver array is not initialized as " << NUM_OBJECTS << " by 3. Exiting!!" << endl;
+		////return;
+	////}
+	////system_command += date;
+	////system_command += " ";
+	////system_command += time;
+	////system_command += " ";
+	////ostringstream buffer;
+	////buffer << time_offset << " " << lat << " " << lon << " " << ele;
+	////system_command += buffer.str();
+	//////cout << system_command << endl;
+	////vector<float> pos = strtovf(exec(system_command));
+	////if (pos.size() < NUM_OBJECTS * 3){
+		////cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << system_command << "! Only grabbed " << pos.size() << " numbers from python. " << exec(system_command) << " Most likely the fixed_bodies_X4.tle file is not places under the same folder as starPos.py. Exiting!!" << endl;
+		////return;
+	////}
+	////for (int i = 0; i < results->size(); i++){
+		////(results->at(i))[0] = pos[3 * i];
+		////(results->at(i))[1] = pos[3 * i + 1];
+		////(results->at(i))[2] = pos[3 * i + 2];
+	////}
+	////return;
+
+////}
+
+////void pyRequ2hor(string date, string time, float time_offset, float lat, float lon, vector<vector<float> >* results){//lat lon in degrees. Using this matrix in mathematica generates results that agree with pyephem output within 0.02 degrees on the few sources I checked at Forks
+	////string METHODNAME = "pyRequtohor";
+	////string system_command = "python rotationmatrix.py ";
+	////if (results->size() != 3 or (results->at(0)).size() != 3){
+		////cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! the receiver array is not initialized as 3 by 3. Exiting!!" << endl;
+		////return;
+	////}
+	////system_command += date;
+	////system_command += " ";
+	////system_command += time;
+	////system_command += " ";
+	////ostringstream buffer;
+	////buffer << time_offset << " " << lat << " " << lon;
+	////system_command += buffer.str();
+	//////cout << system_command << endl;
+	////vector<float> pos = strtovf(exec(system_command));
+	////if (pos.size() < 9){
+		////cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << system_command << "! Only grabbed " << pos.size() << " numbers from python. " << exec(system_command) << " Most likely the C++ code is not places under the same folder as rotationmatrix.py. Exiting!!" << endl;
+		////return;
+	////}
+	////for (int i = 0; i < 3; i++){
+		////for (int j = 0; j < 3; j++){
+			////(results->at(j))[i] = pos[3 * i + j];
+		////}
+	////}
+	////return;
 
 
-vector<float> pySunPos(string date, string time, float time_offset, float lat, float lon, float ele){//date and time in UTC such as ($python sunpos.py '2012/5/24' '12:22:56') and returns altitude(degree from horizon to north) and az (degree from north towards east)
-
-	string system_command = "python sunPos.py ";
-	system_command += date;
-	system_command += " ";
-	system_command += time;
-	system_command += " ";
-	ostringstream buffer;
-	buffer << time_offset << " " << lat << " " << lon << " " << ele;
-	system_command += buffer.str();
-	//cout << system_command << endl;
-	return strtovf(exec(system_command));
-
-}
-
-vector<string> pyTimeShift(string date, string time, float time_offset){
-	string system_command = "python timeShift.py ";
-	system_command += date;
-	system_command += " ";
-	system_command += time;
-	system_command += " ";
-	ostringstream buffer;
-	buffer << time_offset;
-	system_command += buffer.str();
-	//cout << "DEBUG " << system_command << endl;
-	vector<float> newTimes = strtovf(exec(system_command));
-	//cout << "DEBUG " << newTimes.size() << endl;
-	vector<string> returnString(2);
-	stringstream ss1, ss2;//create a stringstream
-   	ss1 << (int)(newTimes[0]) << "/" << (int)(newTimes[1]) << "/" << (int)(newTimes[2]) ;//add number to the stream
-  	returnString[0] = ss1.str();
-   	ss2 << (int)(newTimes[3]) << ":" << (int)(newTimes[4]) << ":" << (int)(newTimes[5]) ;//add number to the stream
-  	returnString[1] = ss2.str();
-	return returnString;
-}
-
-float pyTimeDif(string time1, string time2){//returns time1-time2 in seconds
-	string system_command = "python timeDif.py \"";
-	system_command += time1;
-	system_command += "\" \"";
-	system_command += time2 + "\"";
-	return atof(exec(system_command).c_str());
-}
-
-string pyOdfDate(string date, string time){
-	string system_command = "python odfDate.py ";
-	system_command += date;
-	system_command += " ";
-	system_command += time;
-	return exec(system_command);
-}
-
-int cmdCountLine(const char* inputfilename){
-	string command(inputfilename);
-	command = "wc " + command;
-	vector<float> results = strtovf(exec(command));
-	return (int)(results[0]);
-}
-
-string cmdAbsPath(string relativePath){
-	string command = "readlink -f " + relativePath;
-	return exec(command);
-}
-
-vector<string> cmdLs(string options){
-	string ls = exec("ls " + options);
-	//cout << ls << endl;
-	string line;
-	vector<string> lines;
-	stringstream ssls (ls);
-
-	while (getline( ssls, line )){
-		lines.push_back(line);
-	}
-	return lines;
-}
-
-void cmdMove(string a, string b){
-	string command = "mv " + a + " " + b;
-	exec(command);
-	return;
-}
-
-void cmdCopy(string a, string b){
-	string command = "cp -R " + a + " " + b;
-	exec(command);
-	return;
-}
+////}
 
 
+////vector<float> pySunPos(string date, string time, float time_offset, float lat, float lon, float ele){//date and time in UTC such as ($python sunpos.py '2012/5/24' '12:22:56') and returns altitude(degree from horizon to north) and az (degree from north towards east)
 
-void readBinaryVisibility(const char* inputfilename, vector<vector<vector<vector<vector<float> > > > >* data, int nPol, int nIntegrations, int nFrequencies, int nBase){
-	string METHODNAME = "readBinaryVisibility";
-	if ( data->size() != nPol or (data->at(0)).size() != nIntegrations or (data->at(0))[0].size() != nFrequencies or (data->at(0))[0][0].size() != nBase){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << inputfilename << "! The receiver array is initialized at (pol, t, f, bl) = (" << data->size() << ", " << (data->at(0)).size() << ", " << (data->at(0))[0].size() << ", " << (data->at(0))[0][0].size() << "), where as the parameters are specified as (" << nPol << ", " << nIntegrations << ", " << nFrequencies << ", " << nBase << "). Exiting!!" << endl;
-		return;
-	}
-	FILE * file;
-	float * fmemblock;
-	unsigned long  len;
-	size_t result;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename << endl;
+	////string system_command = "python sunPos.py ";
+	////system_command += date;
+	////system_command += " ";
+	////system_command += time;
+	////system_command += " ";
+	////ostringstream buffer;
+	////buffer << time_offset << " " << lat << " " << lon << " " << ele;
+	////system_command += buffer.str();
+	//////cout << system_command << endl;
+	////return strtovf(exec(system_command));
 
-	// Open file
-	file = fopen(inputfilename,"rb");
-	if (file == NULL) {
-		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Reading " << inputfilename << " FAILED! Check if the file exists!" << endl;
-		return;
-	};
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Getting Length... ";
-	// Get length
-	fseek (file, 0, SEEK_END);
-	len = ftell (file);//Number of Bytes, where each float takes 4 Bytes (32bits), so number of floats is len / 4
-	rewind(file);
-	cout << len / 4 << " floats." << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Importing Data...";cout.flush();
-	fmemblock = (float*) malloc (sizeof(float)*len / 4);
-	result = fread(fmemblock, sizeof(float), len/4, file);
-	// Close file and clear buffer
-	fclose(file);
-	cout << " Done!" << endl;
+////}
 
-	//Transfer data to vectors
-	if (nIntegrations != len / 4 / nPol/ nFrequencies / nBase / 2){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The binary data seems to contain " << len / 4 / nPol / nFrequencies / nBase / 2 << " time slices, where as the parameter is specified as " << nIntegrations << " time slices. Exiting!!" << endl;
-		return;
-	};
+////vector<string> pyTimeShift(string date, string time, float time_offset){
+	////string system_command = "python timeShift.py ";
+	////system_command += date;
+	////system_command += " ";
+	////system_command += time;
+	////system_command += " ";
+	////ostringstream buffer;
+	////buffer << time_offset;
+	////system_command += buffer.str();
+	//////cout << "DEBUG " << system_command << endl;
+	////vector<float> newTimes = strtovf(exec(system_command));
+	//////cout << "DEBUG " << newTimes.size() << endl;
+	////vector<string> returnString(2);
+	////stringstream ss1, ss2;//create a stringstream
+   	////ss1 << (int)(newTimes[0]) << "/" << (int)(newTimes[1]) << "/" << (int)(newTimes[2]) ;//add number to the stream
+  	////returnString[0] = ss1.str();
+   	////ss2 << (int)(newTimes[3]) << ":" << (int)(newTimes[4]) << ":" << (int)(newTimes[5]) ;//add number to the stream
+  	////returnString[1] = ss2.str();
+	////return returnString;
+////}
 
-	int n  = 0;
-	for(int p = 0; p < nPol; p++){
-		string pol;
-		switch (p){
-  		case 0:
-   			pol = "xx";
-   			break;
-		case 1:
-			pol = "xy";
-			break;
-		case 2:
-			pol = "yx";
-			break;
-		case 3:
-			pol = "yy";
-			break;
+////float pyTimeDif(string time1, string time2){//returns time1-time2 in seconds
+	////string system_command = "python timeDif.py \"";
+	////system_command += time1;
+	////system_command += "\" \"";
+	////system_command += time2 + "\"";
+	////return atof(exec(system_command).c_str());
+////}
 
-		default:
-			pol = "xx";
-		}
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Parsing polarization: " << pol << "\n";
-		for(int t = 0; t < nIntegrations; t++){
-			for(int f=0; f < nFrequencies; f++){
-				for(int v = 0; v < nBase; v++){
-					for(int c = 0; c < 2; c++){
-						(data->at(p))[t][f][v][c] = fmemblock[n];
-						n++;
-					}
-				}
-			}
-		}
-	}
-	//printf("%e \n",data[0][0][1][0]);
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Done Reading Vector \n";
-	//delete[] memblock;
-	free (fmemblock);
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Deleted memblock \n";
-}
+////string pyOdfDate(string date, string time){
+	////string system_command = "python odfDate.py ";
+	////system_command += date;
+	////system_command += " ";
+	////system_command += time;
+	////return exec(system_command);
+////}
 
-void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase){
-	string METHODNAME = "readBinaryVisibilityLarge";
-	if ( data->size() != nPol or (data->at(0)).size() != nIntegrations or (data->at(0))[0].size() != nFrequencies or (data->at(0))[0][0].size() != nBase * 2){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << inputfilename << "! The receiver array is initialized at (pol, t, f, bl) = (" << data->size() << ", " << (data->at(0)).size() << ", " << (data->at(0))[0].size() << ", " << (data->at(0))[0][0].size() / 2 << "), where as the parameters are specified as (" << nPol << ", " << nIntegrations << ", " << nFrequencies << ", " << nBase << "). Exiting!!" << endl;
-		return;
-	}
-	FILE * file;
-	float * fmemblock;
-	unsigned long  len;
-	size_t result;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename;
+////int cmdCountLine(const char* inputfilename){
+	////string command(inputfilename);
+	////command = "wc " + command;
+	////vector<float> results = strtovf(exec(command));
+	////return (int)(results[0]);
+////}
 
-	// Open file
-	file = fopen(inputfilename,"rb");
-	if (file == NULL) {
-		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Reading " << inputfilename << " FAILED! Check if the file exists!" << endl;
-		return;
-	};
-	cout << ": Getting Length... ";
-	// Get length
-	fseek (file, 0, SEEK_END);
-	len = ftell (file);//Number of Bytes, where each float takes 4 Bytes (32bits), so number of floats is len / 4
-	rewind(file);
-	cout << len / 4 << " 32 bit floats. ";
-	cout << "Importing data into memory..."; cout.flush();
-	fmemblock = (float*) malloc (sizeof(float) * len / 4);
-	result = fread(fmemblock, sizeof(float), len / 4, file);
-	// Close file and clear buffer
-	fclose(file);
+////string cmdAbsPath(string relativePath){
+	////string command = "readlink -f " + relativePath;
+	////return exec(command);
+////}
+
+////vector<string> cmdLs(string options){
+	////string ls = exec("ls " + options);
+	//////cout << ls << endl;
+	////string line;
+	////vector<string> lines;
+	////stringstream ssls (ls);
+
+	////while (getline( ssls, line )){
+		////lines.push_back(line);
+	////}
+	////return lines;
+////}
+
+////void cmdMove(string a, string b){
+	////string command = "mv " + a + " " + b;
+	////exec(command);
+	////return;
+////}
+
+////void cmdCopy(string a, string b){
+	////string command = "cp -R " + a + " " + b;
+	////exec(command);
+	////return;
+////}
 
 
-	//Transfer data to vectors
-	//cout << len / 4 << " " << nPol << " " <<  nFrequencies << " " <<  nBase << endl;
-	if (nIntegrations != len / 4 / nPol/ nFrequencies / nBase / 2){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The binary data seems to contain " << len / 4 / nPol / nFrequencies / nBase / 2 << " time slices, where as the parameter is specified as " << nIntegrations << " time slices. Exiting!!" << endl;
-		return;
-	};
 
-	int n  = 0;
-	for(int p = 0; p < nPol; p++){
-		string pol;
-		switch (p){
-  		case 0:
-   			pol = "xx";
-   			break;
-		case 1:
-			pol = "xy";
-			break;
-		case 2:
-			pol = "yx";
-			break;
-		case 3:
-			pol = "yy";
-			break;
+//void readBinaryVisibility(const char* inputfilename, vector<vector<vector<vector<vector<float> > > > >* data, uint nPol, uint nIntegrations, uint nFrequencies, uint nBase){
+	//string METHODNAME = "readBinaryVisibility";
+	//if ( data->size() != nPol or (data->at(0)).size() != nIntegrations or (data->at(0))[0].size() != nFrequencies or (data->at(0))[0][0].size() != nBase){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << inputfilename << "! The receiver array is initialized at (pol, t, f, bl) = (" << data->size() << ", " << (data->at(0)).size() << ", " << (data->at(0))[0].size() << ", " << (data->at(0))[0][0].size() << "), where as the parameters are specified as (" << nPol << ", " << nIntegrations << ", " << nFrequencies << ", " << nBase << "). Exiting!!" << endl;
+		//return;
+	//}
+	//FILE * file;
+	//float * fmemblock;
+	//unsigned long  len;
+	//size_t result;
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename << endl;
 
-		default:
-			pol = "xx";
-		}
-		if(nPol > 1) cout << " Parsing polarization: " << pol << "...";
-		for(int t = 0; t < nIntegrations; t++){
-			for(int f=0; f < nFrequencies; f++){
-				for(int v = 0; v < nBase; v++){
-					for(int c = 0; c < 2; c++){
-						(data->at(p))[t][f][gc(v, c)] = fmemblock[n];
-						n++;
-					}
-				}
-			}
-		}
-	}
+	//// Open file
+	//file = fopen(inputfilename,"rb");
+	//if (file == NULL) {
+		//cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Reading " << inputfilename << " FAILED! Check if the file exists!" << endl;
+		//return;
+	//};
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Getting Length... ";
+	//// Get length
+	//fseek (file, 0, SEEK_END);
+	//len = ftell (file);//Number of Bytes, where each float takes 4 Bytes (32bits), so number of floats is len / 4
+	//rewind(file);
+	//cout << len / 4 << " floats." << endl;
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Importing Data...";cout.flush();
+	//fmemblock = (float*) malloc (sizeof(float)*len / 4);
+	//result = fread(fmemblock, sizeof(float), len/4, file);
+	//// Close file and clear buffer
+	//fclose(file);
+	//cout << " Done!" << endl;
 
-	free (fmemblock);
-	cout << " All done!" << endl;
-}
+	////Transfer data to vectors
+	//if (nIntegrations != len / 4 / nPol/ nFrequencies / nBase / 2){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The binary data seems to contain " << len / 4 / nPol / nFrequencies / nBase / 2 << " time slices, where as the parameter is specified as " << nIntegrations << " time slices. Exiting!!" << endl;
+		//return;
+	//};
+
+	//int n  = 0;
+	//for(int p = 0; p < nPol; p++){
+		//string pol;
+		//switch (p){
+  		//case 0:
+   			//pol = "xx";
+   			//break;
+		//case 1:
+			//pol = "xy";
+			//break;
+		//case 2:
+			//pol = "yx";
+			//break;
+		//case 3:
+			//pol = "yy";
+			//break;
+
+		//default:
+			//pol = "xx";
+		//}
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Parsing polarization: " << pol << "\n";
+		//for(int t = 0; t < nIntegrations; t++){
+			//for(int f=0; f < nFrequencies; f++){
+				//for(int v = 0; v < nBase; v++){
+					//for(int c = 0; c < 2; c++){
+						//(data->at(p))[t][f][v][c] = fmemblock[n];
+						//n++;
+					//}
+				//}
+			//}
+		//}
+	//}
+	////printf("%e \n",data[0][0][1][0]);
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Done Reading Vector \n";
+	////delete[] memblock;
+	//free (fmemblock);
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Deleted memblock \n";
+//}
+
+//void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase){
+	//string METHODNAME = "readBinaryVisibilityLarge";
+	//if ( data->size() != nPol or (data->at(0)).size() != nIntegrations or (data->at(0))[0].size() != nFrequencies or (data->at(0))[0][0].size() != nBase * 2){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << inputfilename << "! The receiver array is initialized at (pol, t, f, bl) = (" << data->size() << ", " << (data->at(0)).size() << ", " << (data->at(0))[0].size() << ", " << (data->at(0))[0][0].size() / 2 << "), where as the parameters are specified as (" << nPol << ", " << nIntegrations << ", " << nFrequencies << ", " << nBase << "). Exiting!!" << endl;
+		//return;
+	//}
+	//FILE * file;
+	//float * fmemblock;
+	//unsigned long  len;
+	//size_t result;
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename;
+
+	//// Open file
+	//file = fopen(inputfilename,"rb");
+	//if (file == NULL) {
+		//cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Reading " << inputfilename << " FAILED! Check if the file exists!" << endl;
+		//return;
+	//};
+	//cout << ": Getting Length... ";
+	//// Get length
+	//fseek (file, 0, SEEK_END);
+	//len = ftell (file);//Number of Bytes, where each float takes 4 Bytes (32bits), so number of floats is len / 4
+	//rewind(file);
+	//cout << len / 4 << " 32 bit floats. ";
+	//cout << "Importing data into memory..."; cout.flush();
+	//fmemblock = (float*) malloc (sizeof(float) * len / 4);
+	//result = fread(fmemblock, sizeof(float), len / 4, file);
+	//// Close file and clear buffer
+	//fclose(file);
 
 
-void readBinaryVisibilityLargeConj(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase){
-	string METHODNAME = "readBinaryVisibilityLargeConj";
-	if ( data->size() != nPol or (data->at(0)).size() != nIntegrations or (data->at(0))[0].size() != nFrequencies or (data->at(0))[0][0].size() != nBase * 2){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << inputfilename << "! The receiver array is initialized at (pol, t, f, bl) = (" << data->size() << ", " << (data->at(0)).size() << ", " << (data->at(0))[0].size() << ", " << (data->at(0))[0][0].size() / 2 << "), where as the parameters are specified as (" << nPol << ", " << nIntegrations << ", " << nFrequencies << ", " << nBase << "). Exiting!!" << endl;
-		return;
-	}
-	FILE * file;
-	float * fmemblock;
-	unsigned long  len;
-	size_t result;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename << endl;
+	////Transfer data to vectors
+	////cout << len / 4 << " " << nPol << " " <<  nFrequencies << " " <<  nBase << endl;
+	//if (nIntegrations != len / 4 / nPol/ nFrequencies / nBase / 2){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The binary data seems to contain " << len / 4 / nPol / nFrequencies / nBase / 2 << " time slices, where as the parameter is specified as " << nIntegrations << " time slices. Exiting!!" << endl;
+		//return;
+	//};
 
-	// Open file
-	file = fopen(inputfilename,"rb");
-	if (file == NULL) {
-		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Reading " << inputfilename << " FAILED! Check if the file exists!" << endl;
-		return;
-	};
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Getting Length... ";
-	// Get length
-	fseek (file, 0, SEEK_END);
-	len = ftell (file);//Number of Bytes, where each float takes 4 Bytes (32bits), so number of floats is len / 4
-	rewind(file);
-	cout << len / 4 << " floats." << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Importing data into memory...";
-	fmemblock = (float*) malloc (sizeof(float) * len / 4);
-	result = fread(fmemblock, sizeof(float), len / 4, file);
-	// Close file and clear buffer
-	fclose(file);
-	cout << " Done!" << endl;
+	//int n  = 0;
+	//for(int p = 0; p < nPol; p++){
+		//string pol;
+		//switch (p){
+  		//case 0:
+   			//pol = "xx";
+   			//break;
+		//case 1:
+			//pol = "xy";
+			//break;
+		//case 2:
+			//pol = "yx";
+			//break;
+		//case 3:
+			//pol = "yy";
+			//break;
 
-	//Transfer data to vectors
-	if (nIntegrations != len / 4 / nPol/ nFrequencies / nBase / 2){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The binary data seems to contain " << len / 4 / nPol / nFrequencies / nBase / 2 << " time slices, where as the parameter is specified as " << nIntegrations << " time slices. Exiting!!" << endl;
-		return;
-	};
+		//default:
+			//pol = "xx";
+		//}
+		//if(nPol > 1) cout << " Parsing polarization: " << pol << "...";
+		//for(int t = 0; t < nIntegrations; t++){
+			//for(int f=0; f < nFrequencies; f++){
+				//for(int v = 0; v < nBase; v++){
+					//for(int c = 0; c < 2; c++){
+						//(data->at(p))[t][f][gc(v, c)] = fmemblock[n];
+						//n++;
+					//}
+				//}
+			//}
+		//}
+	//}
 
-	int n  = 0;
-	for(int p = 0; p < nPol; p++){
-		string pol;
-		switch (p){
-  		case 0:
-   			pol = "xx";
-   			break;
-		case 1:
-			pol = "xy";
-			break;
-		case 2:
-			pol = "yx";
-			break;
-		case 3:
-			pol = "yy";
-			break;
+	//free (fmemblock);
+	//cout << " All done!" << endl;
+//}
 
-		default:
-			pol = "xx";
-		}
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Parsing polarization: " << pol << "\n";
-		//cout << data->size() << " " << data->at(0).size() << " " << data->at(0)[0].size() << " " << data->at(0)[0][0].size() << endl << fmemblock[len / 4 - 1]; cout.flush();
-		for(int t = 0; t < nIntegrations; t++){
-			for(int f = 0; f < nFrequencies; f++){
-				for(int v = 0; v < nBase; v++){
-					//cout << p << " " << t << " " << f << " " << gc(v,0) << " " << n << " " << fmemblock[n]; cout.flush();
-					(data->at(p))[t][f][gc(v, 0)] = fmemblock[n];
-					n++;
-					//cout << n << " " ; cout.flush();
-					(data->at(p))[t][f][gc(v, 1)] = -fmemblock[n];
-					n++;
 
-				}
-			}
-		}
-	}
-	//printf("%e \n",data[0][0][1][0]);
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Done Reading Vector \n";
-	//delete[] memblock;
-	free (fmemblock);
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Deleted memblock \n";
-}
+//void readBinaryVisibilityLargeConj(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase){
+	//string METHODNAME = "readBinaryVisibilityLargeConj";
+	//if ( data->size() != nPol or (data->at(0)).size() != nIntegrations or (data->at(0))[0].size() != nFrequencies or (data->at(0))[0][0].size() != nBase * 2){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << inputfilename << "! The receiver array is initialized at (pol, t, f, bl) = (" << data->size() << ", " << (data->at(0)).size() << ", " << (data->at(0))[0].size() << ", " << (data->at(0))[0][0].size() / 2 << "), where as the parameters are specified as (" << nPol << ", " << nIntegrations << ", " << nFrequencies << ", " << nBase << "). Exiting!!" << endl;
+		//return;
+	//}
+	//FILE * file;
+	//float * fmemblock;
+	//unsigned long  len;
+	//size_t result;
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename << endl;
+
+	//// Open file
+	//file = fopen(inputfilename,"rb");
+	//if (file == NULL) {
+		//cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Reading " << inputfilename << " FAILED! Check if the file exists!" << endl;
+		//return;
+	//};
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Getting Length... ";
+	//// Get length
+	//fseek (file, 0, SEEK_END);
+	//len = ftell (file);//Number of Bytes, where each float takes 4 Bytes (32bits), so number of floats is len / 4
+	//rewind(file);
+	//cout << len / 4 << " floats." << endl;
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Importing data into memory...";
+	//fmemblock = (float*) malloc (sizeof(float) * len / 4);
+	//result = fread(fmemblock, sizeof(float), len / 4, file);
+	//// Close file and clear buffer
+	//fclose(file);
+	//cout << " Done!" << endl;
+
+	////Transfer data to vectors
+	//if (nIntegrations != len / 4 / nPol/ nFrequencies / nBase / 2){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The binary data seems to contain " << len / 4 / nPol / nFrequencies / nBase / 2 << " time slices, where as the parameter is specified as " << nIntegrations << " time slices. Exiting!!" << endl;
+		//return;
+	//};
+
+	//int n  = 0;
+	//for(int p = 0; p < nPol; p++){
+		//string pol;
+		//switch (p){
+  		//case 0:
+   			//pol = "xx";
+   			//break;
+		//case 1:
+			//pol = "xy";
+			//break;
+		//case 2:
+			//pol = "yx";
+			//break;
+		//case 3:
+			//pol = "yy";
+			//break;
+
+		//default:
+			//pol = "xx";
+		//}
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Parsing polarization: " << pol << "\n";
+		////cout << data->size() << " " << data->at(0).size() << " " << data->at(0)[0].size() << " " << data->at(0)[0][0].size() << endl << fmemblock[len / 4 - 1]; cout.flush();
+		//for(int t = 0; t < nIntegrations; t++){
+			//for(int f = 0; f < nFrequencies; f++){
+				//for(int v = 0; v < nBase; v++){
+					////cout << p << " " << t << " " << f << " " << gc(v,0) << " " << n << " " << fmemblock[n]; cout.flush();
+					//(data->at(p))[t][f][gc(v, 0)] = fmemblock[n];
+					//n++;
+					////cout << n << " " ; cout.flush();
+					//(data->at(p))[t][f][gc(v, 1)] = -fmemblock[n];
+					//n++;
+
+				//}
+			//}
+		//}
+	//}
+	////printf("%e \n",data[0][0][1][0]);
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Done Reading Vector \n";
+	////delete[] memblock;
+	//free (fmemblock);
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Deleted memblock \n";
+//}
 
 
 void breakLarge(vector<float> *largeslice, vector<vector<float> > * smallslice){// breaks up the frequency slice in large format (1D of length 2*nBaseline) into small format(2D of nBaseline by re/im)
@@ -910,7 +911,7 @@ void breakLarge(vector<float> *largeslice, vector<vector<float> > * smallslice){
 		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array is initialized at (nBaseline, 2) = (" << smallslice->size() << " by " << (smallslice->at(0)).size() << "), where as the large slice is specified as (" << largeslice->size() << "). Exiting!!" << endl;
 		return;
 	}
-	for (int i = 0; i < largeslice->size(); i++){
+	for (unsigned int i = 0; i < largeslice->size(); i++){
 		(smallslice->at(floor(i/2)))[i%2] = largeslice->at(i);
 	}
 	return;
@@ -922,78 +923,78 @@ void padSmall(vector<vector<float> > * smallslice, vector<float> * largeslice){/
 		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The large array is initialized at (nBaseline, 2) = (" << smallslice->size() << " by " << (smallslice->at(0)).size() << "), where as the small slice is specified as (" << largeslice->size() << "). Exiting!!" << endl;
 		return;
 	}
-	for (int i = 0; i < largeslice->size(); i++){
+	for (unsigned int i = 0; i < largeslice->size(); i++){
 		largeslice->at(i) = (smallslice->at(floor(i/2)))[i%2];
 	}
 	return;
 }
 
-void readBinaryCalparSP(const char* inputfilename, vector<vector<vector<float> > > * data, int nIntegrations, int nFrequencies, int nAnt, int nUBL){//keep log10, turn degree into rad when reading
-	string METHODNAME = "readBinaryCalparSP";
-	if ( data->size() != nIntegrations or (data->at(0)).size() != nFrequencies or (data->at(0))[0].size() != 3 + 2 * (nAnt + nUBL)){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << inputfilename << "! The receiver array is initialized at (t, f, 3+2(nAnt+nUBL)) = (" << data->size() << ", " << (data->at(0)).size() << ", " << (data->at(0))[0].size() << "), where as the parameters are specified as (" << nIntegrations << ", " << nFrequencies << ", " << 3 + 2 * (nAnt + nUBL) << "). Exiting!!" << endl;
-		return;
-	}
-	FILE * file;
-	float * fmemblock;
-	unsigned long  len;
-	size_t result;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename << endl;
+//void readBinaryCalparSP(const char* inputfilename, vector<vector<vector<float> > > * data, int nIntegrations, int nFrequencies, int nAnt, int nUBL){//keep log10, turn degree into rad when reading
+	//string METHODNAME = "readBinaryCalparSP";
+	//if ( data->size() != nIntegrations or (data->at(0)).size() != nFrequencies or (data->at(0))[0].size() != 3 + 2 * (nAnt + nUBL)){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH for " << inputfilename << "! The receiver array is initialized at (t, f, 3+2(nAnt+nUBL)) = (" << data->size() << ", " << (data->at(0)).size() << ", " << (data->at(0))[0].size() << "), where as the parameters are specified as (" << nIntegrations << ", " << nFrequencies << ", " << 3 + 2 * (nAnt + nUBL) << "). Exiting!!" << endl;
+		//return;
+	//}
+	//FILE * file;
+	//float * fmemblock;
+	//unsigned long  len;
+	//size_t result;
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Reading File " << inputfilename << endl;
 
-	// Open file
-	file = fopen(inputfilename,"rb");
-	if (file == NULL) {
-		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Reading " << inputfilename << " FAILED! Check if the file exists!" << endl;
-		return;
-	};
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Getting Length... ";
-	// Get length
-	fseek (file, 0, SEEK_END);
-	len = ftell (file);//Number of Bytes, where each float takes 4 Bytes (32bits), so number of floats is len / 4
-	rewind(file);
-	cout << len / 4 << " floats." << endl;
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Importing data into memory..."; cout.flush();
-	fmemblock = (float*) malloc (sizeof(float) * len / 4);
-	result = fread(fmemblock, sizeof(float), len / 4, file);
-	// Close file and clear buffer
-	fclose(file);
-	cout << " Done!" << endl;
+	//// Open file
+	//file = fopen(inputfilename,"rb");
+	//if (file == NULL) {
+		//cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Reading " << inputfilename << " FAILED! Check if the file exists!" << endl;
+		//return;
+	//};
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Getting Length... ";
+	//// Get length
+	//fseek (file, 0, SEEK_END);
+	//len = ftell (file);//Number of Bytes, where each float takes 4 Bytes (32bits), so number of floats is len / 4
+	//rewind(file);
+	//cout << len / 4 << " floats." << endl;
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": Importing data into memory..."; cout.flush();
+	//fmemblock = (float*) malloc (sizeof(float) * len / 4);
+	//result = fread(fmemblock, sizeof(float), len / 4, file);
+	//// Close file and clear buffer
+	//fclose(file);
+	//cout << " Done!" << endl;
 
-	//Transfer data to vectors
-	if (nIntegrations != len / 4 / nFrequencies / (3 + 2 * (nAnt + nUBL))){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The binary data seems to contain " << len / 4 / nFrequencies / (3 + 2 * (nAnt + nUBL)) << " time slices, where as the parameter is specified as " << nIntegrations << " time slices. Exiting!!" << endl;
-		return;
-	};
+	////Transfer data to vectors
+	//if (nIntegrations != len / 4 / nFrequencies / (3 + 2 * (nAnt + nUBL))){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The binary data seems to contain " << len / 4 / nFrequencies / (3 + 2 * (nAnt + nUBL)) << " time slices, where as the parameter is specified as " << nIntegrations << " time slices. Exiting!!" << endl;
+		//return;
+	//};
 
-	int n  = 0;
-	for(int t = 0; t < nIntegrations; t++){
-		for(int f=0; f < nFrequencies; f++){
-			for(int chi = 0; chi < 3; chi++){
-					(data->at(t))[f][chi] = fmemblock[n];
-					n++;
-			}
-			for(int i = 3; i < 3 + nAnt; i++){//keep log10
-					(data->at(t))[f][i] = fmemblock[n];
-					n++;
-			}
-			for(int i = 3 + nAnt; i < 3 + 2 * nAnt; i++){//turn degree into rad
-					(data->at(t))[f][i] = fmemblock[n] * PI / 180;
-					n++;
-			}
-			for(int i = 3 + 2 * nAnt; i < 3 + 2 * nAnt + 2 * nUBL; i++){
-					(data->at(t))[f][i] = fmemblock[n];
-					n++;
-			}
-		}
-	}
+	//int n  = 0;
+	//for(int t = 0; t < nIntegrations; t++){
+		//for(int f=0; f < nFrequencies; f++){
+			//for(int chi = 0; chi < 3; chi++){
+					//(data->at(t))[f][chi] = fmemblock[n];
+					//n++;
+			//}
+			//for(int i = 3; i < 3 + nAnt; i++){//keep log10
+					//(data->at(t))[f][i] = fmemblock[n];
+					//n++;
+			//}
+			//for(int i = 3 + nAnt; i < 3 + 2 * nAnt; i++){//turn degree into rad
+					//(data->at(t))[f][i] = fmemblock[n] * PI / 180;
+					//n++;
+			//}
+			//for(int i = 3 + 2 * nAnt; i < 3 + 2 * nAnt + 2 * nUBL; i++){
+					//(data->at(t))[f][i] = fmemblock[n];
+					//n++;
+			//}
+		//}
+	//}
 
-	//printf("%e \n",data[0][0][1][0]);
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Done Reading Vector \n";
-	//delete[] memblock;
-	free (fmemblock);
-	cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Deleted memblock \n";
-	return;
-}
+	////printf("%e \n",data[0][0][1][0]);
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Done Reading Vector \n";
+	////delete[] memblock;
+	//free (fmemblock);
+	//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << " Deleted memblock \n";
+	//return;
+//}
 
 vector<float> readAscii(const char* inputfilename, int count, bool verbose) {
 	string METHODNAME = "readAscii";
@@ -1047,503 +1048,503 @@ vector<float> readAscii(const char* inputfilename, int count, bool verbose) {
    return data;
 }
 
-void readVisibility(const char* inputfilename, vector<vector<vector<float> > > * data, int nFreq, int nBaseline){
-	string METHODNAME = "readVisibility";
-	if ( data->size() != nFreq or (data->at(0)).size() != nBaseline){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array is initialized at (f, bl) = (" << data->size() << ", " << (data->at(0)).size() << "), where as the parameters are specified as (" << nFreq << ", " << nBaseline << "). Exiting!!" << endl;
-		return;
-	}
-	int realNumberOfLine = cmdCountLine(inputfilename);
-	if (realNumberOfLine != nFreq){
-		cout << "#!!##!!#" << FILENAME << "#!!##!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input parameter specified number of frequency as " << nFreq << ", but there are " << realNumberOfLine << " lines in the data set " << inputfilename << ". Watch out!!" << endl;
-	}
-	vector<float> dataraw = readAscii(inputfilename);
-	int cnter = 0;
-	for (int f = 0; f < min(nFreq, realNumberOfLine); f++){
-		for (int bl = 0; bl < nBaseline; bl++){
-			for (int ri = 0; ri < 2; ri ++){
-				//(&((&(data->at(f)))->at(bl)))->at(ri) = dataraw[cnter];
-				(data->at(f))[bl][ri] = dataraw[cnter];
-				cnter ++;
-			}
-		}
-	}
-	return;
-}
+//void readVisibility(const char* inputfilename, vector<vector<vector<float> > > * data, int nFreq, int nBaseline){
+	//string METHODNAME = "readVisibility";
+	//if ( data->size() != nFreq or (data->at(0)).size() != nBaseline){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array is initialized at (f, bl) = (" << data->size() << ", " << (data->at(0)).size() << "), where as the parameters are specified as (" << nFreq << ", " << nBaseline << "). Exiting!!" << endl;
+		//return;
+	//}
+	//int realNumberOfLine = cmdCountLine(inputfilename);
+	//if (realNumberOfLine != nFreq){
+		//cout << "#!!##!!#" << FILENAME << "#!!##!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input parameter specified number of frequency as " << nFreq << ", but there are " << realNumberOfLine << " lines in the data set " << inputfilename << ". Watch out!!" << endl;
+	//}
+	//vector<float> dataraw = readAscii(inputfilename);
+	//int cnter = 0;
+	//for (int f = 0; f < min(nFreq, realNumberOfLine); f++){
+		//for (int bl = 0; bl < nBaseline; bl++){
+			//for (int ri = 0; ri < 2; ri ++){
+				////(&((&(data->at(f)))->at(bl)))->at(ri) = dataraw[cnter];
+				//(data->at(f))[bl][ri] = dataraw[cnter];
+				//cnter ++;
+			//}
+		//}
+	//}
+	//return;
+//}
 
-bool readCalparAscii(const char* inputfilename, vector<float> *chisq, vector<vector<float> > *ampcalpar, vector<vector<float> > *phasecalpar, vector<vector<vector<float> > > * UBLcalpar, int nFreq, int nAnt, int nUBL){
-	string METHODNAME = "readCalpar";
-	if ( chisq->size() != nFreq or ampcalpar->size() != nFreq or phasecalpar->size() != nFreq or UBLcalpar->size() != nFreq ){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array is initialized at f = (" << chisq->size() << ", " << ampcalpar->size() << ", " << phasecalpar->size() << ", " << UBLcalpar->size() << "), where as the parameters are specified as (" << nFreq << ", " << nFreq << ", " << nFreq << ", " << nFreq << "). Exiting!!" << endl;
-		return false;
-	}
-	if ( (ampcalpar->at(0)).size() != nAnt or (phasecalpar->at(0)).size() != nAnt or (UBLcalpar->at(0)).size() != nUBL or (UBLcalpar->at(0))[0].size() != 2){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array is initialized at (ant, ant, (ubl, 2)) = (" << (ampcalpar->at(0)).size() << ", " << (phasecalpar->at(0)).size() << ", (" << (UBLcalpar->at(0)).size() << ", " << (UBLcalpar->at(0))[0].size() << ")), where as the parameters are specified as (" << nAnt << ", " << nAnt << ", (" << nUBL << ", " << 2 <<  ")). Exiting!!" << endl;
-		return false;
-	}
-//	int realNumberOfLine = cmdCountLine(inputfilename);
+//bool readCalparAscii(const char* inputfilename, vector<float> *chisq, vector<vector<float> > *ampcalpar, vector<vector<float> > *phasecalpar, vector<vector<vector<float> > > * UBLcalpar, int nFreq, int nAnt, int nUBL){
+	//string METHODNAME = "readCalpar";
+	//if ( chisq->size() != nFreq or ampcalpar->size() != nFreq or phasecalpar->size() != nFreq or UBLcalpar->size() != nFreq ){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array is initialized at f = (" << chisq->size() << ", " << ampcalpar->size() << ", " << phasecalpar->size() << ", " << UBLcalpar->size() << "), where as the parameters are specified as (" << nFreq << ", " << nFreq << ", " << nFreq << ", " << nFreq << "). Exiting!!" << endl;
+		//return false;
+	//}
+	//if ( (ampcalpar->at(0)).size() != nAnt or (phasecalpar->at(0)).size() != nAnt or (UBLcalpar->at(0)).size() != nUBL or (UBLcalpar->at(0))[0].size() != 2){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array is initialized at (ant, ant, (ubl, 2)) = (" << (ampcalpar->at(0)).size() << ", " << (phasecalpar->at(0)).size() << ", (" << (UBLcalpar->at(0)).size() << ", " << (UBLcalpar->at(0))[0].size() << ")), where as the parameters are specified as (" << nAnt << ", " << nAnt << ", (" << nUBL << ", " << 2 <<  ")). Exiting!!" << endl;
+		//return false;
+	//}
+////	int realNumberOfLine = cmdCountLine(inputfilename);
 
-	vector<float> calparraw = readAscii(inputfilename);
-	//cout << "rawcalpar size: " << calparraw.size() << endl;
-	//for(int i = 0; i < calparraw.size(); i++) cout << calparraw[i] << " " <<
-	//cout << endl;
+	//vector<float> calparraw = readAscii(inputfilename);
+	////cout << "rawcalpar size: " << calparraw.size() << endl;
+	////for(int i = 0; i < calparraw.size(); i++) cout << calparraw[i] << " " <<
+	////cout << endl;
 
-	int calparcnter = 0;
-	int nChisqConvention = 3; //number of entries for storing chi sq in the beginning of each freq in calpar files, currently following logcalpar convention, chisq, amp chisq, phase chisq, and most of the times we ignore the amp chisq and phase chisq
-	if (calparraw.size() != nFreq*(nChisqConvention + 2*nAnt + 2*nUBL)){
-		cout << "#!!##!!#" << FILENAME << "#!!##!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input parameter implied the calpar file to have " << nFreq*(nChisqConvention + 2*nAnt + 2*nUBL) << " entries, but there are " << calparraw.size() << " in the data set " << inputfilename << ". Exiting!!" << endl;
-		return false;
-	}
-	for (int f = 0; f < nFreq; f++){
-		chisq->at(f) = calparraw[calparcnter];
-		calparcnter = calparcnter + nChisqConvention;
-		for ( int i = 0; i < nAnt; i++){
-			(ampcalpar->at(f))[i] = calparraw[calparcnter];
-			calparcnter ++;
-		}
-		for ( int i = 0; i < nAnt; i++){
-			(phasecalpar->at(f))[i] = calparraw[calparcnter] * PI / 180;
-			calparcnter ++;
-		}
-		for ( int i = 0; i < nUBL; i++){
-			(UBLcalpar->at(f))[i][0] = calparraw[calparcnter];
-			(UBLcalpar->at(f))[i][1] = calparraw[calparcnter + 1];
-			calparcnter = calparcnter + 2;
-		}
-	}
+	//int calparcnter = 0;
+	//int nChisqConvention = 3; //number of entries for storing chi sq in the beginning of each freq in calpar files, currently following logcalpar convention, chisq, amp chisq, phase chisq, and most of the times we ignore the amp chisq and phase chisq
+	//if (calparraw.size() != nFreq*(nChisqConvention + 2*nAnt + 2*nUBL)){
+		//cout << "#!!##!!#" << FILENAME << "#!!##!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input parameter implied the calpar file to have " << nFreq*(nChisqConvention + 2*nAnt + 2*nUBL) << " entries, but there are " << calparraw.size() << " in the data set " << inputfilename << ". Exiting!!" << endl;
+		//return false;
+	//}
+	//for (int f = 0; f < nFreq; f++){
+		//chisq->at(f) = calparraw[calparcnter];
+		//calparcnter = calparcnter + nChisqConvention;
+		//for ( int i = 0; i < nAnt; i++){
+			//(ampcalpar->at(f))[i] = calparraw[calparcnter];
+			//calparcnter ++;
+		//}
+		//for ( int i = 0; i < nAnt; i++){
+			//(phasecalpar->at(f))[i] = calparraw[calparcnter] * PI / 180;
+			//calparcnter ++;
+		//}
+		//for ( int i = 0; i < nUBL; i++){
+			//(UBLcalpar->at(f))[i][0] = calparraw[calparcnter];
+			//(UBLcalpar->at(f))[i][1] = calparraw[calparcnter + 1];
+			//calparcnter = calparcnter + 2;
+		//}
+	//}
 
-	return true;
-}
+	//return true;
+//}
 
-void readAntloc(const char* inputfilename, vector<vector<float> > * antloc, vector<vector<float> > * cablelen, int nAnt){//cablelen structured as [x/y][nAnt]
-	string METHODNAME = "readAntloc";
-	if ( antloc->size() != nAnt or (cablelen->at(0)).size() != nAnt or (antloc->at(0)).size() != 3 or cablelen->size() != 2){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array for antloc is initialized at (" << antloc->size() << ", " << (antloc->at(0)).size() << "), where as the parameters are specified as (" << nAnt << ", " << 3 << "). The receiver array for cablelen is initialized at (" << cablelen->size() << ", " << (cablelen->at(0)).size() << "), where as the parameters are specified as (" << 2 << ", " << nAnt << "). Exiting!!" << endl;
-		return;
-	}
-	int realNumberOfLine = cmdCountLine(inputfilename);
-	if (realNumberOfLine != nAnt){
-		cout << "#!!##!!#" << FILENAME << "#!!##!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input parameter specified number of antenna as " << nAnt << ", but there are " << realNumberOfLine << " lines in the data set " << inputfilename << ". Watch out!!" << endl;
-		return;
-	}
-	vector<float> antlocraw = readAscii(inputfilename);
-	int jmax;
-	if (antlocraw.size() > 3*nAnt){
-		jmax = 5;
-	} else{
-		jmax = 3;
-	}
+////void readAntloc(const char* inputfilename, vector<vector<float> > * antloc, vector<vector<float> > * cablelen, int nAnt){//cablelen structured as [x/y][nAnt]
+	////string METHODNAME = "readAntloc";
+	////if ( antloc->size() != nAnt or (cablelen->at(0)).size() != nAnt or (antloc->at(0)).size() != 3 or cablelen->size() != 2){
+		////cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array for antloc is initialized at (" << antloc->size() << ", " << (antloc->at(0)).size() << "), where as the parameters are specified as (" << nAnt << ", " << 3 << "). The receiver array for cablelen is initialized at (" << cablelen->size() << ", " << (cablelen->at(0)).size() << "), where as the parameters are specified as (" << 2 << ", " << nAnt << "). Exiting!!" << endl;
+		////return;
+	////}
+	////int realNumberOfLine = cmdCountLine(inputfilename);
+	////if (realNumberOfLine != nAnt){
+		////cout << "#!!##!!#" << FILENAME << "#!!##!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input parameter specified number of antenna as " << nAnt << ", but there are " << realNumberOfLine << " lines in the data set " << inputfilename << ". Watch out!!" << endl;
+		////return;
+	////}
+	////vector<float> antlocraw = readAscii(inputfilename);
+	////int jmax;
+	////if (antlocraw.size() > 3*nAnt){
+		////jmax = 5;
+	////} else{
+		////jmax = 3;
+	////}
 
-	int cnter = 0;
-	for (int i = 0; i < min(nAnt, realNumberOfLine); i++){
-		for (int j = 0; j < jmax; j++){
-			if (j < 3) (antloc->at(i))[j] = antlocraw[cnter];
-			if (j == 3) cablelen->at(0)[i] = antlocraw[cnter];
-			if (j == 4) cablelen->at(1)[i] = antlocraw[cnter];
-			cnter ++;
-		}
-	}
-	return;
-}
+	////int cnter = 0;
+	////for (int i = 0; i < min(nAnt, realNumberOfLine); i++){
+		////for (int j = 0; j < jmax; j++){
+			////if (j < 3) (antloc->at(i))[j] = antlocraw[cnter];
+			////if (j == 3) cablelen->at(0)[i] = antlocraw[cnter];
+			////if (j == 4) cablelen->at(1)[i] = antlocraw[cnter];
+			////cnter ++;
+		////}
+	////}
+	////return;
+////}
 
-void readSunpos(const char* inputfilename, vector<vector<float> > * sunpos){//read sunpos.dat from x5 odf (which is in alt/az, and return a list of pairs in k vector (x y z) or (S E U), note that this is technically -k vector since k vector should point inwards.
-	string METHODNAME = "readSunpos";
-	if ( (sunpos->at(0)).size() != 3 ){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array for sunpos is initialized at (" << sunpos->size() << ", " << (sunpos->at(0)).size() << "), where as the parameters are expected as (time, 3). Exiting!!" << endl;
-		return;
-	}
-	int realNumberOfLine = cmdCountLine(inputfilename);
-	if (realNumberOfLine != sunpos->size()){
-		cout << "#!!##!!#" << FILENAME << "#!!##!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input parameter specified number of timeslice as " << sunpos->size() << ", but there are " << realNumberOfLine << " lines in the data set " << inputfilename << ". Watch out!!" << endl;
-		return;
-	}
-	vector<float> antlocraw = readAscii(inputfilename);
+////void readSunpos(const char* inputfilename, vector<vector<float> > * sunpos){//read sunpos.dat from x5 odf (which is in alt/az, and return a list of pairs in k vector (x y z) or (S E U), note that this is technically -k vector since k vector should point inwards.
+	////string METHODNAME = "readSunpos";
+	////if ( (sunpos->at(0)).size() != 3 ){
+		////cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array for sunpos is initialized at (" << sunpos->size() << ", " << (sunpos->at(0)).size() << "), where as the parameters are expected as (time, 3). Exiting!!" << endl;
+		////return;
+	////}
+	////int realNumberOfLine = cmdCountLine(inputfilename);
+	////if (realNumberOfLine != sunpos->size()){
+		////cout << "#!!##!!#" << FILENAME << "#!!##!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input parameter specified number of timeslice as " << sunpos->size() << ", but there are " << realNumberOfLine << " lines in the data set " << inputfilename << ". Watch out!!" << endl;
+		////return;
+	////}
+	////vector<float> antlocraw = readAscii(inputfilename);
 
-	int cnter = 0;
-	float theta = 0, phi = 0;
-	for (int i = 0; i < min(int(sunpos->size()), realNumberOfLine); i++){
-		for (int j = 0; j < 2; j++){
-			if (j == 0) theta = PI/2 - antlocraw[cnter];
-			if (j == 1) phi = PI - antlocraw[cnter];
-			cnter ++;
-		}
-		sunpos->at(i) = tp2xyz(theta, phi);
-	}
-	return;
-}
-
-
-void outputChiSqAscii(vector<float>  * data) //takes chi square for one time slice each freq each antenna and write a set of calibration parameters under current directory
-{
- 	 string METHODNAME = "outputChiSqAscii";
-	 int numFreq = data->size();
-	 char buffer[100];
-	 cout << "##" << FILENAME << "##" << METHODNAME << ": Writing Chi squares...";
-	 cout.flush();
-	 FILE * myFile;
-	 sprintf(buffer,"./chiSquare.dat");
-	 myFile = fopen(buffer,"w");
-	 for(int f = 0; f < numFreq; f++){
-		 fprintf(myFile, "%.5E", data->at(f));
-	 	 fprintf(myFile, "\n");
-	 }
-	 fclose (myFile);
-	 cout << "DONE!" << endl;
-}
-
-void outputPhaseCalParAscii(vector<vector<float> >  * data, int numUBL, string output_name) //takes phase corrections for one time slice each freq each antenna and write a set of calibration parameters under current directory
-{
- 	 string METHODNAME = "outputPhaseCalParAscii";
-	 int numFreq = data->size();
-	 int numAnt = (data->at(0)).size();
-	 char buffer[2 * output_name.size()];
-	 cout << "##" << FILENAME << "##" << METHODNAME << ": Writing " << output_name << " calibration parameters...";
-	 cout.flush();
-	 FILE * myFile;
-	 sprintf(buffer, output_name.c_str());
-	 myFile = fopen(buffer,"w");
-	 for(int f = 0; f < numFreq; f++){
-		 fprintf(myFile, "%.5E %.5E %.5E ", 0.0, 0.0, 0.0);
-	 	 for(int b = 0; b < numAnt; b++){
-			 fprintf(myFile, "%.5E ", 0.0);
-		 }
-		 for(int b = 0; b < numAnt; b++){
-			 fprintf(myFile, "%.5E ", 180 * (&(data->at(f)))->at(b) / PI );//<========The only useful information, others are all dummy 0s for formatting convention. degree for ascii
-		 }
-		 for(int b = 0; b < numUBL; b++){
-		 	if ( b != ( numUBL - 1 ) ) {
-				fprintf(myFile, "%.5E %.5E ", 0.0, 0.0);
-			} else{
-				fprintf(myFile, "%.5E %.5E", 0.0, 0.0);
-			}
-		 }
-	 	 fprintf(myFile, "\n");
-	 }
-	 fclose (myFile);
-	 cout << "DONE!" << endl;
-}
+	////int cnter = 0;
+	////float theta = 0, phi = 0;
+	////for (int i = 0; i < min(int(sunpos->size()), realNumberOfLine); i++){
+		////for (int j = 0; j < 2; j++){
+			////if (j == 0) theta = PI/2 - antlocraw[cnter];
+			////if (j == 1) phi = PI - antlocraw[cnter];
+			////cnter ++;
+		////}
+		////sunpos->at(i) = tp2xyz(theta, phi);
+	////}
+	////return;
+////}
 
 
-void outputCalParAscii(vector<float> * chisq, vector<vector<float> > * ampcalpar, vector<vector<float> >  * phasecalpar, vector<vector<vector<float> > > * UBLcalpar, string output_name) //takes phase corrections for one time slice each freq each antenna and write a set of calibration parameters under current directory
-{
- 	 string METHODNAME = "outputCalParAscii";
- 	 int numUBL = (&(UBLcalpar->at(0)))->size();
-	 int numFreq = ampcalpar->size();
-	 int numAnt = (ampcalpar->at(0)).size();
-	 char buffer[2 * output_name.size()];
-	 cout << "##" << FILENAME << "##" << METHODNAME << ": Writing "<< output_name << " calibration parameters...";
-	 cout.flush();
-	 FILE * myFile;
-	 sprintf(buffer, output_name.c_str());
-	 myFile = fopen(buffer,"w");
-	 for(int f = 0; f < numFreq; f++){
-		 fprintf(myFile, "%.5E %.5E %.5E ", chisq->at(f), 0.0, 0.0);
-	 	 for(int b = 0; b < numAnt; b++){
-			 fprintf(myFile, "%.5E ", (&(ampcalpar->at(f)))->at(b));
-		 }
-		 for(int b = 0; b < numAnt; b++){
-			 fprintf(myFile, "%.5E ", 180 * (&(phasecalpar->at(f)))->at(b) / PI );//<========degree for ascii
-		 }
-		 for(int b = 0; b < numUBL; b++){
-		 	if ( b != ( numUBL - 1 ) ) {
-				fprintf(myFile, "%.5E %.5E ", ((&(UBLcalpar->at(f)))->at(b))[0], ((&(UBLcalpar->at(f)))->at(b))[1]);
-			} else{
-				fprintf(myFile, "%.5E %.5E", ((&(UBLcalpar->at(f)))->at(b))[0], ((&(UBLcalpar->at(f)))->at(b))[1]);
-			}
-		 }
-	 	 fprintf(myFile, "\n");
-	 }
-	 fclose (myFile);
-	 cout << "DONE!" << endl;
-}
+////void outputChiSqAscii(vector<float>  * data) //takes chi square for one time slice each freq each antenna and write a set of calibration parameters under current directory
+////{
+ 	 ////string METHODNAME = "outputChiSqAscii";
+	 ////int numFreq = data->size();
+	 ////char buffer[100];
+	 ////cout << "##" << FILENAME << "##" << METHODNAME << ": Writing Chi squares...";
+	 ////cout.flush();
+	 ////FILE * myFile;
+	 ////sprintf(buffer,"./chiSquare.dat");
+	 ////myFile = fopen(buffer,"w");
+	 ////for(int f = 0; f < numFreq; f++){
+		 ////fprintf(myFile, "%.5E", data->at(f));
+	 	 ////fprintf(myFile, "\n");
+	 ////}
+	 ////fclose (myFile);
+	 ////cout << "DONE!" << endl;
+////}
 
-void outputAscii(vector<float>* data, string output_name, int type, bool cmdoutput){//0 for overwrite, 1 for append
-	string METHODNAME = "outputAscii";
-	FILE * myFile;
-	if (type == 0){
-		if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Writing " << output_name << "...";
-		myFile = fopen(output_name.c_str(), "w");
-	}else{
-		if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Appending to " << output_name << "...";
-		myFile = fopen(output_name.c_str(), "a");
-	}
-	cout.flush();
-	for (int i = 0; i < data->size(); i++){
-		fprintf(myFile, "%.6E ", data->at(i));
-	}
-	fprintf(myFile, "\n");
-	fclose (myFile);
-	if (cmdoutput) cout << "DONE!" << endl;
-	cout.flush();
-}
-
-void outputAscii(vector<vector<float> >* data, string output_name, int type, bool cmdoutput){//0 for overwrite, 1 for append
-	string METHODNAME = "outputAscii";
-	FILE * myFile;
-	if (type == 0){
-		if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Writing " << output_name << "...";
-		myFile = fopen(output_name.c_str(), "w");
-	}else{
-		if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Appending to " << output_name << "...";
-		myFile = fopen(output_name.c_str(), "a");
-	}
-	cout.flush();
-	for (int i = 0; i < data->size(); i++){
-		for (int j = 0; j < data->at(i).size(); j++){
-			fprintf(myFile, "%.6E ", data->at(i)[j]);
-		}
-		fprintf(myFile, "\n");
-	}
-	fclose (myFile);
-	if (cmdoutput) cout << "DONE!" << endl;
-	cout.flush();
-}
-
-void outputAscii(vector<vector<vector<float> > >* data, string output_name, int type, bool cmdoutput){//0 for overwrite, 1 for append
-	string METHODNAME = "outputAscii";
-	FILE * myFile;
-	if (type == 0){
-		if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Writing " << output_name << "...";
-		myFile = fopen(output_name.c_str(), "w");
-	}else{
-		if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Appending to " << output_name << "...";
-		myFile = fopen(output_name.c_str(), "a");
-	}
-	cout.flush();
-	for (int i = 0; i < data->size(); i++){
-		for (int j = 0; j < data->at(i).size(); j++){
-			for (int k = 0; k < data->at(i)[j].size(); k++){
-				fprintf(myFile, "%.6E ", data->at(i)[j][k]);
-			}
-		}
-		fprintf(myFile, "\n");
-	}
-	fclose (myFile);
-	if (cmdoutput) cout << "DONE!" << endl;
-	cout.flush();
-}
-
-void outputDataAscii(vector<vector<vector<float> > >  * data, string output_name){
-	string METHODNAME = "outputDataAscii";
-
-	int numBL = (&(data->at(0)))->size();
-	int numFreq = data->size();
-	char buffer[2 * output_name.size()];
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Writing "<< output_name << " visibilities data...";
-	cout.flush();
-	FILE * myFile;
-	sprintf(buffer, output_name.c_str());
-	myFile = fopen(buffer,"w");
-	for(int f = 0; f < numFreq; f++){
-		 for(int b = 0; b < numBL; b++){
-		 	if ( b != ( numBL - 1 ) ) {
-				fprintf(myFile, "%.5E %.5E ", ((&(data->at(f)))->at(b))[0], ((&(data->at(f)))->at(b))[1]);
-			} else{
-				fprintf(myFile, "%.5E %.5E", ((&(data->at(f)))->at(b))[0], ((&(data->at(f)))->at(b))[1]);
-			}
-		 }
-	 	 fprintf(myFile, "\n");
-	}
-	fclose (myFile);
-	cout << "DONE!" << endl;
-}
+////void outputPhaseCalParAscii(vector<vector<float> >  * data, int numUBL, string output_name) //takes phase corrections for one time slice each freq each antenna and write a set of calibration parameters under current directory
+////{
+ 	 ////string METHODNAME = "outputPhaseCalParAscii";
+	 ////int numFreq = data->size();
+	 ////int numAnt = (data->at(0)).size();
+	 ////char buffer[2 * output_name.size()];
+	 ////cout << "##" << FILENAME << "##" << METHODNAME << ": Writing " << output_name << " calibration parameters...";
+	 ////cout.flush();
+	 ////FILE * myFile;
+	 ////sprintf(buffer, output_name.c_str());
+	 ////myFile = fopen(buffer,"w");
+	 ////for(int f = 0; f < numFreq; f++){
+		 ////fprintf(myFile, "%.5E %.5E %.5E ", 0.0, 0.0, 0.0);
+	 	 ////for(int b = 0; b < numAnt; b++){
+			 ////fprintf(myFile, "%.5E ", 0.0);
+		 ////}
+		 ////for(int b = 0; b < numAnt; b++){
+			 ////fprintf(myFile, "%.5E ", 180 * (&(data->at(f)))->at(b) / PI );//<========The only useful information, others are all dummy 0s for formatting convention. degree for ascii
+		 ////}
+		 ////for(int b = 0; b < numUBL; b++){
+		 	////if ( b != ( numUBL - 1 ) ) {
+				////fprintf(myFile, "%.5E %.5E ", 0.0, 0.0);
+			////} else{
+				////fprintf(myFile, "%.5E %.5E", 0.0, 0.0);
+			////}
+		 ////}
+	 	 ////fprintf(myFile, "\n");
+	 ////}
+	 ////fclose (myFile);
+	 ////cout << "DONE!" << endl;
+////}
 
 
-bool outputCalpar(vector<vector<vector<vector<float> > > > * data, string outputfilename, bool in_degree, int nAnt){// outputs binary calpar file. in_degree means if phase calpar is in degree, default true
-	string METHODNAME = "outputCalpar";
+////void outputCalParAscii(vector<float> * chisq, vector<vector<float> > * ampcalpar, vector<vector<float> >  * phasecalpar, vector<vector<vector<float> > > * UBLcalpar, string output_name) //takes phase corrections for one time slice each freq each antenna and write a set of calibration parameters under current directory
+////{
+ 	 ////string METHODNAME = "outputCalParAscii";
+ 	 ////int numUBL = (&(UBLcalpar->at(0)))->size();
+	 ////int numFreq = ampcalpar->size();
+	 ////int numAnt = (ampcalpar->at(0)).size();
+	 ////char buffer[2 * output_name.size()];
+	 ////cout << "##" << FILENAME << "##" << METHODNAME << ": Writing "<< output_name << " calibration parameters...";
+	 ////cout.flush();
+	 ////FILE * myFile;
+	 ////sprintf(buffer, output_name.c_str());
+	 ////myFile = fopen(buffer,"w");
+	 ////for(int f = 0; f < numFreq; f++){
+		 ////fprintf(myFile, "%.5E %.5E %.5E ", chisq->at(f), 0.0, 0.0);
+	 	 ////for(int b = 0; b < numAnt; b++){
+			 ////fprintf(myFile, "%.5E ", (&(ampcalpar->at(f)))->at(b));
+		 ////}
+		 ////for(int b = 0; b < numAnt; b++){
+			 ////fprintf(myFile, "%.5E ", 180 * (&(phasecalpar->at(f)))->at(b) / PI );//<========degree for ascii
+		 ////}
+		 ////for(int b = 0; b < numUBL; b++){
+		 	////if ( b != ( numUBL - 1 ) ) {
+				////fprintf(myFile, "%.5E %.5E ", ((&(UBLcalpar->at(f)))->at(b))[0], ((&(UBLcalpar->at(f)))->at(b))[1]);
+			////} else{
+				////fprintf(myFile, "%.5E %.5E", ((&(UBLcalpar->at(f)))->at(b))[0], ((&(UBLcalpar->at(f)))->at(b))[1]);
+			////}
+		 ////}
+	 	 ////fprintf(myFile, "\n");
+	 ////}
+	 ////fclose (myFile);
+	 ////cout << "DONE!" << endl;
+////}
 
-	int numPol = data->size();
-	int numInt = (data->at(0)).size();
-	int numFreq = (data->at(0))[0].size();
-	int numBl = (data->at(0))[0][0].size();//NOT number of baselines but rather the number of entries for each frequency slice's calpar, usually 3 + 2*nant + 2*nUBL
-	if((not in_degree) and (nAnt <= 0 or nAnt >= (numBl - 3) / 2)){
-		cout << "##" << FILENAME << "##" << METHODNAME << ": ERROR: phasecalpar not in degree indicated, but number of antenna " << nAnt << " is incompatible with calpar array length of " << numBl << " Exiting!!" << endl;
-		return false;
-	}
+////void outputAscii(vector<float>* data, string output_name, int type, bool cmdoutput){//0 for overwrite, 1 for append
+	////string METHODNAME = "outputAscii";
+	////FILE * myFile;
+	////if (type == 0){
+		////if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Writing " << output_name << "...";
+		////myFile = fopen(output_name.c_str(), "w");
+	////}else{
+		////if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Appending to " << output_name << "...";
+		////myFile = fopen(output_name.c_str(), "a");
+	////}
+	////cout.flush();
+	////for (unsigned int i = 0; i < data->size(); i++){
+		////fprintf(myFile, "%.6E ", data->at(i));
+	////}
+	////fprintf(myFile, "\n");
+	////fclose (myFile);
+	////if (cmdoutput) cout << "DONE!" << endl;
+	////cout.flush();
+////}
 
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing calpar: " << outputfilename << " of dimensions " << numPol << " by " <<  numInt << " by " <<  numFreq << " by " <<  numBl << endl;
-	union float_char{
-		float f;
-		unsigned char g[sizeof(float)];
-	};
-	float_char to_file;
+////void outputAscii(vector<vector<float> >* data, string output_name, int type, bool cmdoutput){//0 for overwrite, 1 for append
+	////string METHODNAME = "outputAscii";
+	////FILE * myFile;
+	////if (type == 0){
+		////if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Writing " << output_name << "...";
+		////myFile = fopen(output_name.c_str(), "w");
+	////}else{
+		////if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Appending to " << output_name << "...";
+		////myFile = fopen(output_name.c_str(), "a");
+	////}
+	////cout.flush();
+	////for (unsigned int i = 0; i < data->size(); i++){
+		////for (unsigned int j = 0; j < data->at(i).size(); j++){
+			////fprintf(myFile, "%.6E ", data->at(i)[j]);
+		////}
+		////fprintf(myFile, "\n");
+	////}
+	////fclose (myFile);
+	////if (cmdoutput) cout << "DONE!" << endl;
+	////cout.flush();
+////}
 
-	FILE * myFile = fopen(outputfilename.c_str(), "wb");
-	if(myFile == NULL){
-		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
-		return false;
-	}
-	if(in_degree){
-		for(int p = 0; p < numPol; p++){
-			cout << "##" << FILENAME << "##" << METHODNAME << ": Writing polarization: " << p << '\n';
-			for(int t = 0; t < numInt; t++){
-				for(int f = 0;f < numFreq; f++){
-					for(int b = 0; b < numBl; b++){
-						to_file.f = (data->at(p))[t][f][b];
-						fwrite(to_file.g, sizeof(float), 1, myFile);
-						//cout << p << " " << t << " " << f<< " " << b <<<< endl;
-					}
-				}
-			}
-		}
-	} else {
-		for(int p = 0; p < numPol; p++){
-			cout << "##" << FILENAME << "##" << METHODNAME << ": Writing polarization: " << p << '\n';
-			for(int t = 0; t < numInt; t++){
-				for(int f = 0;f < numFreq; f++){
-					for(int b = 0; b < numBl; b++){
-						if(b >= 3 + nAnt and b < 3 + 2 * nAnt){
-							to_file.f = (data->at(p))[t][f][b] * 180 / PI;
-						}else{
-							to_file.f = (data->at(p))[t][f][b];
-						}
-						fwrite(to_file.g, sizeof(float), 1, myFile);
-						//cout << p << " " << t << " " << f<< " " << b <<<< endl;
-					}
-				}
-			}
-		}
-	}
+////void outputAscii(vector<vector<vector<float> > >* data, string output_name, int type, bool cmdoutput){//0 for overwrite, 1 for append
+	////string METHODNAME = "outputAscii";
+	////FILE * myFile;
+	////if (type == 0){
+		////if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Writing " << output_name << "...";
+		////myFile = fopen(output_name.c_str(), "w");
+	////}else{
+		////if (cmdoutput) cout << "##" << FILENAME << "##" << METHODNAME << ": Appending to " << output_name << "...";
+		////myFile = fopen(output_name.c_str(), "a");
+	////}
+	////cout.flush();
+	////for (unsigned int i = 0; i < data->size(); i++){
+		////for (unsigned int j = 0; j < data->at(i).size(); j++){
+			////for (unsigned int k = 0; k < data->at(i)[j].size(); k++){
+				////fprintf(myFile, "%.6E ", data->at(i)[j][k]);
+			////}
+		////}
+		////fprintf(myFile, "\n");
+	////}
+	////fclose (myFile);
+	////if (cmdoutput) cout << "DONE!" << endl;
+	////cout.flush();
+////}
 
-	fclose(myFile);
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
-	return true;
-}
+////void outputDataAscii(vector<vector<vector<float> > >  * data, string output_name){
+	////string METHODNAME = "outputDataAscii";
 
-bool outputCalparSP(vector<vector<vector<float> > > * data, string outputfilename, bool in_degree, int nAnt){// outputs binary calpar file in log10 and degree. in_degree means if phase calpar is in degree, default true
-	string METHODNAME = "outputCalparSP";
-
-	int numInt = data->size();
-	int numFreq = (data->at(0)).size();
-	int numBl = (data->at(0))[0].size();//NOT number of baselines but rather the number of entries for each frequency slice's calpar, usually 3 + 2*nant + 2*nUBL
-	if((not in_degree) and (nAnt <= 0 or nAnt >= (numBl - 3) / 2)){
-		cout << "##" << FILENAME << "##" << METHODNAME << ": ERROR: phasecalpar not in degree indicated, but number of antenna " << nAnt << " is incompatible with calpar array length of " << numBl << " Exiting!!" << endl;
-		return false;
-	}
-
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing calpar: " << outputfilename << " of dimensions " <<  numInt << " by " <<  numFreq << " by " <<  numBl << endl;
-	union float_char{
-		float f;
-		unsigned char g[sizeof(float)];
-	};
-	float_char to_file;
-
-	FILE * myFile = fopen(outputfilename.c_str(), "wb");
-	if(myFile == NULL){
-		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
-		return false;
-	}
-	if(in_degree){
-		for(int t = 0; t < numInt; t++){
-			for(int f = 0; f < numFreq; f++){
-				for(int b = 0; b < numBl; b++){
-					to_file.f = (data->at(t))[f][b];
-					fwrite(to_file.g, sizeof(float), 1, myFile);
-					//cout << p << " " << t << " " << f<< " " << b <<<< endl;
-				}
-			}
-		}
-	} else {
-		for(int t = 0; t < numInt; t++){
-			for(int f = 0;f < numFreq; f++){
-				for(int b = 0; b < numBl; b++){
-					if(b >= 3 + nAnt and b < 3 + 2 * nAnt){
-						to_file.f = (data->at(t))[f][b] * 180 / PI;
-					}else{
-						to_file.f = (data->at(t))[f][b];
-					}
-					fwrite(to_file.g, sizeof(float), 1, myFile);
-					//cout << p << " " << t << " " << f<< " " << b <<<< endl;
-				}
-			}
-		}
-
-	}
-
-	fclose(myFile);
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
-	return true;
-}
+	////int numBL = (&(data->at(0)))->size();
+	////int numFreq = data->size();
+	////char buffer[2 * output_name.size()];
+	////cout << "##" << FILENAME << "##" << METHODNAME << ": Writing "<< output_name << " visibilities data...";
+	////cout.flush();
+	////FILE * myFile;
+	////sprintf(buffer, output_name.c_str());
+	////myFile = fopen(buffer,"w");
+	////for(int f = 0; f < numFreq; f++){
+		 ////for(int b = 0; b < numBL; b++){
+		 	////if ( b != ( numBL - 1 ) ) {
+				////fprintf(myFile, "%.5E %.5E ", ((&(data->at(f)))->at(b))[0], ((&(data->at(f)))->at(b))[1]);
+			////} else{
+				////fprintf(myFile, "%.5E %.5E", ((&(data->at(f)))->at(b))[0], ((&(data->at(f)))->at(b))[1]);
+			////}
+		 ////}
+	 	 ////fprintf(myFile, "\n");
+	////}
+	////fclose (myFile);
+	////cout << "DONE!" << endl;
+////}
 
 
-bool outputData(vector<vector<vector<vector<vector<float> > > > > * data, string outputfilename){// outputs binary file. Can only be used on odf w/ ~<300 slices. It's recommended to use outputDataLarge under all circumstances
-	string METHODNAME = "outputData";
-	int numPol = data->size();
-	int numInt = (data->at(0)).size();
-	int numFreq = (data->at(0))[0].size();
-	int numBl = (data->at(0))[0][0].size();
-	int numRI = (data->at(0))[0][0][0].size();
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing " << outputfilename << " of dimensions " << numPol << " by " <<  numInt << " by " <<  numFreq << " by " <<  numBl << " by " << numRI << endl;
-	union float_char{
-		float f;
-		unsigned char g[sizeof(float)];
-	};
-	float_char to_file;
+////bool outputCalpar(vector<vector<vector<vector<float> > > > * data, string outputfilename, bool in_degree, int nAnt){// outputs binary calpar file. in_degree means if phase calpar is in degree, default true
+	////string METHODNAME = "outputCalpar";
 
-	FILE * myFile = fopen(outputfilename.c_str(), "wb");
-	if(myFile == NULL){
-		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
-		return false;
-	}
-	for(int p = 0; p < numPol; p++){
-		cout << "##" << FILENAME << "##" << METHODNAME << ": Writing polarization: " << p << '\n';
-		for(int t = 0; t < numInt; t++){
-			for(int f = 0;f < numFreq; f++){
-				for(int b = 0; b < numBl; b++){
-					for(int c = 0; c < numRI; c++){
-						to_file.f = (data->at(p))[t][f][b][c];
-						fwrite(to_file.g, sizeof(float), 1, myFile);
-						//cout << p << " " << t << " " << f<< " " << b << " " << c << endl;
-					}
-				}
-			}
-		}
-	}
+	////int numPol = data->size();
+	////int numInt = (data->at(0)).size();
+	////int numFreq = (data->at(0))[0].size();
+	////int numBl = (data->at(0))[0][0].size();//NOT number of baselines but rather the number of entries for each frequency slice's calpar, usually 3 + 2*nant + 2*nUBL
+	////if((not in_degree) and (nAnt <= 0 or nAnt >= (numBl - 3) / 2)){
+		////cout << "##" << FILENAME << "##" << METHODNAME << ": ERROR: phasecalpar not in degree indicated, but number of antenna " << nAnt << " is incompatible with calpar array length of " << numBl << " Exiting!!" << endl;
+		////return false;
+	////}
 
-	fclose(myFile);
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
-	return true;
-}
+	////cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing calpar: " << outputfilename << " of dimensions " << numPol << " by " <<  numInt << " by " <<  numFreq << " by " <<  numBl << endl;
+	////union float_char{
+		////float f;
+		////unsigned char g[sizeof(float)];
+	////};
+	////float_char to_file;
 
-bool outputDataLarge(vector<vector<vector<vector<float> > > > * data, string outputfilename){// outputs binary file. Can be used on odf w/ many slices. It's recommended to use outputDataLarge under all circumstances
+	////FILE * myFile = fopen(outputfilename.c_str(), "wb");
+	////if(myFile == NULL){
+		////cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
+		////return false;
+	////}
+	////if(in_degree){
+		////for(int p = 0; p < numPol; p++){
+			////cout << "##" << FILENAME << "##" << METHODNAME << ": Writing polarization: " << p << '\n';
+			////for(int t = 0; t < numInt; t++){
+				////for(int f = 0;f < numFreq; f++){
+					////for(int b = 0; b < numBl; b++){
+						////to_file.f = (data->at(p))[t][f][b];
+						////fwrite(to_file.g, sizeof(float), 1, myFile);
+						//////cout << p << " " << t << " " << f<< " " << b <<<< endl;
+					////}
+				////}
+			////}
+		////}
+	////} else {
+		////for(int p = 0; p < numPol; p++){
+			////cout << "##" << FILENAME << "##" << METHODNAME << ": Writing polarization: " << p << '\n';
+			////for(int t = 0; t < numInt; t++){
+				////for(int f = 0;f < numFreq; f++){
+					////for(int b = 0; b < numBl; b++){
+						////if(b >= 3 + nAnt and b < 3 + 2 * nAnt){
+							////to_file.f = (data->at(p))[t][f][b] * 180 / PI;
+						////}else{
+							////to_file.f = (data->at(p))[t][f][b];
+						////}
+						////fwrite(to_file.g, sizeof(float), 1, myFile);
+						//////cout << p << " " << t << " " << f<< " " << b <<<< endl;
+					////}
+				////}
+			////}
+		////}
+	////}
 
-	string METHODNAME = "outputDataLarge";
-	int numPol = data->size();
-	int numInt = (data->at(0)).size();
-	int numFreq = (data->at(0))[0].size();
-	int numBl = (data->at(0))[0][0].size() / 2;
-	int numRI = 2;
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing " << outputfilename << " of dimensions " << numPol << " by " <<  numInt << " by " <<  numFreq << " by " <<  numBl << " by " << numRI << endl;
-	union float_char{
-		float f;
-		unsigned char g[sizeof(float)];
-	};
-	float_char to_file;
+	////fclose(myFile);
+	////cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
+	////return true;
+////}
 
-	FILE * myFile = fopen(outputfilename.c_str(), "wb");
-	if(myFile == NULL){
-		cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
-		return false;
-	}
-	for(int p = 0; p < numPol; p++){
-		//cout << "##" << FILENAME << "##" << METHODNAME << ": Writing polarization: " << p << '\n';
-		for(int t = 0; t < numInt; t++){
-			for(int f = 0;f < numFreq; f++){
-				for(int b = 0; b < (data->at(0))[0][0].size() ; b++){
+////bool outputCalparSP(vector<vector<vector<float> > > * data, string outputfilename, bool in_degree, int nAnt){// outputs binary calpar file in log10 and degree. in_degree means if phase calpar is in degree, default true
+	////string METHODNAME = "outputCalparSP";
 
-						to_file.f = (data->at(p))[t][f][b];
-						fwrite(to_file.g, sizeof(float), 1, myFile);
-						//cout << p << " " << t << " " << f<< " " << b << " " << c << endl;
+	////int numInt = data->size();
+	////int numFreq = (data->at(0)).size();
+	////int numBl = (data->at(0))[0].size();//NOT number of baselines but rather the number of entries for each frequency slice's calpar, usually 3 + 2*nant + 2*nUBL
+	////if((not in_degree) and (nAnt <= 0 or nAnt >= (numBl - 3) / 2)){
+		////cout << "##" << FILENAME << "##" << METHODNAME << ": ERROR: phasecalpar not in degree indicated, but number of antenna " << nAnt << " is incompatible with calpar array length of " << numBl << " Exiting!!" << endl;
+		////return false;
+	////}
 
-				}
-			}
-		}
-	}
+	////cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing calpar: " << outputfilename << " of dimensions " <<  numInt << " by " <<  numFreq << " by " <<  numBl << endl;
+	////union float_char{
+		////float f;
+		////unsigned char g[sizeof(float)];
+	////};
+	////float_char to_file;
 
-	fclose(myFile);
-	cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
-	return true;
-}
+	////FILE * myFile = fopen(outputfilename.c_str(), "wb");
+	////if(myFile == NULL){
+		////cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
+		////return false;
+	////}
+	////if(in_degree){
+		////for(int t = 0; t < numInt; t++){
+			////for(int f = 0; f < numFreq; f++){
+				////for(int b = 0; b < numBl; b++){
+					////to_file.f = (data->at(t))[f][b];
+					////fwrite(to_file.g, sizeof(float), 1, myFile);
+					//////cout << p << " " << t << " " << f<< " " << b <<<< endl;
+				////}
+			////}
+		////}
+	////} else {
+		////for(int t = 0; t < numInt; t++){
+			////for(int f = 0;f < numFreq; f++){
+				////for(int b = 0; b < numBl; b++){
+					////if(b >= 3 + nAnt and b < 3 + 2 * nAnt){
+						////to_file.f = (data->at(t))[f][b] * 180 / PI;
+					////}else{
+						////to_file.f = (data->at(t))[f][b];
+					////}
+					////fwrite(to_file.g, sizeof(float), 1, myFile);
+					//////cout << p << " " << t << " " << f<< " " << b <<<< endl;
+				////}
+			////}
+		////}
+
+	////}
+
+	////fclose(myFile);
+	////cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
+	////return true;
+////}
+
+
+////bool outputData(vector<vector<vector<vector<vector<float> > > > > * data, string outputfilename){// outputs binary file. Can only be used on odf w/ ~<300 slices. It's recommended to use outputDataLarge under all circumstances
+	////string METHODNAME = "outputData";
+	////int numPol = data->size();
+	////int numInt = (data->at(0)).size();
+	////int numFreq = (data->at(0))[0].size();
+	////int numBl = (data->at(0))[0][0].size();
+	////int numRI = (data->at(0))[0][0][0].size();
+	////cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing " << outputfilename << " of dimensions " << numPol << " by " <<  numInt << " by " <<  numFreq << " by " <<  numBl << " by " << numRI << endl;
+	////union float_char{
+		////float f;
+		////unsigned char g[sizeof(float)];
+	////};
+	////float_char to_file;
+
+	////FILE * myFile = fopen(outputfilename.c_str(), "wb");
+	////if(myFile == NULL){
+		////cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
+		////return false;
+	////}
+	////for(int p = 0; p < numPol; p++){
+		////cout << "##" << FILENAME << "##" << METHODNAME << ": Writing polarization: " << p << '\n';
+		////for(int t = 0; t < numInt; t++){
+			////for(int f = 0;f < numFreq; f++){
+				////for(int b = 0; b < numBl; b++){
+					////for(int c = 0; c < numRI; c++){
+						////to_file.f = (data->at(p))[t][f][b][c];
+						////fwrite(to_file.g, sizeof(float), 1, myFile);
+						//////cout << p << " " << t << " " << f<< " " << b << " " << c << endl;
+					////}
+				////}
+			////}
+		////}
+	////}
+
+	////fclose(myFile);
+	////cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
+	////return true;
+////}
+
+////bool outputDataLarge(vector<vector<vector<vector<float> > > > * data, string outputfilename){// outputs binary file. Can be used on odf w/ many slices. It's recommended to use outputDataLarge under all circumstances
+
+	////string METHODNAME = "outputDataLarge";
+	////int numPol = data->size();
+	////int numInt = (data->at(0)).size();
+	////int numFreq = (data->at(0))[0].size();
+	////int numBl = (data->at(0))[0][0].size() / 2;
+	////int numRI = 2;
+	////cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing " << outputfilename << " of dimensions " << numPol << " by " <<  numInt << " by " <<  numFreq << " by " <<  numBl << " by " << numRI << endl;
+	////union float_char{
+		////float f;
+		////unsigned char g[sizeof(float)];
+	////};
+	////float_char to_file;
+
+	////FILE * myFile = fopen(outputfilename.c_str(), "wb");
+	////if(myFile == NULL){
+		////cout << "##" << FILENAME << "##" << METHODNAME << "!!!!FATAL I/O ERROR!!!!!!!!!: Outputing " << outputfilename << " FAILED! Check if the path directory exists!" << endl;
+		////return false;
+	////}
+	////for(int p = 0; p < numPol; p++){
+		//////cout << "##" << FILENAME << "##" << METHODNAME << ": Writing polarization: " << p << '\n';
+		////for(int t = 0; t < numInt; t++){
+			////for(int f = 0;f < numFreq; f++){
+				////for(int b = 0; b < (data->at(0))[0][0].size() ; b++){
+
+						////to_file.f = (data->at(p))[t][f][b];
+						////fwrite(to_file.g, sizeof(float), 1, myFile);
+						//////cout << p << " " << t << " " << f<< " " << b << " " << c << endl;
+
+				////}
+			////}
+		////}
+	////}
+
+	////fclose(myFile);
+	////cout << "##" << FILENAME << "##" << METHODNAME << ": Done outputing " << outputfilename << "." << endl;
+	////return true;
+////}
 
 
 vector<float> tp2xyz (vector<float> thephi){
@@ -1653,123 +1654,123 @@ void matrixDotV(vector<vector<float> > * A, vector<float> * b, vector<float> * x
 	return;
 }
 
-void iqDemod(vector<vector<vector<vector<vector<float> > > > > *data, vector<vector<vector<vector<vector<float> > > > > *data_out, int nIntegrations, int nFrequencies, int nAnt){
-	string METHODNAME = "iqDemod";
-	int nChannels = nAnt * 4; //a factor of 2 from consolidating x and y polarizations, and another factor of 2 from consolidating iq
-	int n_xxi = nAnt * (nAnt + 1)/2;
+//void iqDemod(vector<vector<vector<vector<vector<float> > > > > *data, vector<vector<vector<vector<vector<float> > > > > *data_out, int nIntegrations, int nFrequencies, int nAnt){
+	//string METHODNAME = "iqDemod";
+	//int nChannels = nAnt * 4; //a factor of 2 from consolidating x and y polarizations, and another factor of 2 from consolidating iq
+	//int n_xxi = nAnt * (nAnt + 1)/2;
 
-	if ( data->size() != 1 or data_out->size() != 4 or (data->at(0)).size() != nIntegrations or (data_out->at(0)).size() != nIntegrations or (data->at(0))[0].size() != nFrequencies or (data_out->at(0))[0].size() != 2 * nFrequencies or (data->at(0))[0][0].size() != nChannels * ( nChannels + 1 ) / 2  or (data_out->at(0))[0][0].size() != nAnt * ( nAnt + 1 ) / 2 ){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input array and IQ array are initialized at (p, t, f, bl) = (" << data->size() << ", " << (data->at(0)).size() << ", " <<  (data->at(0))[0].size()  << ", " <<  (data->at(0))[0][0].size() << ") and (" << data_out->size() << ", " << (data_out->at(0)).size() << ", " <<  (data_out->at(0))[0].size()  << ", " <<  (data_out->at(0))[0][0].size() << "), where as the parameters are specified as (t, f, ant) = (" << nIntegrations << ", "  << nFrequencies << ", " << nAnt << "). Exiting!!" << endl;
-		return;
-	}
-	vector<vector<float> > *freq_slice;
-	int prevk, k1i, k1q, prevk1i, prevk1q, k2xi, k2xq, k2yi, k2yq, prevk2xi, prevk2yi, bl;
-	float a1xx_re, a1xx_im, a2xx_re, a2xx_im, a3xx_re, a3xx_im, a1xy_re, a1xy_im, a2xy_re, a2xy_im, a3xy_re, a3xy_im, a1yx_re, a1yx_im, a2yx_re, a2yx_im, a3yx_re, a3yx_im, a1yy_re, a1yy_im, a2yy_re, a2yy_im, a3yy_re, a3yy_im;
-	int c2nchan1 = 2 * nChannels - 1; //frequently used constant
-	for (int t = 0; t < nIntegrations; t++){
-		//cout << t << endl;
-		for (int f = 0; f < nFrequencies; f++){
-			freq_slice = &((data->at(0))[t][f]);
-			//loop for xx and xy
-			for (int k1 = 0; k1 < nAnt; k1++){
-				prevk = (2 * nAnt - k1 - 1) * k1 / 2;
-				k1i = 2*k1;
-				k1q = k1i + 2 * nAnt;
-				prevk1i = (c2nchan1 - k1i)*k1i/2;
-				prevk1q = (c2nchan1 - k1q)*k1q/2;
-				for (int k2 = k1; k2 < nAnt; k2++){
-					k2xi = 2 * k2;
-					k2xq = k2xi + 2 * nAnt;
-					k2yi = k2xi + 1;
-					k2yq = k2xq + 1;
-					prevk2xi = (c2nchan1 - k2xi) * k2xi / 2;
-					prevk2yi = (c2nchan1-k2yi) * k2yi / 2;
-					// performing complex arithmetic: 0 index --> real
-					// 1 index --> imag
-					a1xx_re = freq_slice->at(prevk1i+k2xi)[0] + freq_slice->at(prevk1q+k2xq)[0];
-					a1xx_im = freq_slice->at(prevk1i+k2xi)[1] + freq_slice->at(prevk1q+k2xq)[1];
-					a2xx_re = freq_slice->at(prevk1i+k2xq)[0] - freq_slice->at(prevk2xi+k1q)[0];
-					a2xx_im = freq_slice->at(prevk1i+k2xq)[1] + freq_slice->at(prevk2xi+k1q)[1];
-					a3xx_re = -1 * a2xx_im;
-					a3xx_im = a2xx_re;
-					a1xy_re = freq_slice->at(prevk1i+k2yi)[0] + freq_slice->at(prevk1q+k2yq)[0];
-					a1xy_im = freq_slice->at(prevk1i+k2yi)[1] + freq_slice->at(prevk1q+k2yq)[1];
-					a2xy_re = freq_slice->at(prevk1i+k2yq)[0] - freq_slice->at(prevk2yi+k1q)[0];
-					a2xy_im = freq_slice->at(prevk1i+k2yq)[1] + freq_slice->at(prevk2yi+k1q)[1];
-					a3xy_re = -1 * a2xy_im;
-					a3xy_im = a2xy_re;
+	//if ( data->size() != 1 or data_out->size() != 4 or (data->at(0)).size() != nIntegrations or (data_out->at(0)).size() != nIntegrations or (data->at(0))[0].size() != nFrequencies or (data_out->at(0))[0].size() != 2 * nFrequencies or (data->at(0))[0][0].size() != nChannels * ( nChannels + 1 ) / 2  or (data_out->at(0))[0][0].size() != nAnt * ( nAnt + 1 ) / 2 ){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The input array and IQ array are initialized at (p, t, f, bl) = (" << data->size() << ", " << (data->at(0)).size() << ", " <<  (data->at(0))[0].size()  << ", " <<  (data->at(0))[0][0].size() << ") and (" << data_out->size() << ", " << (data_out->at(0)).size() << ", " <<  (data_out->at(0))[0].size()  << ", " <<  (data_out->at(0))[0][0].size() << "), where as the parameters are specified as (t, f, ant) = (" << nIntegrations << ", "  << nFrequencies << ", " << nAnt << "). Exiting!!" << endl;
+		//return;
+	//}
+	//vector<vector<float> > *freq_slice;
+	//int prevk, k1i, k1q, prevk1i, prevk1q, k2xi, k2xq, k2yi, k2yq, prevk2xi, prevk2yi, bl;
+	//float a1xx_re, a1xx_im, a2xx_re, a2xx_im, a3xx_re, a3xx_im, a1xy_re, a1xy_im, a2xy_re, a2xy_im, a3xy_re, a3xy_im, a1yx_re, a1yx_im, a2yx_re, a2yx_im, a3yx_re, a3yx_im, a1yy_re, a1yy_im, a2yy_re, a2yy_im, a3yy_re, a3yy_im;
+	//int c2nchan1 = 2 * nChannels - 1; //frequently used constant
+	//for (int t = 0; t < nIntegrations; t++){
+		////cout << t << endl;
+		//for (int f = 0; f < nFrequencies; f++){
+			//freq_slice = &((data->at(0))[t][f]);
+			////loop for xx and xy
+			//for (int k1 = 0; k1 < nAnt; k1++){
+				//prevk = (2 * nAnt - k1 - 1) * k1 / 2;
+				//k1i = 2*k1;
+				//k1q = k1i + 2 * nAnt;
+				//prevk1i = (c2nchan1 - k1i)*k1i/2;
+				//prevk1q = (c2nchan1 - k1q)*k1q/2;
+				//for (int k2 = k1; k2 < nAnt; k2++){
+					//k2xi = 2 * k2;
+					//k2xq = k2xi + 2 * nAnt;
+					//k2yi = k2xi + 1;
+					//k2yq = k2xq + 1;
+					//prevk2xi = (c2nchan1 - k2xi) * k2xi / 2;
+					//prevk2yi = (c2nchan1-k2yi) * k2yi / 2;
+					//// performing complex arithmetic: 0 index --> real
+					//// 1 index --> imag
+					//a1xx_re = freq_slice->at(prevk1i+k2xi)[0] + freq_slice->at(prevk1q+k2xq)[0];
+					//a1xx_im = freq_slice->at(prevk1i+k2xi)[1] + freq_slice->at(prevk1q+k2xq)[1];
+					//a2xx_re = freq_slice->at(prevk1i+k2xq)[0] - freq_slice->at(prevk2xi+k1q)[0];
+					//a2xx_im = freq_slice->at(prevk1i+k2xq)[1] + freq_slice->at(prevk2xi+k1q)[1];
+					//a3xx_re = -1 * a2xx_im;
+					//a3xx_im = a2xx_re;
+					//a1xy_re = freq_slice->at(prevk1i+k2yi)[0] + freq_slice->at(prevk1q+k2yq)[0];
+					//a1xy_im = freq_slice->at(prevk1i+k2yi)[1] + freq_slice->at(prevk1q+k2yq)[1];
+					//a2xy_re = freq_slice->at(prevk1i+k2yq)[0] - freq_slice->at(prevk2yi+k1q)[0];
+					//a2xy_im = freq_slice->at(prevk1i+k2yq)[1] + freq_slice->at(prevk2yi+k1q)[1];
+					//a3xy_re = -1 * a2xy_im;
+					//a3xy_im = a2xy_re;
 
-					//writing to output matrix
-					bl = prevk + k2;
-					if (f == 0){
-						(data_out->at(0))[t][2*nFrequencies-1][bl][0] = ( a1xx_re + a3xx_re);
-						(data_out->at(0))[t][2*nFrequencies-1][bl][1] = -1*( a1xx_im + a3xx_im);
-						(data_out->at(1))[t][2*nFrequencies-1][bl][0] = (a1xy_re + a3xy_re);
-						(data_out->at(1))[t][2*nFrequencies-1][bl][1] = -1*(a1xy_im + a3xy_im);
-					}
+					////writing to output matrix
+					//bl = prevk + k2;
+					//if (f == 0){
+						//(data_out->at(0))[t][2*nFrequencies-1][bl][0] = ( a1xx_re + a3xx_re);
+						//(data_out->at(0))[t][2*nFrequencies-1][bl][1] = -1*( a1xx_im + a3xx_im);
+						//(data_out->at(1))[t][2*nFrequencies-1][bl][0] = (a1xy_re + a3xy_re);
+						//(data_out->at(1))[t][2*nFrequencies-1][bl][1] = -1*(a1xy_im + a3xy_im);
+					//}
 
-					(data_out->at(0))[t][nFrequencies-1+f][bl][0] = ( a1xx_re + a3xx_re);
-					(data_out->at(0))[t][nFrequencies-1+f][bl][1] = -1*( a1xx_im + a3xx_im);
-					(data_out->at(0))[t][nFrequencies-1-f][bl][0] = a1xx_re - a3xx_re;
-					(data_out->at(0))[t][nFrequencies-1-f][bl][1] = a1xx_im - a3xx_im;
-					(data_out->at(1))[t][nFrequencies-1+f][bl][0] = (a1xy_re + a3xy_re);
-					(data_out->at(1))[t][nFrequencies-1+f][bl][1] = -1*(a1xy_im + a3xy_im);
-					(data_out->at(1))[t][nFrequencies-1-f][bl][0] = a1xy_re - a3xy_re;
-					(data_out->at(1))[t][nFrequencies-1-f][bl][1] = a1xy_im - a3xy_im;
-				}
-			}
-				//loop for yy and yx
-				//computational difference: k1i = 2*k1 (+ 1)
-			for (int k1=0; k1 < nAnt; k1++){
-				prevk = (2*nAnt-k1-1)*k1/2;
-				k1i = 2*k1 + 1;
-				k1q = k1i + 2 * nAnt;
-				prevk1i = (c2nchan1 - k1i)*k1i/2;
-				prevk1q = (c2nchan1 - k1q)*k1q/2;
-				for (int k2=k1; k2 < nAnt; k2++){
-					k2xi = 2*k2;
-					k2xq = k2xi + 2*nAnt;
-					k2yi = k2xi + 1;
-					k2yq = k2xq + 1;
-					prevk2xi = (c2nchan1-k2xi)*k2xi/2;
-					prevk2yi = (c2nchan1-k2yi)*k2yi/2;
-					// performing complex arithmetic: 0 index --> real
-					// 1 index --> imag
-					a1yx_re = freq_slice->at(prevk1i+k2xi)[0] + freq_slice->at(prevk1q+k2xq)[0];
-					a1yx_im = freq_slice->at(prevk1i+k2xi)[1] + freq_slice->at(prevk1q+k2xq)[1];
-					a2yx_re = freq_slice->at(prevk1i+k2xq)[0] - freq_slice->at(prevk2xi+k1q)[0];
-					a2yx_im = freq_slice->at(prevk1i+k2xq)[1] + freq_slice->at(prevk2xi+k1q)[1];
-					a3yx_re = -1 * a2yx_im;
-					a3yx_im = a2yx_re;
-					a1yy_re = freq_slice->at(prevk1i+k2yi)[0] + freq_slice->at(prevk1q+k2yq)[0];
-					a1yy_im = freq_slice->at(prevk1i+k2yi)[1] + freq_slice->at(prevk1q+k2yq)[1];
-					a2yy_re = freq_slice->at(prevk1i+k2yq)[0] - freq_slice->at(prevk2yi+k1q)[0];
-					a2yy_im = freq_slice->at(prevk1i+k2yq)[1] + freq_slice->at(prevk2yi+k1q)[1];
-					a3yy_re = -1 * a2yy_im;
-					a3yy_im = a2yy_re;
+					//(data_out->at(0))[t][nFrequencies-1+f][bl][0] = ( a1xx_re + a3xx_re);
+					//(data_out->at(0))[t][nFrequencies-1+f][bl][1] = -1*( a1xx_im + a3xx_im);
+					//(data_out->at(0))[t][nFrequencies-1-f][bl][0] = a1xx_re - a3xx_re;
+					//(data_out->at(0))[t][nFrequencies-1-f][bl][1] = a1xx_im - a3xx_im;
+					//(data_out->at(1))[t][nFrequencies-1+f][bl][0] = (a1xy_re + a3xy_re);
+					//(data_out->at(1))[t][nFrequencies-1+f][bl][1] = -1*(a1xy_im + a3xy_im);
+					//(data_out->at(1))[t][nFrequencies-1-f][bl][0] = a1xy_re - a3xy_re;
+					//(data_out->at(1))[t][nFrequencies-1-f][bl][1] = a1xy_im - a3xy_im;
+				//}
+			//}
+				////loop for yy and yx
+				////computational difference: k1i = 2*k1 (+ 1)
+			//for (int k1=0; k1 < nAnt; k1++){
+				//prevk = (2*nAnt-k1-1)*k1/2;
+				//k1i = 2*k1 + 1;
+				//k1q = k1i + 2 * nAnt;
+				//prevk1i = (c2nchan1 - k1i)*k1i/2;
+				//prevk1q = (c2nchan1 - k1q)*k1q/2;
+				//for (int k2=k1; k2 < nAnt; k2++){
+					//k2xi = 2*k2;
+					//k2xq = k2xi + 2*nAnt;
+					//k2yi = k2xi + 1;
+					//k2yq = k2xq + 1;
+					//prevk2xi = (c2nchan1-k2xi)*k2xi/2;
+					//prevk2yi = (c2nchan1-k2yi)*k2yi/2;
+					//// performing complex arithmetic: 0 index --> real
+					//// 1 index --> imag
+					//a1yx_re = freq_slice->at(prevk1i+k2xi)[0] + freq_slice->at(prevk1q+k2xq)[0];
+					//a1yx_im = freq_slice->at(prevk1i+k2xi)[1] + freq_slice->at(prevk1q+k2xq)[1];
+					//a2yx_re = freq_slice->at(prevk1i+k2xq)[0] - freq_slice->at(prevk2xi+k1q)[0];
+					//a2yx_im = freq_slice->at(prevk1i+k2xq)[1] + freq_slice->at(prevk2xi+k1q)[1];
+					//a3yx_re = -1 * a2yx_im;
+					//a3yx_im = a2yx_re;
+					//a1yy_re = freq_slice->at(prevk1i+k2yi)[0] + freq_slice->at(prevk1q+k2yq)[0];
+					//a1yy_im = freq_slice->at(prevk1i+k2yi)[1] + freq_slice->at(prevk1q+k2yq)[1];
+					//a2yy_re = freq_slice->at(prevk1i+k2yq)[0] - freq_slice->at(prevk2yi+k1q)[0];
+					//a2yy_im = freq_slice->at(prevk1i+k2yq)[1] + freq_slice->at(prevk2yi+k1q)[1];
+					//a3yy_re = -1 * a2yy_im;
+					//a3yy_im = a2yy_re;
 
-					//writing to output matrix
-					bl = prevk + k2;
-					if (f == 0){
-						(data_out->at(2))[t][2*nFrequencies-1][bl][0] = ( a1yx_re + a3yx_re);
-						(data_out->at(2))[t][2*nFrequencies-1][bl][1] = -1*( a1yx_im + a3yx_im);
-						(data_out->at(3))[t][2*nFrequencies-1][bl][0] = (a1yy_re + a3yy_re);
-						(data_out->at(3))[t][2*nFrequencies-1][bl][1] = -1*(a1yy_im + a3yy_im);
-					}
-					(data_out->at(2))[t][nFrequencies-1+f][bl][0] = (a1yx_re + a3yx_re);
-					(data_out->at(2))[t][nFrequencies-1+f][bl][1] = -1*(a1yx_im + a3yx_im);
-					(data_out->at(2))[t][nFrequencies-1-f][bl][0] = a1yx_re - a3yx_re;
-					(data_out->at(2))[t][nFrequencies-1-f][bl][1] = a1yx_im - a3yx_im;
-					(data_out->at(3))[t][nFrequencies-1+f][bl][0] = (a1yy_re + a3yy_re);
-					(data_out->at(3))[t][nFrequencies-1+f][bl][1] = -1*(a1yy_im + a3yy_im);
-					(data_out->at(3))[t][nFrequencies-1-f][bl][0] = a1yy_re - a3yy_re;
-					(data_out->at(3))[t][nFrequencies-1-f][bl][1] = a1yy_im - a3yy_im;
-				}
-			}
-		}
-	}
-	return;
-}
+					////writing to output matrix
+					//bl = prevk + k2;
+					//if (f == 0){
+						//(data_out->at(2))[t][2*nFrequencies-1][bl][0] = ( a1yx_re + a3yx_re);
+						//(data_out->at(2))[t][2*nFrequencies-1][bl][1] = -1*( a1yx_im + a3yx_im);
+						//(data_out->at(3))[t][2*nFrequencies-1][bl][0] = (a1yy_re + a3yy_re);
+						//(data_out->at(3))[t][2*nFrequencies-1][bl][1] = -1*(a1yy_im + a3yy_im);
+					//}
+					//(data_out->at(2))[t][nFrequencies-1+f][bl][0] = (a1yx_re + a3yx_re);
+					//(data_out->at(2))[t][nFrequencies-1+f][bl][1] = -1*(a1yx_im + a3yx_im);
+					//(data_out->at(2))[t][nFrequencies-1-f][bl][0] = a1yx_re - a3yx_re;
+					//(data_out->at(2))[t][nFrequencies-1-f][bl][1] = a1yx_im - a3yx_im;
+					//(data_out->at(3))[t][nFrequencies-1+f][bl][0] = (a1yy_re + a3yy_re);
+					//(data_out->at(3))[t][nFrequencies-1+f][bl][1] = -1*(a1yy_im + a3yy_im);
+					//(data_out->at(3))[t][nFrequencies-1-f][bl][0] = a1yy_re - a3yy_re;
+					//(data_out->at(3))[t][nFrequencies-1-f][bl][1] = a1yy_im - a3yy_im;
+				//}
+			//}
+		//}
+	//}
+	//return;
+//}
 
 //void iqDemodLarge(vector<vector<vector<vector<float> > > > *data, vector<vector<vector<vector<float> > > > *data_out, int nIntegrations, int nFrequencies, int nAnt){
 	//string METHODNAME = "iqDemodLarge";
@@ -1986,7 +1987,7 @@ vector<int> get2DBLCross(int bl, int nAntenna){//bl only counts cross corrs
 }
 
 bool contains(vector<vector<float> > * UBL, vector<float> bl){//automatically checks for the opposite direction
-	for (int i = 0; i < UBL->size(); i++){
+	for (unsigned int i = 0; i < UBL->size(); i++){
 		if ( ( fabs((&(UBL->at(i)))->at(0) - bl[0]) < UBLPRECISION && fabs((&(UBL->at(i)))->at(1) - bl[1]) < UBLPRECISION ) or ( fabs((&(UBL->at(i)))->at(0) + bl[0]) < UBLPRECISION && fabs((&(UBL->at(i)))->at(1) + bl[1]) < UBLPRECISION ) ){
 			return true;
 		}
@@ -1995,7 +1996,7 @@ bool contains(vector<vector<float> > * UBL, vector<float> bl){//automatically ch
 }
 
 int indexUBL(vector<vector<float> > * UBL, vector<float> bl){//give the 1-indexed index of a baseline inside the unique baseline list; the opposite direction will give -index
-	for (int i = 0; i < UBL->size(); i++){
+	for (unsigned int i = 0; i < UBL->size(); i++){
 		if ( fabs((&(UBL->at(i)))->at(0) - bl[0]) < UBLPRECISION && fabs((&(UBL->at(i)))->at(1) - bl[1]) < UBLPRECISION ) {
 			return 1+i;
 		} else if ( fabs((&(UBL->at(i)))->at(0) + bl[0]) < UBLPRECISION && fabs((&(UBL->at(i)))->at(1) + bl[1]) < UBLPRECISION ){
@@ -2025,8 +2026,8 @@ float phase(float re, float im){
 
 float norm(vector<vector<float> > * v){
 	float res = 0;
-	for (int i = 0; i < v->size(); i++){
-		for (int j = 0; j < v->at(i).size(); j++){
+	for (unsigned int i = 0; i < v->size(); i++){
+		for (unsigned int j = 0; j < v->at(i).size(); j++){
 			res += pow(v->at(i)[j], 2);
 		}
 	}
@@ -2044,7 +2045,7 @@ vector<float> conjugate (vector<float> x){
 }
 
 bool contains_int(vector<int> * list, int j){
-	for ( int i = 0; i < list->size(); i ++){
+	for (uint i = 0; i < list->size(); i ++){
 		if ( list->at(i) == j ){
 			return true;
 		}
@@ -2069,7 +2070,7 @@ float vectorDot(vector<float>* v1, vector<float>* v2){//v1.v2
 		return 0;
 	}
 	double sum = 0;
-	for (int i = 0; i < v1->size(); i ++){
+	for (unsigned int i = 0; i < v1->size(); i ++){
 		sum += (v1->at(i) * v2->at(i));
 	}
 	return float(sum);
@@ -2083,7 +2084,7 @@ vector<float> matrixDotV(vector<vector<float> >* m, vector<float>* v){//m.v
 		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL INPUT MISMATCH! Dimensions of matrix and of vector are " << m->size() << "x" << (m->at(0)).size() << " and " << v->size() << ". 0 vector  returned!!!" << endl;
 		return u;
 	}
-	for (int i = 0; i < m->size(); i ++){
+	for (unsigned int i = 0; i < m->size(); i ++){
 		u[i] = vectorDot( &(m->at(i)), v);
 	}
 	return u;
@@ -2117,132 +2118,132 @@ Rz[rotz_] := {{Cos[rotz], -Sin[rotz], 0}, {Sin[rotz], Cos[rotz],
 }
 
 
-bool createAmatrix(vector<vector<int> > *receiverAmatrix, vector<vector<float> > *antloc){
-	string METHODNAME = "createAmatrix";
-	int nAnt = antloc->size();
-	int nUBL = countUBL(antloc);
-	int nCrossBL = nAnt * (nAnt - 1) / 2;
-	vector<vector<float> > UBL(nUBL, vector<float> (3, 0));
-	computeUBL(antloc, &UBL);
-	if (receiverAmatrix->size() != (nCrossBL + 1) or (receiverAmatrix->at(0)).size() != (nAnt + nUBL)){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL INPUT MISMATCH! Dimensions of the receiver Amatrix are " << receiverAmatrix->size() << " by " << receiverAmatrix->size() << ", NOT expected " << (nCrossBL + 1) << " by " << (nAnt + nUBL) << " for " << nAnt << " antennae and " << nUBL << " unique baselines. Returned!!!" << endl;
-		return false;
-	}
-	for(int bl = 0; bl < nCrossBL; bl ++){
-		int ant1 = get2DBLCross(bl, nAnt)[0];
-		int ant2 = get2DBLCross(bl, nAnt)[1];
-		int UBLindex = abs(indexUBL(&UBL, getBL(ant1, ant2, antloc)))-1;
-		if(UBLindex < 0 or UBLindex >= nUBL){
-			cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL ERROR! No corresponding unique baseline found for antenna pair" << ant1 << " " << ant2 << "! Amatrix Failed to generate!" << endl;
-			return false;
-		}
-		for(int col = 0; col < nAnt; col++){
-			if (col == ant1 or col == ant2){
-				(receiverAmatrix->at(bl))[col] = 1;
-			} else {
-				(receiverAmatrix->at(bl))[col] = 0;
-			}
-		}
-		for(int col = nAnt; col < nAnt + nUBL; col++){
-			if (col - nAnt == UBLindex){
-				(receiverAmatrix->at(bl))[col] = 1;
-			} else {
-				(receiverAmatrix->at(bl))[col] = 0;
-			}
-		}
+//bool createAmatrix(vector<vector<int> > *receiverAmatrix, vector<vector<float> > *antloc){
+	//string METHODNAME = "createAmatrix";
+	//int nAnt = antloc->size();
+	//int nUBL = countUBL(antloc);
+	//int nCrossBL = nAnt * (nAnt - 1) / 2;
+	//vector<vector<float> > UBL(nUBL, vector<float> (3, 0));
+	//computeUBL(antloc, &UBL);
+	//if (receiverAmatrix->size() != (nCrossBL + 1) or (receiverAmatrix->at(0)).size() != (nAnt + nUBL)){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL INPUT MISMATCH! Dimensions of the receiver Amatrix are " << receiverAmatrix->size() << " by " << receiverAmatrix->size() << ", NOT expected " << (nCrossBL + 1) << " by " << (nAnt + nUBL) << " for " << nAnt << " antennae and " << nUBL << " unique baselines. Returned!!!" << endl;
+		//return false;
+	//}
+	//for(int bl = 0; bl < nCrossBL; bl ++){
+		//int ant1 = get2DBLCross(bl, nAnt)[0];
+		//int ant2 = get2DBLCross(bl, nAnt)[1];
+		//int UBLindex = abs(indexUBL(&UBL, getBL(ant1, ant2, antloc)))-1;
+		//if(UBLindex < 0 or UBLindex >= nUBL){
+			//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL ERROR! No corresponding unique baseline found for antenna pair" << ant1 << " " << ant2 << "! Amatrix Failed to generate!" << endl;
+			//return false;
+		//}
+		//for(int col = 0; col < nAnt; col++){
+			//if (col == ant1 or col == ant2){
+				//(receiverAmatrix->at(bl))[col] = 1;
+			//} else {
+				//(receiverAmatrix->at(bl))[col] = 0;
+			//}
+		//}
+		//for(int col = nAnt; col < nAnt + nUBL; col++){
+			//if (col - nAnt == UBLindex){
+				//(receiverAmatrix->at(bl))[col] = 1;
+			//} else {
+				//(receiverAmatrix->at(bl))[col] = 0;
+			//}
+		//}
 
-	}
+	//}
 
-	int bl = nCrossBL;
-	for(int col = 0; col < nAnt; col++)	(receiverAmatrix->at(bl))[col] = 1;
-	for(int col = nAnt; col < nAnt + nUBL; col++) (receiverAmatrix->at(bl))[col] = 0;
-	return true;
-}
+	//int bl = nCrossBL;
+	//for(int col = 0; col < nAnt; col++)	(receiverAmatrix->at(bl))[col] = 1;
+	//for(int col = nAnt; col < nAnt + nUBL; col++) (receiverAmatrix->at(bl))[col] = 0;
+	//return true;
+//}
 
-bool createBmatrix(vector<vector<int> > *receiverBmatrix, vector<vector<float> > *antloc){
-	string METHODNAME = "createBmatrix";
-	int nAnt = antloc->size();
-	int nUBL = countUBL(antloc);
-	int nCrossBL = nAnt * (nAnt - 1) / 2;
-	vector<vector<float> > UBL(nUBL, vector<float> (3, 0));
-	computeUBL(antloc, &UBL);
-	if (receiverBmatrix->size() != (nCrossBL + 3) or (receiverBmatrix->at(0)).size() != (nAnt + nUBL)){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL INPUT MISMATCH! Dimensions of the receiver Amatrix are " << receiverBmatrix->size() << " by " << receiverBmatrix->size() << ", NOT expected " << (nCrossBL + 3) << " by " << (nAnt + nUBL) << " for " << nAnt << " antennae and " << nUBL << " unique baselines. Returned!!!" << endl;
-		return false;
-	}
-	for(int bl = 0; bl < nCrossBL; bl ++){
-		int ant1 = get2DBLCross(bl, nAnt)[0];
-		int ant2 = get2DBLCross(bl, nAnt)[1];
-		int UBLindex = indexUBL(&UBL, getBL(ant1, ant2, antloc));
-		if(UBLindex == 0){
-			cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL ERROR! No corresponding unique baseline found for antenna pair" << ant1 << " " << ant2 << "! Bmatrix Failed to generate!" << endl;
-			return false;
-		}
-		int reversed = abs(UBLindex)/UBLindex;
-		for(int col = 0; col < nAnt; col++){
-			if (col == ant1){
-				(receiverBmatrix->at(bl))[col] = -reversed;
-			} else if (col == ant2){
-				(receiverBmatrix->at(bl))[col] = reversed;
-			} else {
-				(receiverBmatrix->at(bl))[col] = 0;
-			}
-		}
-		for(int col = nAnt; col < nAnt + nUBL; col++){
-			if (col - nAnt == abs(UBLindex)-1){
-				(receiverBmatrix->at(bl))[col] = 1;
-			} else {
-				(receiverBmatrix->at(bl))[col] = 0;
-			}
-		}
+//bool createBmatrix(vector<vector<int> > *receiverBmatrix, vector<vector<float> > *antloc){
+	//string METHODNAME = "createBmatrix";
+	//int nAnt = antloc->size();
+	//int nUBL = countUBL(antloc);
+	//int nCrossBL = nAnt * (nAnt - 1) / 2;
+	//vector<vector<float> > UBL(nUBL, vector<float> (3, 0));
+	//computeUBL(antloc, &UBL);
+	//if (receiverBmatrix->size() != (nCrossBL + 3) or (receiverBmatrix->at(0)).size() != (nAnt + nUBL)){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL INPUT MISMATCH! Dimensions of the receiver Amatrix are " << receiverBmatrix->size() << " by " << receiverBmatrix->size() << ", NOT expected " << (nCrossBL + 3) << " by " << (nAnt + nUBL) << " for " << nAnt << " antennae and " << nUBL << " unique baselines. Returned!!!" << endl;
+		//return false;
+	//}
+	//for(int bl = 0; bl < nCrossBL; bl ++){
+		//int ant1 = get2DBLCross(bl, nAnt)[0];
+		//int ant2 = get2DBLCross(bl, nAnt)[1];
+		//int UBLindex = indexUBL(&UBL, getBL(ant1, ant2, antloc));
+		//if(UBLindex == 0){
+			//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL ERROR! No corresponding unique baseline found for antenna pair" << ant1 << " " << ant2 << "! Bmatrix Failed to generate!" << endl;
+			//return false;
+		//}
+		//int reversed = abs(UBLindex)/UBLindex;
+		//for(int col = 0; col < nAnt; col++){
+			//if (col == ant1){
+				//(receiverBmatrix->at(bl))[col] = -reversed;
+			//} else if (col == ant2){
+				//(receiverBmatrix->at(bl))[col] = reversed;
+			//} else {
+				//(receiverBmatrix->at(bl))[col] = 0;
+			//}
+		//}
+		//for(int col = nAnt; col < nAnt + nUBL; col++){
+			//if (col - nAnt == abs(UBLindex)-1){
+				//(receiverBmatrix->at(bl))[col] = 1;
+			//} else {
+				//(receiverBmatrix->at(bl))[col] = 0;
+			//}
+		//}
 
-	}
+	//}
 
-	int bl = nCrossBL;
-	for(int col = 0; col < nAnt; col++)	(receiverBmatrix->at(bl))[col] = 1;
-	for(int col = nAnt; col < nAnt + nUBL; col++) (receiverBmatrix->at(bl))[col] = 0;
-	bl = nCrossBL + 1;
-	for(int col = 0; col < nAnt; col++)	(receiverBmatrix->at(bl))[col] = 0;
-	for(int col = nAnt; col < nAnt + nUBL; col++) (receiverBmatrix->at(bl))[col] = 0;
-	(receiverBmatrix->at(bl))[nAnt] = 1;
-	bl = nCrossBL + 2;
-	for(int col = 0; col < nAnt; col++)	(receiverBmatrix->at(bl))[col] = 0;
-	for(int col = nAnt; col < nAnt + nUBL; col++) (receiverBmatrix->at(bl))[col] = 0;
-	(receiverBmatrix->at(bl))[nAnt+1] = 1;
-	return true;
-}
+	//int bl = nCrossBL;
+	//for(int col = 0; col < nAnt; col++)	(receiverBmatrix->at(bl))[col] = 1;
+	//for(int col = nAnt; col < nAnt + nUBL; col++) (receiverBmatrix->at(bl))[col] = 0;
+	//bl = nCrossBL + 1;
+	//for(int col = 0; col < nAnt; col++)	(receiverBmatrix->at(bl))[col] = 0;
+	//for(int col = nAnt; col < nAnt + nUBL; col++) (receiverBmatrix->at(bl))[col] = 0;
+	//(receiverBmatrix->at(bl))[nAnt] = 1;
+	//bl = nCrossBL + 2;
+	//for(int col = 0; col < nAnt; col++)	(receiverBmatrix->at(bl))[col] = 0;
+	//for(int col = nAnt; col < nAnt + nUBL; col++) (receiverBmatrix->at(bl))[col] = 0;
+	//(receiverBmatrix->at(bl))[nAnt+1] = 1;
+	//return true;
+//}
 
-bool findReversedBaselines(vector<int> *receiverList, vector<vector<float> > *antloc){
-	string METHODNAME = "findReversedBaselines";
-	int nAnt = antloc->size();
-	int nUBL = countUBL(antloc);
-	int nCrossBL = nAnt * (nAnt - 1) / 2;
-	vector<vector<float> > UBL(nUBL, vector<float> (3, 0));
-	computeUBL(antloc, &UBL);
-	if (receiverList->size() != nCrossBL){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL INPUT MISMATCH! Dimension of the receiver list is " << receiverList->size() << ", NOT expected " << nCrossBL << " for " << nAnt << " antennae. Returned!!!" << endl;
-		return false;
-	}
-	for(int bl = 0; bl < nCrossBL; bl++){
-		int ant1 = get2DBLCross(bl, nAnt)[0];
-		int ant2 = get2DBLCross(bl, nAnt)[1];
-		int UBLindex = indexUBL(&UBL, getBL(ant1, ant2, antloc));
-		if(UBLindex == 0){
-			cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL ERROR! No corresponding unique baseline found for antenna pair" << ant1 << " " << ant2 << "! ReversedBaselines Failed to generate!" << endl;
-			return false;
-		}
-		if(UBLindex > 0){
-			receiverList->at(bl) = 0;
-		} else {
-			receiverList->at(bl) = 1;
-		}
-	}
-	return true;
-}
+//bool findReversedBaselines(vector<int> *receiverList, vector<vector<float> > *antloc){
+	//string METHODNAME = "findReversedBaselines";
+	//int nAnt = antloc->size();
+	//int nUBL = countUBL(antloc);
+	//int nCrossBL = nAnt * (nAnt - 1) / 2;
+	//vector<vector<float> > UBL(nUBL, vector<float> (3, 0));
+	//computeUBL(antloc, &UBL);
+	//if (receiverList->size() != nCrossBL){
+		//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL INPUT MISMATCH! Dimension of the receiver list is " << receiverList->size() << ", NOT expected " << nCrossBL << " for " << nAnt << " antennae. Returned!!!" << endl;
+		//return false;
+	//}
+	//for(int bl = 0; bl < nCrossBL; bl++){
+		//int ant1 = get2DBLCross(bl, nAnt)[0];
+		//int ant2 = get2DBLCross(bl, nAnt)[1];
+		//int UBLindex = indexUBL(&UBL, getBL(ant1, ant2, antloc));
+		//if(UBLindex == 0){
+			//cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL ERROR! No corresponding unique baseline found for antenna pair" << ant1 << " " << ant2 << "! ReversedBaselines Failed to generate!" << endl;
+			//return false;
+		//}
+		//if(UBLindex > 0){
+			//receiverList->at(bl) = 0;
+		//} else {
+			//receiverList->at(bl) = 1;
+		//}
+	//}
+	//return true;
+//}
 
 void mergeCalibrationPar (vector<float> * ampcalpar1, vector<float> * ampcalpar2, vector<float> * ampcalparM, vector<float> * phasecalpar1, vector<float> * phasecalpar2, vector<float> * phasecalparM)//Only deals with ampcalpar and phasecalpar, Chisq should be the chisq of the second set, so are the UBLs
 {
-	for ( int i = 0; i < ampcalparM->size(); i++){
+	for (uint i = 0; i < ampcalparM->size(); i++){
 		ampcalparM->at(i) = ampcalpar1->at(i) + ampcalpar2->at(i);
 		phasecalparM->at(i) = phaseWrap( phasecalpar1->at(i) + phasecalpar2->at(i) );
 	}
@@ -2266,8 +2267,8 @@ vector<float> getBL(int i, int j, vector<vector<float> > *antloc){
 int countUBL(vector<vector<float> > *antloc ){
 	vector<float> bl;
 	vector<vector<float> > UBL;
-	for (int i = 0; i < antloc->size() - 1; i++){
-		for (int j = i + 1; j < antloc->size(); j++){
+	for (unsigned int i = 0; i < antloc->size() - 1; i++){
+		for (unsigned int j = i + 1; j < antloc->size(); j++){
 			bl = getBL(i, j, antloc);
 			if (!contains(&UBL, bl)) {
 				UBL.push_back(bl);
@@ -2278,7 +2279,7 @@ int countUBL(vector<vector<float> > *antloc ){
 }
 
 int lookupAnt(float x, float y, vector<vector<float> > antloc){
-	for (int i = 0; i < antloc.size(); i++){
+	for (unsigned int i = 0; i < antloc.size(); i++){
 		if ( x == antloc[i][0] && y == antloc[i][1]){
 			return i;
 		}
@@ -2296,7 +2297,7 @@ float phaseWrap (float x, float offset/*default -pi*/){
 	return x;
 }
 
-void phaseCalibrate120(vector<float>* calpar120, vector<float>* calpar16, int nAnt, vector<bool>* badAnt){//find the median solution of 16 antenna calpars from 120 visibility calpars
+void phaseCalibrate120(vector<float>* calpar120, vector<float>* calpar16, uint nAnt, vector<bool>* badAnt){//find the median solution of 16 antenna calpars from 120 visibility calpars
 	string METHODNAME = "phaseCalibrate";
 	if (calpar120->size() != nAnt * (nAnt - 1) / 2) {
 		cout << "##" << FILENAME << "##" << METHODNAME << ": FATAL ERROR: input calpar120 length is " << calpar120->size() << ", not the expected length of " << nAnt * (nAnt - 1) / 2 << "! Abort!" << endl;
@@ -2308,15 +2309,15 @@ void phaseCalibrate120(vector<float>* calpar120, vector<float>* calpar16, int nA
 	}
 	vector<vector<float> > calpar(nAnt, vector<float>(nAnt, 0));
 	int counter = 0;
-	for (int i = 0; i < nAnt; i++){
-		for (int j = i + 1; j < nAnt; j++){
+	for (uint i = 0; i < nAnt; i++){
+		for (uint j = i + 1; j < nAnt; j++){
 			calpar[i][j] = calpar120->at(counter);
 			counter++;
 		}
 	}
-	for (int i = 0; i < nAnt; i++){
+	for (uint i = 0; i < nAnt; i++){
 		if(!(badAnt->at(i))){
-			for (int j = 0; j < i; j++){
+			for (uint j = 0; j < i; j++){
 				calpar[i][j] = -calpar[j][i];
 			}
 		}
@@ -2330,7 +2331,7 @@ void phaseCalibrate120(vector<float>* calpar120, vector<float>* calpar16, int nA
 	}
 	cout << endl << "**********" << endl;	//DEBUG
 */
-	for (int i = 0; i < nAnt; i++){
+	for (uint i = 0; i < nAnt; i++){
 		if(!(badAnt->at(i))){
 			for (int j = nAnt - 1; j > -1; j = j - 1){//reversed order such that the first element won't get zeroed out before substracted from the rest
 				calpar[i][j] = phaseWrap(calpar[i][j] - calpar[i][0]);
@@ -2356,12 +2357,12 @@ void phaseCalibrate120(vector<float>* calpar120, vector<float>* calpar16, int nA
 	cout << endl << "**********" << endl;	//DEBUG
 */
 	vector<vector<float> > calparT (calpar[0].size(), vector<float>(calpar.size(), 0));
-	for (int i = 0; i < calparT.size(); i++){
-		for (int j = 0; j < calparT[0].size(); j++){
+	for (unsigned int i = 0; i < calparT.size(); i++){
+		for (unsigned int j = 0; j < calparT[0].size(); j++){
 			calparT[i][j] = calpar[j][i];
 		}
 	}
-	for (int i = 0; i < nAnt; i++){
+	for (uint i = 0; i < nAnt; i++){
 		calpar16->at(i) = medianAngle(&(calparT[i]));
 //		cout << calpar16->at(i) << " ";//DEBUG
 	}
@@ -2369,7 +2370,7 @@ void phaseCalibrate120(vector<float>* calpar120, vector<float>* calpar16, int nA
 	return;
 }
 
-vector<float> phaseCalibrate(vector<vector<float> > *dataf, string pol, float freq, vector<vector<float> > *antloc, vector<vector<float> > *cablelen, int startingAnt1, int startingAnt2, int startingAnt3, int nAntenna){
+vector<float> phaseCalibrate(vector<vector<float> > *dataf, string pol, float freq, vector<vector<float> > *antloc, vector<vector<float> > *cablelen, int startingAnt1, int startingAnt2, int startingAnt3, uint nAntenna){
 	string METHODNAME = "phaseCalibrate";
 	vector<float> output( nAntenna, 0 );
 	vector<bool> calibrated( nAntenna, false);//denote whether each antenna has been calibrated
@@ -2439,13 +2440,13 @@ vector<float> phaseCalibrate(vector<vector<float> > *dataf, string pol, float fr
 	int numCorrected = 1;
 	while ( numCorrected > 0 ){
 		numCorrected = 0;
-		for ( int i = 0; i < nAntenna; i++ ){
-			for ( int jj = 0; jj < calibratedList.size(); jj++){
+		for (uint i = 0; i < nAntenna; i++ ){
+			for (uint jj = 0; jj < calibratedList.size(); jj++){
 				if (!calibrated[i]){
-					int j = calibratedList[jj];
+					uint j = calibratedList[jj];
 					vector<float> ijBL = getBL(i, j, antloc);
 					float ijphase = phase((dataf->at(get1DBL(i, j, nAntenna)))[0], (dataf->at(get1DBL(i, j, nAntenna)))[1]);
-					for ( int k = 0; k < knownUBL.size(); k++){
+					for (uint k = 0; k < knownUBL.size(); k++){
 						if (ijBL[0] == knownUBL[k][0] && ijBL[1] == knownUBL[k][1]){
 							if ( i < j ){
 								output[i] = phaseWrap( knownUBLphase[k] - ijphase + output[j]);
@@ -2489,7 +2490,7 @@ void computeUBL(vector<vector<float> > * antloc, vector<vector<float> > * listUB
 			}
 		}
 	}
-	for (int i = 0; i < UBLtmp.size(); i++){
+	for (unsigned int i = 0; i < UBLtmp.size(); i++){
 		listUBL->at(i) = UBLtmp[i];
 	}
 	return;
@@ -2540,7 +2541,7 @@ void computeUBLcor(vector<vector<float> >* calibratedData, vector<int> *UBLindex
 
 vector<float> getModel(int i, int j, vector<vector<float> > *antloc, vector<vector<float> > *listUBL, vector<vector<float> > *UBLcor){
 	vector<float> baseline = getBL(i, j, antloc);
-	for ( int k = 0; k < listUBL->size(); k++){
+	for (uint k = 0; k < listUBL->size(); k++){
 		if ( baseline[0] == (&(listUBL->at(k)))->at(0) && baseline[1] == (&(listUBL->at(k)))->at(1) ){
 			return UBLcor->at(k);
 		} else	if ( baseline[0] == -(&(listUBL->at(k)))->at(0) && baseline[1] == -(&(listUBL->at(k)))->at(1) ){
@@ -2593,8 +2594,8 @@ void ReverseEngineer(vector<vector<float> >* output, vector<float> * calpar, int
 
 float chiSq(vector<vector<float> > * dataf, vector<vector<float> > * sdevf, vector<vector<float> > * antloc, vector<float> * ampcalpar, vector<float> * phasecalpar, vector<vector<float> > * UBLcor, int numAntenna, vector<vector<float> > * listUBL){
 	string METHODNAME = "chiSq";
-	int numCrosscor = numAntenna * ( numAntenna - 1 ) / 2;
-	int numAutocor = numAntenna * ( numAntenna + 1 ) / 2;
+	uint numCrosscor = numAntenna * ( numAntenna - 1 ) / 2;
+	uint numAutocor = numAntenna * ( numAntenna + 1 ) / 2;
 	if ( dataf->size() != numAutocor) {
 		cout << "#!#" << FILENAME << "#!#" << METHODNAME << ": !!!!FATAL ERROR!!!! Length of data is " << dataf->size() << ", not consistent with expected " << numAutocor << " from specified " << numAntenna << " antenna!" << endl;
 		return 0.0;
@@ -2622,7 +2623,7 @@ float chiSq(vector<vector<float> > * dataf, vector<vector<float> > * sdevf, vect
 
 	Ax = ReverseEngineer(ampcalpar, phasecalpar, UBLcor, antloc, listUBL);
 
-	for (int i = 0; i < numCrosscor; i ++){
+	for (uint i = 0; i < numCrosscor; i ++){
 		output = output + square(( Ax[i][0] - y[i][0] ) / max(N[i][0], MIN_NONE_ZERO)) + square( ( Ax[i][1] - y[i][1] ) / max(N[i][1], MIN_NONE_ZERO));
 	}
 
@@ -2631,8 +2632,8 @@ float chiSq(vector<vector<float> > * dataf, vector<vector<float> > * sdevf, vect
 
 bool fillChiSq(vector<vector<float> >* dataf, vector<vector<float> >* sdevf, vector<float>* calpar, int numAntenna, vector<int>* UBLindex, vector<bool>* goodAnt){
 	string METHODNAME = "fillChiSq";
-	int numCrosscor = numAntenna * ( numAntenna - 1 ) / 2;
-	int numAutocor = numAntenna * ( numAntenna + 1 ) / 2;
+	uint numCrosscor = numAntenna * ( numAntenna - 1 ) / 2;
+	uint numAutocor = numAntenna * ( numAntenna + 1 ) / 2;
 	if ( dataf->size() != numAutocor) {
 		cout << "#!#" << FILENAME << "#!#" << METHODNAME << ": !!!!FATAL ERROR!!!! Length of data is " << dataf->size() << ", not consistent with expected " << numAutocor << " from specified " << numAntenna << " antenna!" << endl;
 		return false;
@@ -2647,7 +2648,7 @@ bool fillChiSq(vector<vector<float> >* dataf, vector<vector<float> >* sdevf, vec
 	vector<vector<float> > Ax(numCrosscor, bl);
 	ReverseEngineer(&Ax, calpar, numAntenna, UBLindex);
 
-	for (int i = 0; i < numCrosscor; i ++){
+	for (uint i = 0; i < numCrosscor; i ++){
 		vector<int> a = get2DBLCross(i, numAntenna);
 		if(goodAnt->at(a[0]) and goodAnt->at(a[1])){
 			int blauto = get1DBL(a[0], a[1], numAntenna);
@@ -2682,7 +2683,7 @@ float medianAngle (vector<float> *list){
 	//cout << "#!#" << FILENAME << "#!#" << METHODNAME << " DBG ";
 	vector<float> xList(list->size());
 	vector<float> yList(list->size());
-	for (int i = 0; i < list->size(); i++){
+	for (unsigned int i = 0; i < list->size(); i++){
 		//cout << list[i] << " ";
 		xList[i] = cos(list->at(i));
 		yList[i] = sin(list->at(i));
@@ -2737,7 +2738,7 @@ float meanAngle (vector<float> *list){
 	//cout << "#!#" << FILENAME << "#!#" << METHODNAME << " DBG ";
 	vector<float> xList(list->size());
 	vector<float> yList(list->size());
-	for (int i = 0; i < list->size(); i++){
+	for (unsigned int i = 0; i < list->size(); i++){
 		//cout << list[i] << " ";
 		xList[i] = cos(list->at(i));
 		yList[i] = sin(list->at(i));
@@ -2860,7 +2861,7 @@ void pointSourceCal(vector<vector<float> > *data, vector<float> *ampcalpar, vect
 		autocor[i] = (data->at(get1DBL(i, i, nAnt)))[0];
 	}
 	float autoMedian = median(autocor);
-	for (int i = 0; i < UBLcalpar->size(); i++){
+	for (unsigned int i = 0; i < UBLcalpar->size(); i++){
 		(UBLcalpar->at(i))[0] = autoMedian;
 		(UBLcalpar->at(i))[1] = 0;
 	}
@@ -2879,7 +2880,7 @@ void rotateCalpar(vector<float> *originalPhase, vector<float> *rotatedPhase, vec
 	string METHODNAME = "rotatePhasecalpar";
 	float k = 2 * PI / SPEEDC * freq;
 	float sint = sin(theta);
-	float cost = cos(theta);
+	////float cost = cos(theta);
 	float sinp = sin(phi);
 	float cosp = cos(phi);
 
@@ -2889,12 +2890,12 @@ void rotateCalpar(vector<float> *originalPhase, vector<float> *rotatedPhase, vec
 		return;
 	}
 
-	for ( int i = 0; i < originalPhase->size(); i ++){
+	for (uint i = 0; i < originalPhase->size(); i ++){
 		//rotation[i] = k * (sint * cosp * ((&(antloc->at(i)))->at(0)) + sint * sinp * ((&(antloc->at(i)))->at(1)));
 		rotatedPhase->at(i) = phaseWrap( originalPhase->at(i) + k * (sint * sinp * ((&(antloc->at(i)))->at(0)) - sint * cosp * ((&(antloc->at(i)))->at(1))) );
 	}
 
-	for ( int i = 0; i < originalUBLcor->size(); i ++){
+	for (uint i = 0; i < originalUBLcor->size(); i ++){
 		//rotation[i] = k * (sint * cosp * ((&(antloc->at(i)))->at(0)) + sint * sinp * ((&(antloc->at(i)))->at(1)));
 		substractComplexPhase(
 			&(originalUBLcor->at(i)),
@@ -2923,7 +2924,7 @@ bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvA
 	! Written & tested by Max Tegmark 000506
 	*/
 
-	int i=0, j=0, k=0, n = AtNinvAori->size();//todo check size
+	uint i=0, j=0, k=0, n = AtNinvAori->size();//todo check size
 	vector<vector<float> > AtNinvAqaz(AtNinvAori->size(), vector<float>(AtNinvAori->at(0).size(),0));
 	vector<vector<float> > *AtNinvA = &AtNinvAqaz;
 	for( i = 0; i < AtNinvAori->size(); i++){
@@ -3006,7 +3007,7 @@ bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNin
 	! Written & tested by Max Tegmark 000506
 	*/
 
-	int i=0, j=0, k=0, n = AtNinvAori->size();//todo check size
+	uint i=0, j=0, k=0, n = AtNinvAori->size();//todo check size
 	vector<vector<float> > AtNinvAqaz(AtNinvAori->size(), vector<float>(AtNinvAori->at(0).size(),0));
 	vector<vector<float> > *AtNinvA = &AtNinvAqaz;
 	for( i = 0; i < AtNinvAori->size(); i++){
@@ -3146,7 +3147,7 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	}
 	////rewrap args
 	for(int i = 0; i < nubl; i ++){
-		for(int j = 0; j < (module->ublgrp1)[i].size(); j ++){
+		for (uint j = 0; j < (module->ublgrp1)[i].size(); j ++){
 			(module->ublgrp1)[i][j] = module->pha1[info->ublindex[i][j][2]];
 		}
 	}
@@ -3160,14 +3161,14 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	}
 
 	fill(module->x3.begin(), module->x3.end(), 0);////At.y
-	for (int i = 0; i < info->Atsparse.size(); i++){
-		for (int j = 0; j < info->Atsparse[i].size(); j++){
+	for (unsigned int i = 0; i < info->Atsparse.size(); i++){
+		for (unsigned int j = 0; j < info->Atsparse[i].size(); j++){
 			module->x3[i] += module->amp1[info->Atsparse[i][j]];
 		}
 	}
 	fill(module->x4.begin(), module->x4.end(), 0);////Bt.y
-	for (int i = 0; i < info->Btsparse.size(); i++){
-		for (int j = 0; j < info->Btsparse[i].size(); j++){
+	for (unsigned int i = 0; i < info->Btsparse.size(); i++){
+		for (unsigned int j = 0; j < info->Btsparse[i].size(); j++){
 			module->x4[i] += module->pha1[info->Btsparse[i][j][0]] * info->Btsparse[i][j][1];
 		}
 	}
@@ -3200,7 +3201,7 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 
 vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >* b){
 	vector<float> sum1(2, 0);
-	for(int i =0; i < a->size(); i++){
+	for (uint i =0; i < a->size(); i++){
 		sum1[0] += a->at(i)[0] * b->at(i)[0] + a->at(i)[1] * b->at(i)[1];
 		sum1[1] += a->at(i)[1] * b->at(i)[0] - a->at(i)[0] * b->at(i)[1];
 	}
@@ -3213,13 +3214,13 @@ vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >*
 void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
 
 	////initialize data and g0 ubl0
-	for (int b = 0; b < (module->cdata1).size(); b++){
+	for (unsigned int b = 0; b < (module->cdata1).size(); b++){
 		module->cdata1[b][0] = data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0];
 		module->cdata1[b][1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1];
 	}
 
 	float amptmp;
-	int cbl;
+	unsigned int cbl;
 	float stepsize2 = 1 - stepsize;
 	for (int a = 0; a < info->nAntenna; a++){
 		amptmp = pow(10, calpar->at(3 + a));
@@ -3233,7 +3234,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		}
 	} else{//if command is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input
 		for (int u = 0; u < info->nUBL; u++){
-			for (int i = 0; i < module->ubl2dgrp1[u].size(); i++){
+			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 				cbl = info->ublindex[u][i][2];
 				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
 				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
@@ -3247,7 +3248,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 	float gre, gim, chisq, chisq2;
 	int a1, a2;
 	chisq = 0;
-	for (int b = 0; b < (module->cdata2).size(); b++){
+	for (unsigned int b = 0; b < (module->cdata2).size(); b++){
 		a1 = info->bl2d[info->crossindex[b]][0];
 		a2 = info->bl2d[info->crossindex[b]][1];
 		gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
@@ -3267,8 +3268,8 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		//cout << "iteration #" << iter << endl; cout.flush();
 		////calpar g
 
-		for (int a3 = 0; a3 < module->g3.size(); a3++){////g3 will be containing the final dg, g1, g2 will contain a and b as in the cost function LAMBDA = ||a + b*g||^2
-			for (int a = 0; a < a3; a++){
+		for (unsigned int a3 = 0; a3 < module->g3.size(); a3++){////g3 will be containing the final dg, g1, g2 will contain a and b as in the cost function LAMBDA = ||a + b*g||^2
+			for (unsigned int a = 0; a < a3; a++){
 				cbl = info->bl1dmatrix[a3][a];
 				if (cbl < 0 or cbl > module->cdata1.size()){//badbl
 					module->g1[a] = vector<float>(2,0);
@@ -3281,7 +3282,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			}
 			(module->g1)[a3] = vector<float>(2,0);
 			(module->g2)[a3] = (module->g1)[a3];
-			for (int a = a3 + 1; a < module->g3.size(); a++){
+			for (unsigned int a = a3 + 1; a < module->g3.size(); a++){
 				cbl = info->bl1dmatrix[a3][a];
 				if (cbl < 0 or cbl > module->cdata1.size()){//badbl
 					module->g1[a] = vector<float>(2,0);
@@ -3302,7 +3303,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 
 		////ubl M
 		for (int u = 0; u < info->nUBL; u++){
-			for (int i = 0; i < module->ubl2dgrp1[u].size(); i++){
+			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 				cbl = info->ublindex[u][i][2];
 				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
 				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
@@ -3316,7 +3317,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 
 		////Update g and ubl
 		//float fraction;
-		for (int a = 0; a < module->g3.size(); a++){
+		for (unsigned int a = 0; a < module->g3.size(); a++){
 			//fraction = amp(module->g3[a][0] - module->g0[a][0], module->g3[a][1] - module->g0[a][1]) / amp(module->g0[a][0], module->g0[a][1]);
 			//if (fraction > componentchange){
 				//componentchange = fraction;
@@ -3326,7 +3327,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			module->g0[a][1] = stepsize2 * module->g0[a][1] + stepsize * module->g3[a][1];
 
 		}
-		for (int u = 0; u < module->ubl3.size(); u++){
+		for (unsigned int u = 0; u < module->ubl3.size(); u++){
 			//fraction = amp(module->ubl3[u][0] - module->ubl0[u][0], module->ubl3[u][1] - module->ubl0[u][1]) / amp(module->ubl0[u][0], module->ubl0[u][1]);
 			//if (fraction > componentchange){
 				//componentchange = fraction;
@@ -3337,7 +3338,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 
 		//compute chisq and decide convergence
 		chisq2 = 0;
-		for (int b = 0; b < (module->cdata2).size(); b++){
+		for (unsigned int b = 0; b < (module->cdata2).size(); b++){
 			a1 = info->bl2d[info->crossindex[b]][0];
 			a2 = info->bl2d[info->crossindex[b]][1];
 			gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
@@ -3355,19 +3356,19 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 
 	////update calpar and additive term
 	if( componentchange> 0){
-		for (int a = 0; a < module->g0.size(); a++){
+		for (unsigned int a = 0; a < module->g0.size(); a++){
 			calpar->at(3 + a) = log10(amp(&(module->g0[a])));
 			calpar->at(3 + info->nAntenna + a) = phase(&(module->g0[a]));
 		}
 		int tmp = 3 + 2 * info->nAntenna;
-		for (int u = 0; u < module->ubl0.size(); u++){
+		for (unsigned int u = 0; u < module->ubl0.size(); u++){
 			calpar->at(tmp + 2 * u) = module->ubl0[u][0];
 			calpar->at(tmp + 2 * u + 1) = module->ubl0[u][1];
 		}
 
 		calpar->at(0) += iter;
 		calpar->at(2) = chisq;
-		for (int b = 0; b < (module->cdata2).size(); b++){
+		for (unsigned int b = 0; b < (module->cdata2).size(); b++){
 			additiveout->at(info->crossindex[b])[0] = module->cdata1[b][0] - module->cdata2[b][0];
 			additiveout->at(info->crossindex[b])[1] = module->cdata1[b][1] - module->cdata2[b][1];
 		}
@@ -3381,9 +3382,9 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 }
 
 void loadGoodVisibilities(vector<vector<vector<vector<float> > > > * rawdata, vector<vector<vector<vector<float> > > >* receiver, redundantinfo* info, int xy){////0 for xx 3 for yy
-	for (int t = 0; t < receiver->size(); t++){
-		for (int f = 0; f < receiver->at(0).size(); f++){
-			for (int bl = 0; bl < receiver->at(0)[0].size(); bl++){
+	for (unsigned int t = 0; t < receiver->size(); t++){
+		for (unsigned int f = 0; f < receiver->at(0).size(); f++){
+			for (unsigned int bl = 0; bl < receiver->at(0)[0].size(); bl++){
 				receiver->at(t)[f][bl][0] = rawdata->at(xy)[t][f][2 * info->subsetbl[bl]];
 				receiver->at(t)[f][bl][1] = rawdata->at(xy)[t][f][2 * info->subsetbl[bl] + 1];
 			}
@@ -3431,20 +3432,20 @@ void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* modu
 	return;
 }
 
-void runAverage1d(vector<float> *in, vector<float> *out, int w){//compute running average with running length 2w+1. The first and last w elements are averaged with less elements.
+void runAverage1d(vector<float> *in, vector<float> *out, uint w){//compute running average with running length 2w+1. The first and last w elements are averaged with less elements.
 	string METHODNAME = "runAverage1d";
 	if(in->size() != out->size()){
 		printf("#!!#%s#!!#%s: FATAL ERROR: input and output arrays have different dimensions: %lu vs %lu. ABORT!\n", FILENAME.c_str(), METHODNAME.c_str(), in->size(), out->size());
 		return;
 	}
-	int l = in->size();
+	uint l = in->size();
 	double sum = 0;
-	int n = 0;//number of items in sum
-	for (int i = 0; i < min(w, l); i++){
+	uint n = 0;//number of items in sum
+	for (uint i = 0; i < min(w, l); i++){
 		sum += in->at(i);
 		n++;
 	}
-	for (int i = 0; i < out->size(); i++){
+	for (uint i = 0; i < out->size(); i++){
 		if(i + w < l){
 			sum += in->at(i + w);
 			n++;
@@ -3484,44 +3485,44 @@ void runAverage(vector<vector<vector<vector<float> > > > *in, int dimension, int
 	dummy2 = dummy;
 
 
-	for (int t = 0; t < in->size(); t++){
-		for (int f = 0; f < in->at(0).size(); f++){
-			for (int b = 0; b < in->at(0)[0].size(); b++){
-				for (int ri = 0; ri < in->at(0)[0][0].size(); ri++){
+	for (unsigned int t = 0; t < in->size(); t++){
+		for (unsigned int f = 0; f < in->at(0).size(); f++){
+			for (unsigned int b = 0; b < in->at(0)[0].size(); b++){
+				for (unsigned int ri = 0; ri < in->at(0)[0][0].size(); ri++){
 					switch(dimension){
 						case 0:
-							for (int i = 0; i < dummy.size(); i ++){
+							for (unsigned int i = 0; i < dummy.size(); i ++){
 								dummy[i] = in->at(i)[f][b][ri];
 							}
 								runAverage1d(&dummy, &dummy2, w);
-							for (int i = 0; i < dummy.size(); i ++){
+							for (unsigned int i = 0; i < dummy.size(); i ++){
 								in->at(i)[f][b][ri] = dummy2[i];
 							}
 							break;
 						case 1:
-							for (int i = 0; i < dummy.size(); i ++){
+							for (unsigned int i = 0; i < dummy.size(); i ++){
 								dummy[i] = in->at(t)[i][b][ri];
 							}
 								runAverage1d(&dummy, &dummy2, w);
-							for (int i = 0; i < dummy.size(); i ++){
+							for (unsigned int i = 0; i < dummy.size(); i ++){
 								in->at(t)[i][b][ri] = dummy2[i];
 							}
 							break;
 						case 2:
-							for (int i = 0; i < dummy.size(); i ++){
+							for (unsigned int i = 0; i < dummy.size(); i ++){
 								dummy[i] = in->at(t)[f][i][ri];
 							}
 								runAverage1d(&dummy, &dummy2, w);
-							for (int i = 0; i < dummy.size(); i ++){
+							for (unsigned int i = 0; i < dummy.size(); i ++){
 								in->at(t)[f][i][ri] = dummy2[i];
 							}
 							break;
 						case 3:
-							for (int i = 0; i < dummy.size(); i ++){
+							for (unsigned int i = 0; i < dummy.size(); i ++){
 								dummy[i] = in->at(t)[f][b][i];
 							}
 								runAverage1d(&dummy, &dummy2, w);
-							for (int i = 0; i < dummy.size(); i ++){
+							for (unsigned int i = 0; i < dummy.size(); i ++){
 								in->at(t)[f][b][i] = dummy2[i];
 							}
 							break;

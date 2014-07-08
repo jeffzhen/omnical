@@ -45,6 +45,7 @@ setup(name = 'omnical',
             globdir('src/_omnical/',
                 ['*.cpp', '*.c', '*.cc']),
             include_dirs = ['src/_omnical/include', numpy.get_include()],
+            extra_compile_args=['-Wno-write-strings', '-O3']
         )
     ],
     scripts = glob.glob('scripts/*'),

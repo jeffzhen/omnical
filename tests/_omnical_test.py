@@ -33,7 +33,7 @@ class TestMethods(unittest.TestCase):
 
 
     def test_all(self):
-        FILENAME = "test.py"
+        ##FILENAME = "test.py"
         ######################################################################
         ##############Config parameters###################################
         ######################################################################
@@ -87,9 +87,9 @@ class TestMethods(unittest.TestCase):
             calibrator.compute_redundantinfo(arrayinfoPath = arrayinfos[key])
             #calibrator.write_redundantinfo(infoPath = './redundantinfo_test_' + key + '.txt', overwrite = True)
         ###start reading miriads################
-        print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
+        ##print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
         data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols, nTotalAntenna = 32,timingTolerance = 2*math.pi)
-        print FILENAME + " MSG:",  len(t), "slices read."
+        ##print FILENAME + " MSG:",  len(t), "slices read."
 
         ###raw calibration################
         if needrawcal:
@@ -110,7 +110,7 @@ class TestMethods(unittest.TestCase):
 
 
         ####calibrate################
-        print FILENAME + " MSG: starting calibration."
+        ##print FILENAME + " MSG: starting calibration."
         for p, calibrator in zip(range(len(wantpols)), calibrators):
             calibrator.removeDegeneracy = removedegen
             calibrator.removeAdditive = removeadditive

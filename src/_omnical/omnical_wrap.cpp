@@ -1,7 +1,7 @@
 #include "include/omnical_wrap.h"
 
 #define QUOTE(a) # a
-
+#define uint unsigned int
 #define CHK_NULL(a) \
     if (a == NULL) { \
         PyErr_Format(PyExc_MemoryError, "Failed to allocate %s", QUOTE(a)); \
@@ -465,8 +465,8 @@ PyObject *RedInfoObject_get_ublindex(RedInfoObject *self, void *closure) {
     npy_intp data_dims[2] = {self->info.crossindex.size(), 5};
     rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
     int cnter = 0;
-    for (int i=0; i < self->info.ublindex.size(); i++) {
-      for (int j=0; j < self->info.ublindex[i].size(); j++) {
+    for (unsigned int i=0; i < self->info.ublindex.size(); i++) {
+      for (unsigned int j=0; j < self->info.ublindex[i].size(); j++) {
             ((int *) PyArray_GETPTR2(rv,cnter,0))[0] = i;
             ((int *) PyArray_GETPTR2(rv,cnter,1))[0] = j;
             ((int *) PyArray_GETPTR2(rv,cnter,2))[0] = self->info.ublindex[i][j][0];
@@ -480,7 +480,7 @@ PyObject *RedInfoObject_get_ublindex(RedInfoObject *self, void *closure) {
     
 int RedInfoObject_set_ublindex(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
-    npy_intp dim1,dim2,dim3;
+    npy_intp dim1;
     if (!PyArray_Check(value)) {
         PyErr_Format(PyExc_ValueError, "ublindex must be a numpy array");
         return -1;
@@ -491,13 +491,13 @@ int RedInfoObject_set_ublindex(RedInfoObject *self, PyObject *value, void *closu
         return -1;
     }
     dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);//always5
+    //dim2 = PyArray_DIM(v,1);//always5
     vector<int> dummy (3,0);
     
     
     for (int n=0; n < dim1; n++) {
-        int i = ((int *) PyArray_GETPTR2(v,n,0))[0];
-        int j = ((int *) PyArray_GETPTR2(v,n,1))[0];
+        uint i = ((uint *) PyArray_GETPTR2(v,n,0))[0];
+        uint j = ((uint *) PyArray_GETPTR2(v,n,1))[0];
         dummy[0] = ((int *) PyArray_GETPTR2(v,n,2))[0];
         dummy[1] = ((int *) PyArray_GETPTR2(v,n,3))[0];
         dummy[2] = ((int *) PyArray_GETPTR2(v,n,4))[0];
@@ -676,8 +676,8 @@ PyObject *RedInfoObject_get_Atsparse(RedInfoObject *self, void *closure) {
     npy_intp data_dims[2] = {3 * (self->info.crossindex.size()), 3};
     rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
     int cnter = 0;
-    for (int i=0; i < self->info.Atsparse.size(); i++) {
-      for (int j=0; j < self->info.Atsparse[i].size(); j++) {
+    for (unsigned int i=0; i < self->info.Atsparse.size(); i++) {
+      for (unsigned int j=0; j < self->info.Atsparse[i].size(); j++) {
             ((int *) PyArray_GETPTR2(rv,cnter,0))[0] = i;
             ((int *) PyArray_GETPTR2(rv,cnter,0))[1] = self->info.Atsparse[i][j];
             ((int *) PyArray_GETPTR2(rv,cnter,0))[2] = 1;
@@ -689,7 +689,7 @@ PyObject *RedInfoObject_get_Atsparse(RedInfoObject *self, void *closure) {
     
 int RedInfoObject_set_Atsparse(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
-    npy_intp dim1, dim2;
+    npy_intp dim1;
     if (!PyArray_Check(value)) {
         PyErr_Format(PyExc_ValueError, "Atsparse must be a numpy array");
         return -1;
@@ -700,12 +700,12 @@ int RedInfoObject_set_Atsparse(RedInfoObject *self, PyObject *value, void *closu
         return -1;
     }
     dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);//always 3
+    //dim2 = PyArray_DIM(v,1);//always 3
 
     for (int n=0; n < dim1; n++) {
-        int i = ((int *) PyArray_GETPTR2(v,n,0))[0];
-        int j = ((int *) PyArray_GETPTR2(v,n,1))[0];
-        int k = ((int *) PyArray_GETPTR2(v,n,2))[0];//always 1
+        uint i = ((uint *) PyArray_GETPTR2(v,n,0))[0];
+        uint j = ((uint *) PyArray_GETPTR2(v,n,1))[0];
+        ////uint k = ((uint *) PyArray_GETPTR2(v,n,2))[0];//always 1
         
         if (self->info.Atsparse.size() < i + 1){
             self->info.Atsparse.resize(i + 1);
@@ -722,8 +722,8 @@ PyObject *RedInfoObject_get_Btsparse(RedInfoObject *self, void *closure) {
     npy_intp data_dims[2] = {3 * (self->info.crossindex.size()), 3};
     rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
     int cnter = 0;
-    for (int i=0; i < self->info.Btsparse.size(); i++) {
-      for (int j=0; j < self->info.Btsparse[i].size(); j++) {
+    for (unsigned int i=0; i < self->info.Btsparse.size(); i++) {
+      for (unsigned int j=0; j < self->info.Btsparse[i].size(); j++) {
             ((int *) PyArray_GETPTR2(rv,cnter,0))[0] = i;
             ((int *) PyArray_GETPTR2(rv,cnter,0))[1] = self->info.Btsparse[i][j][0];
             ((int *) PyArray_GETPTR2(rv,cnter,0))[2] = self->info.Btsparse[i][j][1];
@@ -735,7 +735,7 @@ PyObject *RedInfoObject_get_Btsparse(RedInfoObject *self, void *closure) {
     
 int RedInfoObject_set_Btsparse(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
-    npy_intp dim1, dim2, dim3;
+    npy_intp dim1;
     if (!PyArray_Check(value)) {
         PyErr_Format(PyExc_ValueError, "Btsparse must be a numpy array");
         return -1;
@@ -746,11 +746,11 @@ int RedInfoObject_set_Btsparse(RedInfoObject *self, PyObject *value, void *closu
         return -1;
     }
     dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
+    ////dim2 = PyArray_DIM(v,1);
 
     vector<int> dummy(2,0);
     for (int n=0; n < dim1; n++) {
-        int i = ((int *) PyArray_GETPTR2(v,n,0))[0];
+        uint i = ((uint *) PyArray_GETPTR2(v,n,0))[0];
         dummy[0] = ((int *) PyArray_GETPTR2(v,n,1))[0];
         dummy[1] = ((int *) PyArray_GETPTR2(v,n,2))[0];
         if (self->info.Btsparse.size() < i + 1){
@@ -1249,7 +1249,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                     //stepsize
                 //);
             } else {
-                for (int n = 0; n < calpar_v.size(); n ++){
+                for (unsigned int n = 0; n < calpar_v.size(); n ++){
                     calpar_v[n] = ((float *) PyArray_GETPTR2(calpar,t,f))[n];
                 }
                 lincal(
@@ -1272,7 +1272,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                 ((float *) PyArray_GETPTR3(additiveout,t,f,b))[0] = additiveout_v[b][0];
                 ((float *) PyArray_GETPTR3(additiveout,t,f,b))[1] = additiveout_v[b][1];
             }
-            for (int b = 0; b < calpar_v.size(); b++) {
+            for (unsigned int b = 0; b < calpar_v.size(); b++) {
                 ((float *) PyArray_GETPTR3(calpar,t,f,b))[0] = calpar_v[b];
             }
         }
@@ -1314,129 +1314,129 @@ PyObject* norm_wrap(PyObject *self, PyObject *args){
 }
 
 
-PyObject* cal_wrap_old(PyObject *self, PyObject *args){
-    string FILENAME = "omnical_wrap.cpp";
-    string METHODNAME = "cal_wrap";
+////PyObject* cal_wrap_old(PyObject *self, PyObject *args){
+    ////string FILENAME = "omnical_wrap.cpp";
+    ////string METHODNAME = "cal_wrap";
 
-    clock_t tStart = clock();
+    ////clock_t tStart = clock();
 
-    char* visin_char;
-    char* infopath_char;
-
-
-    int nInt, nFreq, nAnt;
-    bool removedegen, removeadd;
-    int additivePeriod;
-    char* additivePeriodstr_char;
-    bool use_logcal;
-    float converge_percent;
-    int max_iter, step_size;
-
-    if (!PyArg_ParseTuple(args, "ssiiiiisifii", &visin_char, &infopath_char, &nInt, &nFreq, &nAnt, &removedegen, &removeadd, &additivePeriodstr_char, &use_logcal, &converge_percent, &max_iter, &step_size))
-        return NULL;
-
-    string visin(visin_char);
-    string infopath(infopath_char);
-    additivePeriod = atoi(additivePeriodstr_char);
-    string additivePeriodstr(additivePeriodstr_char);
-
-    string calparout;
-    if (removeadd){
-        calparout = visin + "_add" + additivePeriodstr + ".omnical";
-    }else{
-        calparout = visin + ".omnical";
-    }
-
-    cout << "##" << FILENAME << "##" << METHODNAME << ": Starting " << visin << " " << nInt << " by " << nFreq << endl;
-    cout << "##" << FILENAME << "##" << METHODNAME << ": Reading redundant baseline information and pre-computed matrices:" << endl;//generated from 16. additive noise investigation _from_17.nb
-    redundantinfo info;
-    readredundantinfo(infopath, &info);
-
-    cout << "Good antenna count: " << info.nAntenna << ". UBL count: " << info.nUBL << "." << endl;
-    cout.flush();
+    ////char* visin_char;
+    ////char* infopath_char;
 
 
-    int nBaseline = nAnt * (nAnt + 1) / 2;
-    int nCross = nAnt * (nAnt - 1) / 2;
+    ////int nInt, nFreq, nAnt;
+    ////bool removedegen, removeadd;
+    ////int additivePeriod;
+    ////char* additivePeriodstr_char;
+    ////bool use_logcal;
+    ////float converge_percent;
+    ////int max_iter, step_size;
 
-    clock_t tStartVar = clock();
-    ////allocate big memories for calibration operations
-    cout << "##" << FILENAME << "##" << METHODNAME << ": Allocating big memories for calibration operations...";
-    cout.flush();
-    vector<vector<vector<vector<float> > > > rawdata(1, vector<vector<vector<float> > >(nInt, vector<vector<float> >(nFreq, vector<float>(2 * nBaseline, 0))));
-    vector<vector<vector<vector<float> > > > data(nInt, vector<vector<vector<float> > >(nFreq, vector<vector<float> >(info.subsetbl.size(), vector<float>(2, 0))));
-    vector<vector<vector<float> > > calpar(nInt, vector<vector<float> >(nFreq, vector<float>(3 + 2*(info.nUBL + info.nAntenna), 0)));
-    vector<vector<float> >additiveplaceholder(data[0][0].size(), vector<float>(data[0][0][0].size(), 0));
-    vector<vector<float> >additiveplaceholder2(data[0][0].size(), vector<float>(data[0][0][0].size(), 0));
-    //vector<vector<vector<vector<float> > > > additivein(nInt, vector<vector<vector<float> > >(nFreq, vector<vector<float> >(info.subsetbl.size(), vector<float>(2, 0))));
-    vector<vector<vector<vector<float> > > > additiveout(nInt, vector<vector<vector<float> > >(nFreq, vector<vector<float> >(info.subsetbl.size(), vector<float>(2, 0))));
-    calmemmodule module;////memory module to be reused in order to avoid redeclaring all sorts of long vectors
-    initcalmodule(&module, &info);
-    cout << "Done." << endl;
-    cout.flush();
+    ////if (!PyArg_ParseTuple(args, "ssiiiiisifii", &visin_char, &infopath_char, &nInt, &nFreq, &nAnt, &removedegen, &removeadd, &additivePeriodstr_char, &use_logcal, &converge_percent, &max_iter, &step_size))
+        ////return NULL;
 
+    ////string visin(visin_char);
+    ////string infopath(infopath_char);
+    ////additivePeriod = atoi(additivePeriodstr_char);
+    ////string additivePeriodstr(additivePeriodstr_char);
 
+    ////string calparout;
+    ////if (removeadd){
+        ////calparout = visin + "_add" + additivePeriodstr + ".omnical";
+    ////}else{
+        ////calparout = visin + ".omnical";
+    ////}
 
+    ////cout << "##" << FILENAME << "##" << METHODNAME << ": Starting " << visin << " " << nInt << " by " << nFreq << endl;
+    ////cout << "##" << FILENAME << "##" << METHODNAME << ": Reading redundant baseline information and pre-computed matrices:" << endl;//generated from 16. additive noise investigation _from_17.nb
+    ////redundantinfo info;
+    ////readredundantinfo(infopath, &info);
 
-    ////////////Start calibration///////////
-
-    readBinaryVisibilityLarge((visin).c_str(), &rawdata, 1, nInt, nFreq, nBaseline);
-
-    cout << "##" << FILENAME << "##" << METHODNAME << ": Loading good visibilities...";
-    cout.flush();
-    loadGoodVisibilities(&rawdata, &data, &info, 0);
-    cout << "Done." << endl;
-    cout.flush();
-    //printvv(&(data[5][50]));
-    //return 0;
-    //logcaladd(&(data[5][50]), &(additiveplaceholder), &info, &(calpar[5][50]), &(additiveplaceholder), 1, &module);
-    //lincal(&(data[5][50]), &(additiveplaceholder2), &info, &(calpar[5][50]), &module, 0.01, 10, 0.3);
-    //printv(&(calpar[5][50]), 0,10);
-    //return 0;
-    cout << "##" << FILENAME << "##" << METHODNAME << ": Calibrating...";
-    cout.flush();
-    for (int t = 0; t < data.size(); t++){
-        for (int f = 0; f < data[0].size(); f++){
-            if(use_logcal){
-                logcaladd(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module);
-                lincal(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveout[t][f]), 0, &module, converge_percent, max_iter, step_size);
-            } else{
-                lincal(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveout[t][f]), 1, &module, converge_percent, max_iter, step_size);
-            }
-            //if (f==50) cout << calpar[t][f][0] << " " << calpar[t][f][1] << " " << calpar[t][f][2] << endl;
-            if((not removeadd) and removedegen) removeDegen(&(calpar[t][f]), &info, &module);
-        }
-    }
-    if(removeadd){
-        runAverage(&additiveout, 0, additivePeriod);
-        for (int t = 0; t < data.size(); t++){
-            for (int f = 0; f < data[0].size(); f++){
-                lincal(&(data[t][f]), &(additiveout[t][f]), &info, &(calpar[t][f]), &(additiveplaceholder2), 0, &module, converge_percent, max_iter, step_size);
-                if(removedegen) removeDegen(&(calpar[t][f]), &info, &module);
-            }
-        }
-    }
-    cout << "Done." << endl;
-    cout.flush();
+    ////cout << "Good antenna count: " << info.nAntenna << ". UBL count: " << info.nUBL << "." << endl;
+    ////cout.flush();
 
 
-    cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing results...";
-    cout.flush();
-    if(removeadd){
-        stringstream ss;
-        ss << additivePeriod;
-        //string str = ss.str();
-        outputDataLarge(&additiveout, (visin + ".omniadd" + ss.str()).c_str());
-    }
-    outputCalparSP(&calpar, calparout, false, info.nAntenna);
-    cout << "##" << FILENAME << "##" << METHODNAME << ": Done. ";
-    cout.flush();
-    printf("Calibration time taken: %.2fs; ", (double)(clock() - tStartVar)/CLOCKS_PER_SEC);
-    printf("Total time taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
+    ////int nBaseline = nAnt * (nAnt + 1) / 2;
+////////    int nCross = nAnt * (nAnt - 1) / 2;
 
-    Py_INCREF(Py_None);
-    return Py_None;
-}
+    ////clock_t tStartVar = clock();
+    ////////allocate big memories for calibration operations
+    ////cout << "##" << FILENAME << "##" << METHODNAME << ": Allocating big memories for calibration operations...";
+    ////cout.flush();
+    ////vector<vector<vector<vector<float> > > > rawdata(1, vector<vector<vector<float> > >(nInt, vector<vector<float> >(nFreq, vector<float>(2 * nBaseline, 0))));
+    ////vector<vector<vector<vector<float> > > > data(nInt, vector<vector<vector<float> > >(nFreq, vector<vector<float> >(info.subsetbl.size(), vector<float>(2, 0))));
+    ////vector<vector<vector<float> > > calpar(nInt, vector<vector<float> >(nFreq, vector<float>(3 + 2*(info.nUBL + info.nAntenna), 0)));
+    ////vector<vector<float> >additiveplaceholder(data[0][0].size(), vector<float>(data[0][0][0].size(), 0));
+    ////vector<vector<float> >additiveplaceholder2(data[0][0].size(), vector<float>(data[0][0][0].size(), 0));
+    //////vector<vector<vector<vector<float> > > > additivein(nInt, vector<vector<vector<float> > >(nFreq, vector<vector<float> >(info.subsetbl.size(), vector<float>(2, 0))));
+    ////vector<vector<vector<vector<float> > > > additiveout(nInt, vector<vector<vector<float> > >(nFreq, vector<vector<float> >(info.subsetbl.size(), vector<float>(2, 0))));
+    ////calmemmodule module;////memory module to be reused in order to avoid redeclaring all sorts of long vectors
+    ////initcalmodule(&module, &info);
+    ////cout << "Done." << endl;
+    ////cout.flush();
+
+
+
+
+    ////////////////Start calibration///////////
+
+    ////readBinaryVisibilityLarge((visin).c_str(), &rawdata, 1, nInt, nFreq, nBaseline);
+
+    ////cout << "##" << FILENAME << "##" << METHODNAME << ": Loading good visibilities...";
+    ////cout.flush();
+    ////loadGoodVisibilities(&rawdata, &data, &info, 0);
+    ////cout << "Done." << endl;
+    ////cout.flush();
+    //////printvv(&(data[5][50]));
+    //////return 0;
+    //////logcaladd(&(data[5][50]), &(additiveplaceholder), &info, &(calpar[5][50]), &(additiveplaceholder), 1, &module);
+    //////lincal(&(data[5][50]), &(additiveplaceholder2), &info, &(calpar[5][50]), &module, 0.01, 10, 0.3);
+    //////printv(&(calpar[5][50]), 0,10);
+    //////return 0;
+    ////cout << "##" << FILENAME << "##" << METHODNAME << ": Calibrating...";
+    ////cout.flush();
+    ////for (unsigned int t = 0; t < data.size(); t++){
+        ////for (unsigned int f = 0; f < data[0].size(); f++){
+            ////if(use_logcal){
+                ////logcaladd(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveplaceholder2), 1, &module);
+                ////lincal(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveout[t][f]), 0, &module, converge_percent, max_iter, step_size);
+            ////} else{
+                ////lincal(&(data[t][f]), &(additiveplaceholder), &info, &(calpar[t][f]), &(additiveout[t][f]), 1, &module, converge_percent, max_iter, step_size);
+            ////}
+            //////if (f==50) cout << calpar[t][f][0] << " " << calpar[t][f][1] << " " << calpar[t][f][2] << endl;
+            ////if((not removeadd) and removedegen) removeDegen(&(calpar[t][f]), &info, &module);
+        ////}
+    ////}
+    ////if(removeadd){
+        ////runAverage(&additiveout, 0, additivePeriod);
+        ////for (unsigned int t = 0; t < data.size(); t++){
+            ////for (unsigned int f = 0; f < data[0].size(); f++){
+                ////lincal(&(data[t][f]), &(additiveout[t][f]), &info, &(calpar[t][f]), &(additiveplaceholder2), 0, &module, converge_percent, max_iter, step_size);
+                ////if(removedegen) removeDegen(&(calpar[t][f]), &info, &module);
+            ////}
+        ////}
+    ////}
+    ////cout << "Done." << endl;
+    ////cout.flush();
+
+
+    ////cout << "##" << FILENAME << "##" << METHODNAME << ": Outputing results...";
+    ////cout.flush();
+    ////if(removeadd){
+        ////stringstream ss;
+        ////ss << additivePeriod;
+        //////string str = ss.str();
+        ////outputDataLarge(&additiveout, (visin + ".omniadd" + ss.str()).c_str());
+    ////}
+    ////outputCalparSP(&calpar, calparout, false, info.nAntenna);
+    ////cout << "##" << FILENAME << "##" << METHODNAME << ": Done. ";
+    ////cout.flush();
+    ////printf("Calibration time taken: %.2fs; ", (double)(clock() - tStartVar)/CLOCKS_PER_SEC);
+    ////printf("Total time taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
+
+    ////Py_INCREF(Py_None);
+    ////return Py_None;
+////}
 
 // Module methods
 static PyMethodDef omnical_methods[] = {
@@ -1446,10 +1446,10 @@ static PyMethodDef omnical_methods[] = {
         "Return the norm of input array."},
     {"redcal", (PyCFunction)redcal_wrap, METH_VARARGS | METH_KEYWORDS,
         "redcal(data,calpar,info,additivein,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,conv=.001)\nRun redundant calibration on data (3D array of complex floats)."},
-    {"omnical_old", (PyCFunction)cal_wrap_old, METH_VARARGS,
-        "omnical outdated version that relies on hard disk I/O."},
-    //{"omnical", (PyCFunction)cal_wrap, METH_VARARGS,
-        //"omnical."},
+    ////{"omnical_old", (PyCFunction)cal_wrap_old, METH_VARARGS,
+        ////"omnical outdated version that relies on hard disk I/O."},
+    ////{"omnical", (PyCFunction)cal_wrap, METH_VARARGS,
+        ////"omnical."},
     {NULL, NULL}  /* Sentinel */
 };
 

@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>
+#define uint unsigned int
 using namespace std;
 
 struct redundantinfo{
@@ -103,80 +104,80 @@ string itostr(int i, int len);//int to string of specified length len
 
 vector<float> strtovf(string in);
 
-//!!!!!!pyEphem always deals with UTC, i.e., Coordinated Universal Time, and never the time in any particular time zone.
+//////!!!!!!pyEphem always deals with UTC, i.e., Coordinated Universal Time, and never the time in any particular time zone.
 
-vector<float> pySunPosForks(string date, string time, float time_offset);//date and time in UTC such as ($python sunpos.py '2012/5/24' '12:22:56') and returns altitude(degree from horizon to north) and az (degree from north towards east)
+////vector<float> pySunPosForks(string date, string time, float time_offset);//date and time in UTC such as ($python sunpos.py '2012/5/24' '12:22:56') and returns altitude(degree from horizon to north) and az (degree from north towards east)
 
-void pyStarPosForks(string date, string time, float time_offset, vector<vector<float> >* results);//date and time in UTC such as ($python sunpos.py '2012/5/24' '12:22:56') and fills in altitude(degree from horizon to north) and az (degree from north towards east) for sun, sagA, casA, cygA, crab, and virgo A
+////void pyStarPosForks(string date, string time, float time_offset, vector<vector<float> >* results);//date and time in UTC such as ($python sunpos.py '2012/5/24' '12:22:56') and fills in altitude(degree from horizon to north) and az (degree from north towards east) for sun, sagA, casA, cygA, crab, and virgo A
 
-void pySatPosForks(string date, string time, float time_offset, vector<vector<float> >* results);
+////void pySatPosForks(string date, string time, float time_offset, vector<vector<float> >* results);
 
-void pySatPos(string date, string time, float time_offset, float lat, float lon, float ele, vector<vector<float> >* results);//lat lon in degrees, ele in meters
+////void pySatPos(string date, string time, float time_offset, float lat, float lon, float ele, vector<vector<float> >* results);//lat lon in degrees, ele in meters
 
-void pyRequ2hor(string date, string time, float time_offset, float lat, float lon, vector<vector<float> >* results);//lat lon in degrees. Using this matrix in mathematica generates results that agree with pyephem output within 0.02 degrees on the few sources I checked at Forks
+////void pyRequ2hor(string date, string time, float time_offset, float lat, float lon, vector<vector<float> >* results);//lat lon in degrees. Using this matrix in mathematica generates results that agree with pyephem output within 0.02 degrees on the few sources I checked at Forks
 
-vector<float> pySunPos(string date, string time, float time_offset, float lat, float lon, float ele);
+////vector<float> pySunPos(string date, string time, float time_offset, float lat, float lon, float ele);
 
 
-vector<string> pyTimeShift(string date, string time, float time_offset);//date and time in UTC such as 2012/5/24 12:22:56 and offset in seconds and returns [y/m/d, h:m:s])
+////vector<string> pyTimeShift(string date, string time, float time_offset);//date and time in UTC such as 2012/5/24 12:22:56 and offset in seconds and returns [y/m/d, h:m:s])
 
-float pyTimeDif(string time1, string time2);//returns time1-time2 in seconds
+////float pyTimeDif(string time1, string time2);//returns time1-time2 in seconds
 
-string pyOdfDate(string date, string time); //This script takes in UTC date and time such as '2012/5/24' '12:22:56' and prints the date format required by omniviewer Date('May 27, 2012,  20:31:15.0 UTC')
+////string pyOdfDate(string date, string time); //This script takes in UTC date and time such as '2012/5/24' '12:22:56' and prints the date format required by omniviewer Date('May 27, 2012,  20:31:15.0 UTC')
 
-///////////////////////////////////////
-//File I/O interaction/////////////////
-///////////////////////////////////////
-int cmdCountLine(const char* inputfilename);
+///////////////////////////////////////////
+//////File I/O interaction/////////////////
+///////////////////////////////////////////
+////int cmdCountLine(const char* inputfilename);
 
-string cmdAbsPath(string relativePath);
+////string cmdAbsPath(string relativePath);
 
-vector<string> cmdLs(string options);// options such as "-A ../test.odf". will return all items in their absolute path form **remember to use -d option for directories such as .odf**
+////vector<string> cmdLs(string options);// options such as "-A ../test.odf". will return all items in their absolute path form **remember to use -d option for directories such as .odf**
 
-void cmdMove(string a, string b);
+////void cmdMove(string a, string b);
 
-void cmdCopy(string a, string b);
+////void cmdCopy(string a, string b);
 
-void readBinaryVisibility(const char* inputfilename, vector<vector<vector<vector<vector<float> > > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
+//void readBinaryVisibility(const char* inputfilename, vector<vector<vector<vector<vector<float> > > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
 
-void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
+////void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
 
-void readBinaryVisibilityLargeConj(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
+////void readBinaryVisibilityLargeConj(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
 
 void breakLarge(vector<float> *largeslice, vector<vector<float> > * smallslice);// breaks up the frequency slice in large format (1D of length 2*nBaseline) into small format(2D of nBaseline by re/im)
 
 void padSmall(vector<vector<float> > *smallslice, vector<float> * largeslice);// pad the frequency slice in small format(2D of nBaseline by re/im) into large format (1D of length 2*nBaseline)
 
-void readBinaryCalparSP(const char* inputfilename, vector<vector<vector<float> > > * data, int nIntegrations, int nFrequencies, int nAnt, int nUBL);//read binary calpar single polarization, assumes chisqx3, log10(ampcalpar) x nant, phasecalpar degrees x nant, ubl fits in r/i r/i; //turn degree into rad when reading
+////void readBinaryCalparSP(const char* inputfilename, vector<vector<vector<float> > > * data, int nIntegrations, int nFrequencies, int nAnt, int nUBL);//read binary calpar single polarization, assumes chisqx3, log10(ampcalpar) x nant, phasecalpar degrees x nant, ubl fits in r/i r/i; //turn degree into rad when reading
 
 vector<float> readAscii(const char* inputfilename, int count = -1, bool verbose = false);
 
-void readVisibility(const char* inputfilename, vector<vector<vector<float> > > * data, int nFreq, int nBL);
+////void readVisibility(const char* inputfilename, vector<vector<vector<float> > > * data, int nFreq, int nBL);
 
-bool readCalparAscii(const char* inputfilename, vector<float> *chisq, vector<vector<float> > *ampcalpar, vector<vector<float> > *phasecalpar, vector<vector<vector<float> > > * UBLcalpar, int nFreq, int nAnt, int nUBL);
+////bool readCalparAscii(const char* inputfilename, vector<float> *chisq, vector<vector<float> > *ampcalpar, vector<vector<float> > *phasecalpar, vector<vector<vector<float> > > * UBLcalpar, int nFreq, int nAnt, int nUBL);
 
-void readAntloc(const char* inputfilename, vector<vector<float> > * antloc, vector<vector<float> > * cablelen, int nAnt);//cablelen structured as [x/y][nAnt]
+////void readAntloc(const char* inputfilename, vector<vector<float> > * antloc, vector<vector<float> > * cablelen, int nAnt);//cablelen structured as [x/y][nAnt]
 
-void readSunpos(const char* inputfilename, vector<vector<float> > * sunpos);//read sunpos.dat from x5 odf (which is in alt/az, and return a list of pairs in k vector (x y z) or (S E U), note that this is technically -k vector since k vector should point inwards.
+////void readSunpos(const char* inputfilename, vector<vector<float> > * sunpos);//read sunpos.dat from x5 odf (which is in alt/az, and return a list of pairs in k vector (x y z) or (S E U), note that this is technically -k vector since k vector should point inwards.
 
-void outputChiSqAscii(vector<float>  * data); //takes chi square for one time slice each freq each antenna and write a set of calibration parameters under current directory
+////void outputChiSqAscii(vector<float>  * data); //takes chi square for one time slice each freq each antenna and write a set of calibration parameters under current directory
 
-void outputPhaseCalParAscii(vector<vector<float> >  * phasecalpar, int numUBL, string output_name);
+////void outputPhaseCalParAscii(vector<vector<float> >  * phasecalpar, int numUBL, string output_name);
 
-void outputCalParAscii(vector<float> * chisq, vector<vector<float> > * ampcalpar, vector<vector<float> >  * phasecalpar, vector<vector<vector<float> > > * UBLcalpar, string output_name); //takes phase corrections for one time slice each freq each antenna and write a set of calibration parameters under current directory
+////void outputCalParAscii(vector<float> * chisq, vector<vector<float> > * ampcalpar, vector<vector<float> >  * phasecalpar, vector<vector<vector<float> > > * UBLcalpar, string output_name); //takes phase corrections for one time slice each freq each antenna and write a set of calibration parameters under current directory
 
-void outputAscii(vector<float>* data, string output_name, int type = 1, bool cmdoutput = true);//0 for overwrite, 1 for append
-void outputAscii(vector<vector<float> >  * data, string output_name, int type = 1, bool cmdoutput = true);//0 for overwrite, 1 for append
-void outputAscii(vector<vector<vector<float> > >  * data, string output_name, int type = 1, bool cmdoutput = true);//0 for overwrite, 1 for append
+////void outputAscii(vector<float>* data, string output_name, int type = 1, bool cmdoutput = true);//0 for overwrite, 1 for append
+////void outputAscii(vector<vector<float> >  * data, string output_name, int type = 1, bool cmdoutput = true);//0 for overwrite, 1 for append
+////void outputAscii(vector<vector<vector<float> > >  * data, string output_name, int type = 1, bool cmdoutput = true);//0 for overwrite, 1 for append
 
-void outputDataAscii(vector<vector<vector<float> > >  * data, string output_name);
+////void outputDataAscii(vector<vector<vector<float> > >  * data, string output_name);
 
-bool outputCalpar(vector<vector<vector<vector<float> > > > * data, string outputfilename, bool in_degree = true, int nAnt = -1);// outputs binary calpar file. in_degree means if phase calpar is in degree, default true
-bool outputCalparSP(vector<vector<vector<float> > > * data, string outputfilename, bool in_degree = true, int nAnt = -1);// outputs binary calpar file. in_degree means if phase calpar is in degree, default true
+////bool outputCalpar(vector<vector<vector<vector<float> > > > * data, string outputfilename, bool in_degree = true, int nAnt = -1);// outputs binary calpar file. in_degree means if phase calpar is in degree, default true
+////bool outputCalparSP(vector<vector<vector<float> > > * data, string outputfilename, bool in_degree = true, int nAnt = -1);// outputs binary calpar file. in_degree means if phase calpar is in degree, default true
 
-bool outputData(vector<vector<vector<vector<vector<float> > > > > * data, string outputfilename);// outputs binary file Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
+////bool outputData(vector<vector<vector<vector<vector<float> > > > > * data, string outputfilename);// outputs binary file Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
 
-bool outputDataLarge(vector<vector<vector<vector<float> > > > * data, string outputfilename);// outputs binary file Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
+////bool outputDataLarge(vector<vector<vector<vector<float> > > > * data, string outputfilename);// outputs binary file Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
 
 ///////////////////////////////////////
 //Helper methods///////////////////////
@@ -199,9 +200,9 @@ vector<float> aa2tp (float alt, float az);
 
 void matrixDotV(vector<vector<float> > * A, vector<float> * x, vector<float> * b);
 
-void iqDemod(vector<vector<vector<vector<vector<float> > > > > *data, vector<vector<vector<vector<vector<float> > > > > *data_out, int nIntegrations, int nFrequencies, int nAnt);
+////void iqDemod(vector<vector<vector<vector<vector<float> > > > > *data, vector<vector<vector<vector<vector<float> > > > > *data_out, int nIntegrations, int nFrequencies, int nAnt);
 
-void iqDemodLarge(vector<vector<vector<vector<float> > > > *data, vector<vector<vector<vector<float> > > > *data_out, int nIntegrations, int nFrequencies, int nAnt);//For large set of data (more than ~200 time slices), it takes more than 24G of memory to allocate a large enough 5D vector. So we consolidate the last two dimensions (baseline and re/im) together
+////void iqDemodLarge(vector<vector<vector<vector<float> > > > *data, vector<vector<vector<vector<float> > > > *data_out, int nIntegrations, int nFrequencies, int nAnt);//For large set of data (more than ~200 time slices), it takes more than 24G of memory to allocate a large enough 5D vector. So we consolidate the last two dimensions (baseline and re/im) together
 
 int gc(int a, int b);//Get coordinate for large vectors when the last two coordinates are consolidated into one dimension. 2a+b
 
@@ -253,11 +254,11 @@ vector<vector<float> > rotationMatrix(float x, float y, float z);//approximation
 
 vector<vector<float> > rotationMatrixZ(float z);
 
-bool createAmatrix(vector<vector<int> > *receiverAmatrix, vector<vector<float> > *antloc);
+//bool createAmatrix(vector<vector<int> > *receiverAmatrix, vector<vector<float> > *antloc);
 
-bool createBmatrix(vector<vector<int> > *receiverBmatrix, vector<vector<float> > *antloc);//convention for reversed baselines are to flip the two ant calpars signs, and expect user to flip the corresponding data's sign as well
+//bool createBmatrix(vector<vector<int> > *receiverBmatrix, vector<vector<float> > *antloc);//convention for reversed baselines are to flip the two ant calpars signs, and expect user to flip the corresponding data's sign as well
 
-bool findReversedBaselines(vector<int> *receiverList, vector<vector<float> > *antloc);
+//bool findReversedBaselines(vector<int> *receiverList, vector<vector<float> > *antloc);
 
 ///////////////PHASE CALIBRATE STUFF///////////////////
 /////////////////////////////////////////////
@@ -275,7 +276,7 @@ int lookupAnt(float x, float y, vector<vector<float> > antloc);
 float phaseWrap (float x, float offset = -atan2(0,-1));//Wrap phase to be on (offset, offset+2pi]
 
 
-void phaseCalibrate120(vector<float>* calpar120, vector<float>* calpar16, int nAnt, vector<bool>* badAnt);//find the median solution of 16 antenna calpars from 120 visibility calpars
+void phaseCalibrate120(vector<float>* calpar120, vector<float>* calpar16, uint nAnt, vector<bool>* badAnt);//find the median solution of 16 antenna calpars from 120 visibility calpars
 
 vector<float> phaseCalibrate(vector<vector<float> > *dataf, string pol, float freq, vector<vector<float> > *antloc, vector<vector<float> > *cablelen, int startingAnt1, int startingAnt2, int startingAnt3, int nAntenna);
 
@@ -342,6 +343,6 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module, float convergethresh, int maxiter, float stepsize);//if command is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input; additive term will only be updated if lincal can achieve a lower chi^2
 void loadGoodVisibilities(vector<vector<vector<vector<float> > > > * rawdata, vector<vector<vector<vector<float> > > >* receiver, redundantinfo* info, int xy);
 void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* module);//forces the calibration parameters to have average 1 amp, and no shifting the image in phase. Note: 1) If you have not absolute calibrated the data, there's no point in running this, because this can only ensure that the calpars don't screw up already absolute calibrated data. 2) the antloc and ubl stored in redundant info must be computed from idealized antloc, otherwise the error in antloc from perfect redundancy will roll into this result, in an unknown fashion.
-void runAverage1d(vector<float> *in, vector<float> *out, int w);//compute running average with running length 2w+1. The first and last w elements are averaged with less elements.
+void runAverage1d(vector<float> *in, vector<float> *out, uint w);//compute running average with running length 2w+1. The first and last w elements are averaged with less elements.
 void runAverage(vector<vector<vector<vector<float> > > > *in, int dimension, int w);//compute running average with running length 2w+1 along dimension. The first and last w elements are averaged with less elements. Input array is modified!
 #endif
