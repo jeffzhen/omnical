@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 import numpy as n, aipy as a
-import sys,glob
+import sys,glob, os
 
 NCHAN = 203
 NPRM = 349 # 2 * nants + nubls
