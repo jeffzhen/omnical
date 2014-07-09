@@ -9,6 +9,11 @@ calfile = 'psa6240_v003'
 aa = a.cal.get_aa(calfile, n.array([.150]))
 
 for omnical_file in sys.argv[1:]:
+    outfile = omnical_file+'.npz'
+    print 'Reading', omnical_file
+    if os.path.exists(outfile):
+        print outfile, 'exists, skipping...'
+        continue
     jd = omnical_file.split('_')[2]
     timefile = glob.glob('miriadextract*%s*localtime.dat' % jd)[0]
     pol = omnical_file.split('.')[-2].split('_')[-2][0]
