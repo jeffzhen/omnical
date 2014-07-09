@@ -3,12 +3,13 @@ import numpy as n
 import sys
 
 NCHAN = 203
-NPRM = 353
-NANT = 63 # because 37 was excluded
+NPRM = 349 # 2 * nants + nubls
+NANT = 61 # because 19,37,50 are excluded
 
 for omnical_file in sys.argv[1:]:
     pol = omnical_file.split('.')[-2].split('_')[-1][0]
     d = n.fromfile(omnical_file, dtype=n.float32)
+    print omnical_file, d.size
     ntime = d.size / NCHAN / NPRM
     d.shape = (ntime, NCHAN, NPRM)
     d_npz = {}
@@ -18,7 +19,9 @@ for omnical_file in sys.argv[1:]:
     g = 10**d[:,:,3:3+NANT]
     g = g * n.exp(-2j*n.pi*d[:,:,3+NANT:3+2*NANT]/360.) # minus to change conjugation convention between omnical and aipy
     for i in xrange(NANT):
-        if i >= 37: ant = i+1 # XXX cludge
+        if i >= 19: ant = i+1 # XXX cludge
+        if i >= 37: ant = i+2 # XXX cludge
+        if i >= 50: ant = i+3 # XXX cludge
         else: ant = i
         print ant,pol
         d_npz['%d,%s' % (ant,pol)] = g[...,i]
