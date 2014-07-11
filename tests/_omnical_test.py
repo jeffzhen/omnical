@@ -134,6 +134,7 @@ class TestMethods(unittest.TestCase):
             calibrator.lincal(data[p], np.zeros_like(data[p]), verbose=True)
 
             calibrator.utctimes = timing
+            calibrator.get_calibrated_data(data[p])
             calibrator.get_omnichisq()
             calibrator.get_omnigain()
             calibrator.get_omnifit()

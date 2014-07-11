@@ -139,11 +139,6 @@ for key in wantpols.keys():
 	calibrators[key].read_redundantinfo(infopaths[key])
 	calibrators[key].nTime = len(timing)
 	calibrators[key].nFrequency = nfreq
-	if removeadditive:
-		calibrators[key].calparPath = oppath + 'data_' + ano + '_' + key + '_add' + str(removeadditiveperiod) + '.omnical'
-	else:
-		calibrators[key].calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
-
 
 	###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
 	if needrawcal:
@@ -157,14 +152,28 @@ for key in wantpols.keys():
 
 
 	calibrators[key].removeDegeneracy = removedegen
-	calibrators[key].removeAdditive = removeadditive
-	if calibrators[key].removeAdditive:
-		calibrators[key].removeAdditivePeriod = removeadditiveperiod
-
 	calibrators[key].convergePercent = converge_percent
 	calibrators[key].maxIteration = max_iter
 	calibrators[key].stepSize = step_size
+
+	################first round of calibration	#########################
 	print calibrators[key].nTime, calibrators[key].nFrequency
 	calibrator.logcal(data[p], np.zeros_like(data[p]), verbose=True)
-	calibrator.computeUBLFit = True
-	calibrator.lincal(data[p], np.zeros_like(data[p]), verbose=True)
+	additiveout = calibrator.lincal(data[p], np.zeros_like(data[p]), verbose=True)
+	#######################remove additive###############################
+	##calibrators[key].removeAdditive = removeadditive
+	##if calibrators[key].removeAdditive:
+		##calibrators[key].removeAdditivePeriod = removeadditiveperiod
+
+	nadditiveloop = 1
+	for i in range(nadditiveloop):
+		additivein = np.zeros_like(data[p])
+		#Zaki: average additiveout before saving them to additivein
+		additivein[:,:,calibrator.Info.subsetbl] = additiveout
+		additiveout = additiveout + calibrator.lincal(data[p], additivein, verbose=True)
+
+	#Zaki: catch these outputs and save them to wherever you like
+	calibrator.get_calibrated_data()
+	calibrator.get_omnichisq()
+	calibrator.get_omnigain()
+	calibrator.get_omnifit()

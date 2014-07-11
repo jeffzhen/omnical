@@ -719,6 +719,8 @@ class RedundantCalibrator:
 	def lincal(self, data, additivein, verbose = False):
 		if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
 			raise Exception("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+		if data.shape != additivein.shape:
+			raise Exception("Data shape error: data and additive in have different shapes.")
 		self.nTime = len(data)
 		self.nFrequency = len(data[0])
 		if self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
@@ -732,6 +734,8 @@ class RedundantCalibrator:
 	def logcal(self, data, additivein, verbose = False):
 		if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
 			raise Exception("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+		if data.shape != additivein.shape:
+			raise Exception("Data shape error: data and additive in have different shapes.")
 		self.nTime = len(data)
 		self.nFrequency = len(data[0])
 		self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
@@ -740,6 +744,22 @@ class RedundantCalibrator:
 		##self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
 		##self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
 		##self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
+
+	def get_calibrated_data(self, data, additivein = None):
+		if data.ndim != 3 or data.shape != (self.nTime, self.nFrequency, len(self.totalVisibilityId)):
+			raise Exception("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline (%i, %i, %i)"%(self.nTime, self.nFrequency, len(self.totalVisibilityId)))
+		if additivein!= None and data.shape != additivein.shape:
+			raise Exception("Data shape error: data and additivein have different shapes.")
+		if data.shape[:2] != self.rawCalpar.shape[:2]:
+			raise Exception("Data shape error: data and self.rawCalpar have different first two dimensions.")
+
+		calpar = np.ones((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
+		calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
+		if additivein == None:
+			return apply_calpar(data, calpar, self.totalVisibilityId)
+		else:
+			return apply_calpar(data - additivein, calpar, self.totalVisibilityId)
+
 
 	def get_omnichisq(self):
 		if self.utctimes == None or self.rawCalpar == None:
