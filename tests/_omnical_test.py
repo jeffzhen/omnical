@@ -7,7 +7,7 @@ import omnical.calibration_omni as omni
 class TestMethods(unittest.TestCase):
     def setUp(self):
         self.i = _O.RedundantInfo()
-        self.i.readredundantinfo('../doc/redundantinfo_PSA32.txt')
+        self.i.readredundantinfo(os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt')
     def test_phase(self):
         self.assertAlmostEqual(_O.phase(1.,0.), 0., 5)
         self.assertAlmostEqual(_O.phase(-1.,0.), np.pi, 5)
@@ -32,7 +32,7 @@ class TestMethods(unittest.TestCase):
         self.assertTrue(np.all(additiveout == 0))
 
     def test_infoIO(self):
-        correctinfo = omni.read_redundantinfo_txt('../doc/redundantinfo_PSA32.txt', verbose = False)
+        correctinfo = omni.read_redundantinfo_txt(os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt', verbose = False)
         infotestpath = './redundantinfo_test.bin'
         omni.write_redundantinfo(correctinfo, infotestpath, overwrite = True, verbose = False)
         Info = omni.RedundantInfo(infotestpath)
@@ -46,20 +46,20 @@ class TestMethods(unittest.TestCase):
         ##############Config parameters###################################
         ######################################################################
         ano = 'test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
-        uvfiles = ['test.uv']
+        uvfiles = [os.path.dirname(os.path.realpath(__file__)) + '/test.uv']
         wantpols = {'xx':-5}#, 'yy':-6}
 
-        infopaths = {'xx':'../doc/redundantinfo_PSA32.txt', 'yy':'../doc/redundantinfo_PSA32.txt'}
-        arrayinfos = {'xx':'../doc/arrayinfo_apprx_PAPER32.txt', 'yy':'../doc/arrayinfo_apprx_PAPER32.txt'}
+        infopaths = {'xx':os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt', 'yy':os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt'}
+        arrayinfos = {'xx':os.path.dirname(os.path.realpath(__file__)) + '/../doc/arrayinfo_apprx_PAPER32.txt', 'yy':os.path.dirname(os.path.realpath(__file__)) + '/../doc/arrayinfo_apprx_PAPER32.txt'}
 
-        oppath = './results/'
+        oppath = os.path.dirname(os.path.realpath(__file__)) + '/results/'
         if not os.path.isdir(oppath):
             os.makedirs(oppath)
         removedegen = True
         removeadditive = False
 
         needrawcal = True #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
-        rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
+        rawpaths = {'xx':os.path.dirname(os.path.realpath(__file__)) + "/testrawphasecalparrad_xx", 'yy':os.path.dirname(os.path.realpath(__file__)) + "/testrawphasecalparrad_yy"}
 
 
 
@@ -140,7 +140,7 @@ class TestMethods(unittest.TestCase):
             calibrator.get_omnifit()
 
         #########Test results############
-        correctresult = np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165)[:,:,3:]
+        correctresult = np.fromfile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical', dtype = 'float32').reshape(14,203,165)[:,:,3:]
         correctresult[:,:, calibrators[-1].Info.nAntenna:calibrators[-1].Info.nAntenna * 2] = correctresult[:,:, calibrators[-1].Info.nAntenna:calibrators[-1].Info.nAntenna * 2]*np.pi/180
         correctresult = np.sum(correctresult,axis=2).flatten()#summing the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
 
@@ -188,7 +188,7 @@ class TestRedInfo(unittest.TestCase):
             self.assertTrue(np.all(i.__getattribute__(k) == floats))
     def test_readredundantinfo(self):
         i = _O.RedundantInfo()
-        i.readredundantinfo('../doc/redundantinfo_PSA32.txt')
+        i.readredundantinfo(os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt')
         self.assertEqual(i.nAntenna, 32)
         self.assertEqual(i.subsetant.shape, (32,))
 
