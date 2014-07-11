@@ -173,6 +173,7 @@ for key in wantpols.keys():
 		additiveout = additiveout + calibrator.lincal(data[p], additivein, verbose=True)
 
 	#Zaki: catch these outputs and save them to wherever you like
+	calibrator.utctimes = timing
 	calibrator.get_calibrated_data()
 	calibrator.get_omnichisq()
 	calibrator.get_omnigain()
