@@ -36,7 +36,7 @@ o = optparse.OptionParser()
 
 ap.scripting.add_standard_options(o, cal=True, pol=True)
 o.add_option('--tag', action = 'store', default = 'PSA64', help = 'tag name of this calculation')
-o.add_option('-i', '--infopath', action = 'store', default = 'results/redundantinfo_PSA64_ba19_37_50.txt', help = 'redundantinfo file to read')
+o.add_option('-i', '--infopath', action = 'store', default = 'doc/redundantinfo_PSA64_ba19_37_50.bin', help = 'redundantinfo file to read')
 o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 o.add_option('--skip', action = 'store_true', help = 'whether to skip data importing')
@@ -44,7 +44,7 @@ opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
 
 ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
-dataano = ano[:17]#ano for existing data and lst.dat. ugly hardcode!!!
+dataano = ano[:17]#ano for existing data and lst.dat. ugly hardcode based on how the shell script works!!!
 uvfiles = args
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
@@ -103,32 +103,20 @@ lstPath = oppath + 'miriadextract_' + dataano + "_lsthour.dat"
 ####get some info from the first uvfile   ################
 uv=ap.miriad.UV(uvfiles[0])
 nfreq = uv.nchan;
-#nant = uv['nants']
+nant = uv['nants']
 #startfreq = uv['sfreq']
 #dfreq = uv['sdf']
 del(uv)
 
 
-####create redundant calibrators################
-#calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
-calibrators = {}
-for key in wantpols.keys():
-	calibrators[key] = RedundantCalibrator_PAPER(aa)
-
-for key in wantpols.keys():
-	calibrators[key].read_redundantinfo(infopaths[key])
-	calibrators[key].dataPath = oppath + 'data_' + dataano + '_' + key#ugly hard code
-	calibrators[key].tmpDataPath = calibrators[key].dataPath
-	if removeadditive:
-		calibrators[key].calparPath = oppath + 'data_' + ano + '_' + key + '_add' + str(removeadditiveperiod) + '.omnical'
-	else:
-		calibrators[key].calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
 
 
 ###start reading miriads################
 if skip:
 	with open(utcPath) as f:
 		timing = f.readlines()
+	dataPath = oppath + 'data_' + dataano + '_' + key#ugly hard code
+	data = [np.fromfile(dataPath).reshape((len(timing), nfreq, calibrator.nTotalBaseline)) for key, calibrator in zip(wantpols.keys(), calibrators)]
 else:
 	print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
 	data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols)#, nTotalAntenna = len(aa))
@@ -143,32 +131,40 @@ else:
 	f.close()
 	#np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')
 
-###raw calibration################
-if needrawcal and (not skip):
-	for p, key in zip(range(len(wantpols)), wantpols.keys()):
-		rawcalpar = np.fromfile(rawpaths[key], dtype="complex64").reshape(nfreq, nant)
-		data[p] = omni.apply_calpar(data[p], rawcalpar, calibrators[p].totalVisibilityId)
+####create redundant calibrators################
+#calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
+calibrators = {}
+for key in wantpols.keys():
+	calibrators[key] = RedundantCalibrator_PAPER(aa)
+	calibrators[key].read_redundantinfo(infopaths[key])
+	calibrators[key].nTime = len(timing)
+	calibrators[key].nFrequency = nfreq
+	if removeadditive:
+		calibrators[key].calparPath = oppath + 'data_' + ano + '_' + key + '_add' + str(removeadditiveperiod) + '.omnical'
+	else:
+		calibrators[key].calparPath = oppath + 'data_' + ano + '_' + key + '.omnical'
 
-####manually saving data################
-if not skip:
-	for p, calibrator in zip(range(len(wantpols)), calibrators):
-		data[p].astype('complex64').tofile(calibrator.dataPath)
-	del(data)
-####calibrate################
-print FILENAME + " MSG: starting calibration."
-for key, calibrator in calibrators.items():
-	calibrator.nTime = len(timing)
-	calibrator.nFrequency = nfreq
-	calibrator.removeDegeneracy = removedegen
-	calibrator.removeAdditive = removeadditive
-	if calibrator.removeAdditive:
-		calibrator.removeAdditivePeriod = removeadditiveperiod
-	calibrator.keepData = keep_binary_data
-	calibrator.keepCalpar = keep_binary_calpar
-	calibrator.convergePercent = converge_percent
-	calibrator.maxIteration = max_iter
-	calibrator.stepSize = step_size
-	print calibrator.nTime, calibrator.nFrequency
-#	calibrator.readyForCpp()
-	calibrator.loglincal(calibrator.dataPath, verbose=True)
 
+	###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
+	if needrawcal:
+		raise Exception("Raw calpar not coded for the case where you need starting raw calibration!")
+	else:
+		calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
+
+
+	####calibrate################
+	print FILENAME + " MSG: starting calibration on %s."%key
+
+
+	calibrators[key].removeDegeneracy = removedegen
+	calibrators[key].removeAdditive = removeadditive
+	if calibrators[key].removeAdditive:
+		calibrators[key].removeAdditivePeriod = removeadditiveperiod
+
+	calibrators[key].convergePercent = converge_percent
+	calibrators[key].maxIteration = max_iter
+	calibrators[key].stepSize = step_size
+	print calibrators[key].nTime, calibrators[key].nFrequency
+	calibrator.logcal(data[p], np.zeros_like(data[p]), verbose=True)
+	calibrator.computeUBLFit = True
+	calibrator.lincal(data[p], np.zeros_like(data[p]), verbose=True)

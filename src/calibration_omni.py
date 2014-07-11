@@ -522,7 +522,8 @@ def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputP
 	julDelta = 2415020
 	#info = redundantCalibrator.info
 
-
+	if not os.path.isfile(utctimePath):
+		raise Exception("File %s does not exist!"%utctimePath)
 	with open(utctimePath) as f:
 		utctimes = f.readlines()
 	calpars = np.fromfile(omnicalPath, dtype='float32')
@@ -655,6 +656,15 @@ class RedundantCalibrator:
 		self.stepSize = 0.3 #step size for lincal. (0, 1]. < 0.4 recommended.
 		self.computeUBLFit = True
 
+		self.nTime = 0
+		self.nFrequency = 0
+
+		self.utctime = None
+		self.rawCalpar = None
+		self.omnichisq = None
+		self.omnigain = None
+		self.omnifit = None
+
 		if info != None:
 			if type(info) == type({}):
 
@@ -707,21 +717,84 @@ class RedundantCalibrator:
 
 
 	def lincal(self, data, additivein, verbose = False):
+		if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
+			raise Exception("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+		self.nTime = len(data)
+		self.nFrequency = len(data[0])
 		if self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
 			raise Exception("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
-		_O.redcal(data, self.rawCalpar, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
-		self.chisq = self.rawCalpar[:, :, 2]
-		self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
-		self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
-		self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
+		_O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+		##self.chisq = self.rawCalpar[:, :, 2]
+		##self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
+		##self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
+		##self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
 
 	def logcal(self, data, additivein, verbose = False):
+		if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
+			raise Exception("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+		self.nTime = len(data)
+		self.nFrequency = len(data[0])
 		self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
-		_O.redcal(data, self.rawCalpar, self.Info, additivein, removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
-		self.chisq = self.rawCalpar[:, :, 2]
-		self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
-		self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
-		self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
+		_O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+		##self.chisq = self.rawCalpar[:, :, 2]
+		##self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
+		##self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
+		##self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
+
+	def get_omnichisq(self):
+		if self.utctimes == None or self.rawCalpar == None:
+			raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
+		if len(self.utctimes) != len(self.rawCalpar):
+			raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
+		jd = np.zeros((len(utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
+		sa = ephem.Observer()
+		for utctime, t in zip(utctimes, range(len(utctimes))):
+			sa.date = utctime
+			jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
+
+		omnichisq = np.zeros((self.nTime, 2 + 1 + 2 * self.nFrequency), dtype = 'float32')
+		omnichisq[:, :2] = jd
+		omnichisq[:, 2] = float(self.nFrequency)
+		omnichisq[:, 3::2] = self.rawCalpar[:, :, 0]#number of lincal iters
+		omnichisq[:, 4::2] = self.rawCalpar[:, :, 2]#chisq which is sum of squares of errors in each visbility
+		return omnichisq
+
+	def get_omnigain(self):
+		if self.utctimes == None or self.rawCalpar == None:
+			raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
+		if len(self.utctimes) != len(self.rawCalpar):
+			raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
+		jd = np.zeros((len(utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
+		sa = ephem.Observer()
+		for utctime, t in zip(utctimes, range(len(utctimes))):
+			sa.date = utctime
+			jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
+		omnigain = np.zeros((self.nTime, self.Info.nAntenna, 2 + 1 + 1 + 2 * self.nFrequency), dtype = 'float32')
+		omnigain[:, :, :2] = jd[:, None]
+		omnigain[:, :, 2] = np.array(self.Info.subsetant).astype('float32')
+		omnigain[:, :, 3] = float(self.nFrequency)
+		gains = (10**self.rawCalpar[:, :, 3:(3 + self.Info.nAntenna)] * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna):(3 + 2 * self.Info.nAntenna)])).transpose((0,2,1))
+		omnigain[:, :, 4::2] = np.real(gains)
+		omnigain[:, :, 5::2] = np.imag(gains)
+		return omnigain
+
+	def get_omnifit(self):
+		if self.utctimes == None or self.rawCalpar == None:
+			raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
+		if len(self.utctimes) != len(self.rawCalpar):
+			raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
+		jd = np.zeros((len(utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
+		sa = ephem.Observer()
+		for utctime, t in zip(utctimes, range(len(utctimes))):
+			sa.date = utctime
+			jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
+		omnifit = np.zeros((self.nTime, self.Info.nUBL , 2 + 3 + 1 + 2 * self.nFrequency), dtype = 'float32')
+		omnifit[:, :, :2] = jd[:, None]
+		omnifit[:, :, 2:5] = np.array(self.Info.ubl).astype('float32')
+		omnifit[:, :, 5] = float(self.nFrequency)
+		omnifit[:, :, 6::2] = self.rawCalpar[:, :, 3 + 2 * self.Info.nAntenna::2].transpose((0,2,1))
+		omnifit[:, :, 7::2] = self.rawCalpar[:, :, 3 + 2 * self.Info.nAntenna + 1::2].transpose((0,2,1))
+		return omnifit
 
 	def set_badUBL(self, badUBL):
 		if np.array(badUBL).shape[-1] != 3 or len(np.array(badUBL).shape) != 2:
