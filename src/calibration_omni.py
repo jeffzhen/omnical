@@ -17,7 +17,7 @@ with warnings.catch_warnings():
     import scipy.linalg as la
 
 FILENAME = "calibration_omni.py"
-
+julDelta = 2415020# =julian date - pyephem's Observer date
 
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
@@ -275,7 +275,7 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
 	METHODNAME = "*importuvs*"
 	############################################################
 	sun = ephem.Sun()
-	julDelta = 2415020 # =julian date - pyephem's Observer date
+	#julDelta = 2415020
 	####get some info from the first uvfile####################
 	uv=ap.miriad.UV(uvfilenames[0])
 	nfreq = uv.nchan;
@@ -519,7 +519,7 @@ def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
 def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputPath should be a path without extensions like .omnigain which will be appended
 	if outputPath == None:
 		outputPath = omnicalPath.replace('.omnical', '')
-	julDelta = 2415020
+
 	#info = redundantCalibrator.info
 
 	if not os.path.isfile(utctimePath):
@@ -746,9 +746,9 @@ class RedundantCalibrator:
 			raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
 		if len(self.utctimes) != len(self.rawCalpar):
 			raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
-		jd = np.zeros((len(utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
+		jd = np.zeros((len(self.utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
 		sa = ephem.Observer()
-		for utctime, t in zip(utctimes, range(len(utctimes))):
+		for utctime, t in zip(self.utctimes, range(len(self.utctimes))):
 			sa.date = utctime
 			jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
 
@@ -764,9 +764,9 @@ class RedundantCalibrator:
 			raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
 		if len(self.utctimes) != len(self.rawCalpar):
 			raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
-		jd = np.zeros((len(utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
+		jd = np.zeros((len(self.utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
 		sa = ephem.Observer()
-		for utctime, t in zip(utctimes, range(len(utctimes))):
+		for utctime, t in zip(self.utctimes, range(len(self.utctimes))):
 			sa.date = utctime
 			jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
 		omnigain = np.zeros((self.nTime, self.Info.nAntenna, 2 + 1 + 1 + 2 * self.nFrequency), dtype = 'float32')
@@ -783,9 +783,9 @@ class RedundantCalibrator:
 			raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
 		if len(self.utctimes) != len(self.rawCalpar):
 			raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
-		jd = np.zeros((len(utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
+		jd = np.zeros((len(self.utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
 		sa = ephem.Observer()
-		for utctime, t in zip(utctimes, range(len(utctimes))):
+		for utctime, t in zip(self.utctimes, range(len(self.utctimes))):
 			sa.date = utctime
 			jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
 		omnifit = np.zeros((self.nTime, self.Info.nUBL , 2 + 3 + 1 + 2 * self.nFrequency), dtype = 'float32')

@@ -105,16 +105,16 @@ class TestMethods(unittest.TestCase):
                 rawcalpar = np.fromfile(rawpaths[key], dtype="complex64").reshape(nfreq, nant)
                 data[p] = omni.apply_calpar(data[p], rawcalpar, calibrators[p].totalVisibilityId)
 
-        ###Save various files read################
-        #np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')
-        f = open(oppath + 'miriadextract_' + ano + "_localtime.dat",'w')
-        for time in timing:
-            f.write("%s\n"%time)
-        f.close()
-        f = open(oppath + 'miriadextract_' + ano + "_lsthour.dat",'w')
-        for l in lst:
-            f.write("%s\n"%l)
-        f.close()
+        #####Save various files read################
+        ###np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')
+        ##f = open(oppath + 'miriadextract_' + ano + "_localtime.dat",'w')
+        ##for time in timing:
+            ##f.write("%s\n"%time)
+        ##f.close()
+        ##f = open(oppath + 'miriadextract_' + ano + "_lsthour.dat",'w')
+        ##for l in lst:
+            ##f.write("%s\n"%l)
+        ##f.close()
 
 
         ####calibrate################
@@ -132,6 +132,12 @@ class TestMethods(unittest.TestCase):
 
             calibrator.logcal(data[p], np.zeros_like(data[p]), verbose=True)
             calibrator.lincal(data[p], np.zeros_like(data[p]), verbose=True)
+
+            calibrator.utctimes = timing
+            calibrator.get_omnichisq()
+            calibrator.get_omnigain()
+            calibrator.get_omnifit()
+
         #########Test results############
         correctresult = np.fromfile("test.omnical", dtype = 'float32').reshape(14,203,165)[:,:,3:]
         correctresult[:,:, calibrators[-1].Info.nAntenna:calibrators[-1].Info.nAntenna * 2] = correctresult[:,:, calibrators[-1].Info.nAntenna:calibrators[-1].Info.nAntenna * 2]*np.pi/180
