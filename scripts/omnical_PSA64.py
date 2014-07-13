@@ -66,7 +66,7 @@ infopathyy = opts.infopath
 #badAntenna = [37]
 #badUBL = []
 
-oppath = './results/'
+sourcepath = '/data2/home/hz2ug/omnical_old/results/'
 
 infopaths = {'xx': infopathxx, 'yy': infopathyy}
 
@@ -97,9 +97,9 @@ step_size = .3
 ######################################################################
 
 ########Massage user parameters###################################
-oppath += '/'
-utcPath = oppath + 'miriadextract_' + dataano + "_localtime.dat"
-lstPath = oppath + 'miriadextract_' + dataano + "_lsthour.dat"
+sourcepath += '/'
+utcPath = sourcepath + 'miriadextract_' + dataano + "_localtime.dat"
+lstPath = sourcepath + 'miriadextract_' + dataano + "_lsthour.dat"
 
 ####get some info from the first uvfile   ################
 uv=ap.miriad.UV(uvfiles[0])
@@ -116,7 +116,7 @@ del(uv)
 if skip:
 	with open(utcPath) as f:
 		timing = f.readlines()
-	dataPath = oppath + 'data_' + dataano + '_' + key#ugly hard code
+	dataPath = sourcepath + 'data_' + dataano + '_' + key#ugly hard code
 	data = [np.fromfile(dataPath).reshape((len(timing), nfreq, calibrator.nTotalBaseline)) for key, calibrator in zip(wantpols.keys(), calibrators)]
 else:
 	print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
