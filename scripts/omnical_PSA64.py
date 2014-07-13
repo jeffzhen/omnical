@@ -172,7 +172,7 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 
 	#Zaki: catch these outputs and save them to wherever you like
 	calibrators[key].utctimes = timing
-	calibrators[key].get_calibrated_data()
+	calibrators[key].get_calibrated_data(data[p])
 	calibrators[key].get_omnichisq()
 	calibrators[key].get_omnigain()
 	calibrators[key].get_omnifit()
