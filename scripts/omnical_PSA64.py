@@ -5,6 +5,7 @@ import numpy as np
 import commands, os, time, math, ephem
 import calibration_omni as omni
 import optparse, sys
+import scipy.signal as ss
 FILENAME = "omnical_PSA64.py"
 
 ##########################Sub-class#############################
@@ -158,17 +159,15 @@ for key in wantpols.keys():
 
 	################first round of calibration	#########################
 	print calibrators[key].nTime, calibrators[key].nFrequency
-	calibrator.logcal(data[p], np.zeros_like(data[p]), verbose=True)
-	additiveout = calibrator.lincal(data[p], np.zeros_like(data[p]), verbose=True)
+	additivein = np.zeros_like(data[p])
+	calibrator.logcal(data[p], additivein, verbose=True)
+	additiveout = calibrator.lincal(data[p], additivein, verbose=True)
 	#######################remove additive###############################
-	##calibrators[key].removeAdditive = removeadditive
-	##if calibrators[key].removeAdditive:
-		##calibrators[key].removeAdditivePeriod = removeadditiveperiod
 
 	nadditiveloop = 1
 	for i in range(nadditiveloop):
-		additivein = np.zeros_like(data[p])
-		#Zaki: average additiveout before saving them to additivein
+		weight = ss.convolve(np.ones(additiveout.shape[0]), np.ones(removeadditiveperiod * 2 + 1), mode='same')
+		additiveout = ss.convolve(additiveout, np.ones(removeadditiveperiod * 2 + 1)[:, None, None], mode='same')/weight[:, None, None]
 		additivein[:,:,calibrator.Info.subsetbl] = additiveout
 		additiveout = additiveout + calibrator.lincal(data[p], additivein, verbose=True)
 
