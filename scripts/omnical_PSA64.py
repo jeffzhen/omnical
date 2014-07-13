@@ -3,7 +3,7 @@
 import aipy as ap
 import numpy as np
 import commands, os, time, math, ephem
-import calibration_omni as omni
+import omnical.calibration_omni as omni
 import optparse, sys
 import scipy.signal as ss
 FILENAME = "omnical_PSA64.py"
