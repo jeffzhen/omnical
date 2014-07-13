@@ -116,8 +116,7 @@ del(uv)
 if skip:
 	with open(utcPath) as f:
 		timing = f.readlines()
-	dataPath = sourcepath + 'data_' + dataano + '_' + key#ugly hard code
-	data = [np.fromfile(dataPath).reshape((len(timing), nfreq, calibrator.nTotalBaseline)) for key, calibrator in zip(wantpols.keys(), calibrators)]
+	data = [np.fromfile(sourcepath + 'data_' + dataano + '_' + key).reshape((len(timing), nfreq, calibrator.nTotalBaseline)) for key, calibrator in zip(wantpols.keys(), calibrators)]
 else:
 	print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
 	data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols)#, nTotalAntenna = len(aa))
