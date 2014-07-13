@@ -134,7 +134,7 @@ else:
 ####create redundant calibrators################
 #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
 calibrators = {}
-for key in wantpols.keys():
+for p, key in zip(range(len(data)), wantpols.keys()):
 	calibrators[key] = RedundantCalibrator_PAPER(aa)
 	calibrators[key].read_redundantinfo(infopaths[key])
 	calibrators[key].nTime = len(timing)
