@@ -37,7 +37,7 @@ o = optparse.OptionParser()
 
 ap.scripting.add_standard_options(o, cal=True, pol=True)
 o.add_option('--tag', action = 'store', default = 'PSA64', help = 'tag name of this calculation')
-o.add_option('-i', '--infopath', action = 'store', default = 'doc/redundantinfo_PSA64_ba19_37_50.bin', help = 'redundantinfo file to read')
+o.add_option('-i', '--infopath', action = 'store', default = '/data2/home/hz2ug/omnical/doc/redundantinfo_PSA64_ba19_37_50.bin', help = 'redundantinfo file to read')
 o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 o.add_option('--skip', action = 'store_true', help = 'whether to skip data importing')
