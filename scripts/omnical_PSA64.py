@@ -160,15 +160,14 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 	print calibrators[key].nTime, calibrators[key].nFrequency
 	additivein = np.zeros_like(data[p])
 	calibrators[key].logcal(data[p], additivein, verbose=True)
-	additiveout = calibrators[key].lincal(data[p], additivein, verbose=True)
+	additivein[:,:,calibrators[key].Info.subsetbl] = calibrators[key].lincal(data[p], additivein, verbose=True)
 	#######################remove additive###############################
 
 	nadditiveloop = 1
 	for i in range(nadditiveloop):
 		weight = ss.convolve(np.ones(additiveout.shape[0]), np.ones(removeadditiveperiod * 2 + 1), mode='same')
-		additiveout = ss.convolve(additiveout, np.ones(removeadditiveperiod * 2 + 1)[:, None, None], mode='same')/weight[:, None, None]
-		additivein[:,:,calibrators[key].Info.subsetbl] = additiveout
-		additiveout = additiveout + calibrators[key].lincal(data[p], additivein, verbose=True)
+		additivein = ss.convolve(additivein, np.ones(removeadditiveperiod * 2 + 1)[:, None, None], mode='same')/weight[:, None, None]
+		additivein = additivein + calibrators[key].lincal(data[p], additivein, verbose=True)
 
 	#Zaki: catch these outputs and save them to wherever you like
 	calibrators[key].utctimes = timing
