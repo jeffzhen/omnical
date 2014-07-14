@@ -148,15 +148,13 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 
 
 	####calibrate################
-	print FILENAME + " MSG: starting calibration on %s."%key
-
-
 	calibrators[key].removeDegeneracy = removedegen
 	calibrators[key].convergePercent = converge_percent
 	calibrators[key].maxIteration = max_iter
 	calibrators[key].stepSize = step_size
 
 	################first round of calibration	#########################
+	print FILENAME + " MSG: starting calibration on %s %s."%(dataano, key), 
 	print calibrators[key].nTime, calibrators[key].nFrequency
 	additivein = np.zeros_like(data[p])
 	calibrators[key].logcal(data[p], additivein, verbose=True)
@@ -165,10 +163,15 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 
 	nadditiveloop = 1
 	for i in range(nadditiveloop):
-		weight = ss.convolve(np.ones(additiveout.shape[0]), np.ones(removeadditiveperiod * 2 + 1), mode='same')
-		additivein = ss.convolve(additivein, np.ones(removeadditiveperiod * 2 + 1)[:, None, None], mode='same')/weight[:, None, None]
-		additivein = additivein + calibrators[key].lincal(data[p], additivein, verbose=True)
+		weight = ss.convolve(np.ones(additivein.shape[0]), np.ones(removeadditiveperiod * 2 + 1), mode='same')
+		for f in range(additivein.shape[1]):#doing for loop to save memory usage at the expense of negligible time
+			additivein[:,f] = ss.convolve(additivein[:,f], np.ones(removeadditiveperiod * 2 + 1)[:, None], mode='same')/weight[:, None]
+		calibrators[key].computeUBLFit = False
+		additivein[:,:,calibrators[key].Info.subsetbl] = additivein[:,:,calibrators[key].Info.subsetbl] + calibrators[key].lincal(data[p], additivein, verbose=True)
 
+	#######################save results###############################
+	print "Done."
+	print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, key)
 	#Zaki: catch these outputs and save them to wherever you like
 	calibrators[key].utctimes = timing
 	calibrators[key].get_calibrated_data(data[p])
