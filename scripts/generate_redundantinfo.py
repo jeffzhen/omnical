@@ -18,10 +18,13 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
 			for j in range(len(self.aa.ant_layout[0])):
 				self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
 		self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
-
+		self.badAntenna = []
+		for i in range(nTotalAnt):
+			if i not in self.aa.ant_layout.flatten():
+				self.badAntenna += [i]
 	def compute_redundantinfo(self, badAntenna = [], badUBL = [], antennaLocationTolerance = 1e-6):
 		self.antennaLocationTolerance = antennaLocationTolerance
-		self.badAntenna = badAntenna
+		self.badAntenna += badAntenna
 		self.badUBL = badUBL
 
 		omni.RedundantCalibrator.compute_redundantinfo(self)
