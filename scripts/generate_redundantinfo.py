@@ -66,7 +66,9 @@ if __name__ == '__main__':
 	print 'Bad unique baselines:', badUBL
 
 	calibrator = RedundantCalibrator_PAPER(aa)
+	timer = time.time()
 	calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBL = badUBL, antennaLocationTolerance = opts.tol)
+	print "Redundant info computed in %f minutes."%(time.time() - timer)/60.
 	calibrator.write_redundantinfo(infoPath = opts.path, overwrite = opts.overwrite, verbose = True)
 
 
