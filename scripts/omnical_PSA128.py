@@ -6,7 +6,7 @@ import commands, os, time, math, ephem
 import omnical.calibration_omni as omni
 import optparse, sys
 import scipy.signal as ss
-FILENAME = "omnical_PSA64.py"
+FILENAME = "omnical_PSA128.py"
 
 ##########################Sub-class#############################
 class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
@@ -36,16 +36,22 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
 o = optparse.OptionParser()
 
 ap.scripting.add_standard_options(o, cal=True, pol=True)
-o.add_option('--tag', action = 'store', default = 'PSA64', help = 'tag name of this calculation')
-o.add_option('-i', '--infopath', action = 'store', default = '/data2/home/hz2ug/omnical/doc/redundantinfo_PSA64_ba19_37_50.bin', help = 'redundantinfo file to read')
+o.add_option('-t', '--tag', action = 'store', default = 'PSA128', help = 'tag name of this calibration')
+o.add_option('-d', '--datatag', action = 'store', default = 'PSA128', help = 'tag name of this data set')
+o.add_option('-i', '--infopath', action = 'store', default = '/data2/home/hz2ug/omnical/doc/redundantinfo_PSA128_17ba.bin', help = 'redundantinfo file to read')
 o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
-o.add_option('--skip', action = 'store_true', help = 'whether to skip data importing')
+o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
+o.add_option('-o', '--outputpath', action = 'store', default = None, help = 'output folder')
+o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
+
 opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
 
 ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
-dataano = ano[:17]#ano for existing data and lst.dat. ugly hardcode based on how the shell script works!!!
+dataano = opts.datatag#ano for existing data and lst.dat
+sourcepath = opts.datapath
+oppath = opts.outputpath
 uvfiles = args
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
@@ -66,7 +72,7 @@ infopathyy = opts.infopath
 #badAntenna = [37]
 #badUBL = []
 
-sourcepath = '/data2/home/hz2ug/omnical_old/results/'
+
 
 infopaths = {'xx': infopathxx, 'yy': infopathyy}
 
@@ -121,15 +127,18 @@ else:
 	print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
 	data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols)#, nTotalAntenna = len(aa))
 	print FILENAME + " MSG:",  len(t), "slices read."
-	f = open(utcPath,'w')
-	for time in timing:
-		f.write("%s\n"%time)
-	f.close()
-	f = open(lstPath,'w')
-	for l in lst:
-		f.write("%s\n"%l)
-	f.close()
-	#np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')
+
+	if keep_binary_data:
+		f = open(utcPath,'w')
+		for time in timing:
+			f.write("%s\n"%time)
+		f.close()
+		f = open(lstPath,'w')
+		for l in lst:
+			f.write("%s\n"%l)
+		f.close()
+		for p,key in zip(range(len(wantpols)), wantpols.keys()):
+			data[p].tofile(oppath + 'data_' + dataano + '_' + key, dtype = 'complex64')
 
 ####create redundant calibrators################
 #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
@@ -154,7 +163,7 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 	calibrators[key].stepSize = step_size
 
 	################first round of calibration	#########################
-	print FILENAME + " MSG: starting calibration on %s %s."%(dataano, key), 
+	print FILENAME + " MSG: starting calibration on %s %s."%(dataano, key),
 	print calibrators[key].nTime, calibrators[key].nFrequency
 	additivein = np.zeros_like(data[p])
 	calibrators[key].logcal(data[p], additivein, verbose=True)
