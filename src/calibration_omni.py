@@ -584,12 +584,13 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
 			try:
 				if key in ['At','Bt']:
 					tmp = []
-					for i in range(info[key].shape[0]):
-						for j in range(info[key].shape[1]):
-							if info[key][i,j] != 0:
-								tmp += [[i, j, info[key][i,j]]]
-					##print ".!.!."
-					##sys.stdout.flush()
+					nonzeros = np.array(info[key].nonzero()).transpose()
+					for i,j in nonzeros:
+						tmp += [[i, j, info[key][i,j]]]
+					#for i in range(info[key].shape[0]):
+						#for j in range(info[key].shape[1]):
+							#if info[key][i,j] != 0:
+								#tmp += [[i, j, info[key][i,j]]]
 					self.__setattr__(key+'sparse', np.array(tmp, dtype = 'int32'))
 				elif key in ['A','B']:
 					self.__setattr__(key, info[key].todense().astype('int32'))
