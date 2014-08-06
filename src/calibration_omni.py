@@ -568,14 +568,19 @@ def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputP
 	opomnifit.tofile(outputPath + '.omnifit')
 
 class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibration information that should only be passed into C++
-	def __init__(self, info):
+	def __init__(self, info, verbose=False):
 		_O.RedundantInfo.__init__(self)
 		if type(info) == type('a'):
 			info = read_redundantinfo(info)
 		elif type(info) != type({}):
 			raise Exception("Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
-
+		if verbose:
+			print "Converting info:",
+			sys.stdout.flush()
 		for key in info.keys():
+			if verbose:
+				print key,
+				sys.stdout.flush()
 			try:
 				if key in ['At','Bt']:
 					tmp = []
@@ -583,6 +588,8 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
 						for j in range(info[key].shape[1]):
 							if info[key][i,j] != 0:
 								tmp += [[i, j, info[key][i,j]]]
+					##print ".!.!."
+					##sys.stdout.flush()
 					self.__setattr__(key+'sparse', np.array(tmp, dtype = 'int32'))
 				elif key in ['A','B']:
 					self.__setattr__(key, info[key].todense().astype('int32'))
@@ -600,7 +607,9 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
 					self.__setattr__(key, np.array(info[key]).astype('float32'))
 			except:
 				raise Exception("Error parsing %s item."%key)
-
+		if verbose:
+			print "Done."
+			sys.stdout.flush()
 
 	def get_info(self):
 		info = {}
@@ -675,7 +684,7 @@ class RedundantCalibrator:
 				raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
 
 	def read_redundantinfo(self, infopath, verbose = False):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
-		self.Info = RedundantInfo(read_redundantinfo(infopath, verbose = verbose))
+		self.Info = RedundantInfo(read_redundantinfo(infopath, verbose = verbose), verbose = verbose)
 
 	def write_redundantinfo(self, infoPath, overwrite = False, verbose = False):
 		methodName = '.write_redundantinfo.'

@@ -64,8 +64,11 @@ wantpols = {}
 for p in opts.pol.split(','): wantpols[p] = ap.miriad.str2pol[p]
 #wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo:
 
-
+print "Reading calfile %s"%opts.cal,
+sys.stdout.flush()
 aa = ap.cal.get_aa(opts.cal, np.array([.15]))
+print "Done"
+sys.stdout.flush()
 infopathxx = opts.infopath
 infopathyy = opts.infopath
 
@@ -108,27 +111,40 @@ utcPath = sourcepath + 'miriadextract_' + dataano + "_localtime.dat"
 lstPath = sourcepath + 'miriadextract_' + dataano + "_lsthour.dat"
 
 ####get some info from the first uvfile   ################
+print "Getting some basic info from %s"%uvfiles[0],
+sys.stdout.flush()
 uv=ap.miriad.UV(uvfiles[0])
 nfreq = uv.nchan;
 nant = uv['nants']
 #startfreq = uv['sfreq']
 #dfreq = uv['sdf']
 del(uv)
+print "Done."
+sys.stdout.flush()
 
 
 
 
 ###start reading miriads################
 if skip:
+	print FILENAME + " MSG: SKIPPED reading uvfiles. Reading binary data files directly...",
+	sys.stdout.flush()
 	with open(utcPath) as f:
 		timing = f.readlines()
 	data = [np.fromfile(sourcepath + 'data_' + dataano + '_' + key, dtype = 'complex64').reshape((len(timing), nfreq, len(aa) * (len(aa) + 1) / 2)) for key in wantpols.keys()]
+	print "Done."
+	sys.stdout.flush()
+
 else:
 	print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
-	data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols)#, nTotalAntenna = len(aa))
+	sys.stdout.flush()
+	data, t, timing, lst = omni.importuvs(uvfiles, np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), wantpols, timingTolerance=100)#, nTotalAntenna = len(aa))
 	print FILENAME + " MSG:",  len(t), "slices read."
+	sys.stdout.flush()
 
 	if keep_binary_data:
+		print FILENAME + " MSG: saving binary data to disk...",
+		sys.stdout.flush()
 		f = open(utcPath,'w')
 		for time in timing:
 			f.write("%s\n"%time)
@@ -138,14 +154,16 @@ else:
 			f.write("%s\n"%l)
 		f.close()
 		for p,key in zip(range(len(wantpols)), wantpols.keys()):
-			data[p].tofile(oppath + 'data_' + dataano + '_' + key, dtype = 'complex64')
-
+			data[p].tofile(sourcepath + 'data_' + dataano + '_' + key)
+		print "Done."
+		sys.stdout.flush()
 ####create redundant calibrators################
 #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
 calibrators = {}
 for p, key in zip(range(len(data)), wantpols.keys()):
+
 	calibrators[key] = RedundantCalibrator_PAPER(aa)
-	calibrators[key].read_redundantinfo(infopaths[key])
+	calibrators[key].read_redundantinfo(infopaths[key], verbose=True)
 	calibrators[key].nTime = len(timing)
 	calibrators[key].nFrequency = nfreq
 
@@ -163,27 +181,30 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 	calibrators[key].stepSize = step_size
 
 	################first round of calibration	#########################
-	print FILENAME + " MSG: starting calibration on %s %s."%(dataano, key),
-	print calibrators[key].nTime, calibrators[key].nFrequency
+	print FILENAME + " MSG: starting calibration on %s %s."%(dataano, key), calibrators[key].nTime, calibrators[key].nFrequency,
+	sys.stdout.flush()
 	additivein = np.zeros_like(data[p])
 	calibrators[key].logcal(data[p], additivein, verbose=True)
 	additivein[:,:,calibrators[key].Info.subsetbl] = calibrators[key].lincal(data[p], additivein, verbose=True)
 	#######################remove additive###############################
-
-	nadditiveloop = 1
-	for i in range(nadditiveloop):
-		weight = ss.convolve(np.ones(additivein.shape[0]), np.ones(removeadditiveperiod * 2 + 1), mode='same')
-		for f in range(additivein.shape[1]):#doing for loop to save memory usage at the expense of negligible time
-			additivein[:,f] = ss.convolve(additivein[:,f], np.ones(removeadditiveperiod * 2 + 1)[:, None], mode='same')/weight[:, None]
-		calibrators[key].computeUBLFit = False
-		additivein[:,:,calibrators[key].Info.subsetbl] = additivein[:,:,calibrators[key].Info.subsetbl] + calibrators[key].lincal(data[p], additivein, verbose=True)
-
-	#######################save results###############################
+	if removeadditive:
+		nadditiveloop = 1
+		for i in range(nadditiveloop):
+			weight = ss.convolve(np.ones(additivein.shape[0]), np.ones(removeadditiveperiod * 2 + 1), mode='same')
+			for f in range(additivein.shape[1]):#doing for loop to save memory usage at the expense of negligible time
+				additivein[:,f] = ss.convolve(additivein[:,f], np.ones(removeadditiveperiod * 2 + 1)[:, None], mode='same')/weight[:, None]
+			calibrators[key].computeUBLFit = False
+			additivein[:,:,calibrators[key].Info.subsetbl] = additivein[:,:,calibrators[key].Info.subsetbl] + calibrators[key].lincal(data[p], additivein, verbose=True)
 	print "Done."
-	print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, key)
-	#Zaki: catch these outputs and save them to wherever you like
-	calibrators[key].utctimes = timing
-	calibrators[key].get_calibrated_data(data[p])
-	calibrators[key].get_omnichisq()
-	calibrators[key].get_omnigain()
-	calibrators[key].get_omnifit()
+	sys.stdout.flush()
+	#######################save results###############################
+
+	if keep_binary_calpar:
+		print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, key),
+		sys.stdout.flush()
+		#Zaki: catch these outputs and save them to wherever you like
+		calibrators[key].utctimes = timing
+		calibrators[key].get_calibrated_data(data[p])
+		calibrators[key].get_omnichisq()
+		calibrators[key].get_omnigain()
+		calibrators[key].get_omnifit()
