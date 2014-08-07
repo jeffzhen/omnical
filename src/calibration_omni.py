@@ -301,7 +301,7 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
 		bl1dmatrix[a1, a2] = bl + 1
 		bl1dmatrix[a2, a1] = - (bl + 1)
 	####prepare processing
-	deftime = 2000
+	deftime = int(1.e9 / 200. / (nant * (nant + 1) / 2))
 	data = np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')
 	#sunpos = np.zeros((deftime, 2))
 	t = []#julian date
