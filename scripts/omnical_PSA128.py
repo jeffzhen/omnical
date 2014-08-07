@@ -153,8 +153,8 @@ else:
 		print FILENAME + " MSG: saving binary data to disk...",
 		sys.stdout.flush()
 		f = open(utcPath,'w')
-		for time in timing:
-			f.write("%s\n"%time)
+		for qaz in timing:
+			f.write("%s\n"%qaz)
 		f.close()
 		f = open(lstPath,'w')
 		for l in lst:
