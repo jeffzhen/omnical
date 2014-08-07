@@ -137,6 +137,7 @@ if skip:
 	sys.stdout.flush()
 	with open(utcPath) as f:
 		timing = f.readlines()
+		timing = [t.replace('\n','') for t in timing]
 	data = [np.fromfile(sourcepath + 'data_' + dataano + '_' + key, dtype = 'complex64').reshape((len(timing), nfreq, len(aa) * (len(aa) + 1) / 2)) for key in wantpols.keys()]
 	print "Done."
 	sys.stdout.flush()
@@ -163,6 +164,8 @@ else:
 			data[p].tofile(sourcepath + 'data_' + dataano + '_' + key)
 		print "Done."
 		sys.stdout.flush()
+print FILENAME + " MSG: data time range UTC: %s to %s"%(timing[0], timing[-1])
+sys.stdout.flush()
 ####create redundant calibrators################
 #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
 calibrators = {}
