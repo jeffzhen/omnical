@@ -122,6 +122,9 @@ sys.stdout.flush()
 uv=ap.miriad.UV(uvfiles[0])
 nfreq = uv.nchan;
 nant = uv['nants']
+sa = ephem.Observer()
+sa.lon = uv['longitu']
+sa.lat = uv['latitud']
 #startfreq = uv['sfreq']
 #dfreq = uv['sdf']
 del(uv)
@@ -164,7 +167,20 @@ else:
 			data[p].tofile(sourcepath + 'data_' + dataano + '_' + key)
 		print "Done."
 		sys.stdout.flush()
-print FILENAME + " MSG: data time range UTC: %s to %s"%(timing[0], timing[-1])
+sun = ephem.Sun()
+sunpos  = np.zeros((len(timing), 2))
+cenA = ephem.FixedBody()
+cenA._ra = 3.5146
+cenA._dec = -.75077
+cenApos = np.zeros((len(timing), 2))
+for nt,tm in zip(range(len(timing)),timing):
+	sa.date = tm
+
+	sun.compute(sa)
+	sunpos[nt] = sun.alt, sun.az
+	cenA.compute(sa)
+	cenApos[nt] = cenA.alt, cenA.az
+print FILENAME + " MSG: data time range UTC: %s to %s, sun altaz from (%f,%f) to (%f,%f), CentaurusA altaz from (%f,%f) to (%f,%f)"%(timing[0], timing[-1], sunpos[0,0], sunpos[0,1], sunpos[-1,0], sunpos[-1,1], cenApos[0,0], cenApos[0,1], cenApos[-1,0], cenApos[-1,1])
 sys.stdout.flush()
 ####create redundant calibrators################
 #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
