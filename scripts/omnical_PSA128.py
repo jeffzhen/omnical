@@ -192,8 +192,9 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 	calibrators[key].stepSize = step_size
 
 	################first round of calibration	#########################
-	print FILENAME + " MSG: starting calibration on %s %s."%(dataano, key), calibrators[key].nTime, calibrators[key].nFrequency,
+	print FILENAME + " MSG: starting calibration on %s %s. nTime = %i, nFrequency = %i ..."%(dataano, key, calibrators[key].nTime, calibrators[key].nFrequency),
 	sys.stdout.flush()
+	timer = time.time()
 	additivein = np.zeros_like(data[p])
 	calibrators[key].logcal(data[p], additivein, verbose=True)
 	additivein[:,:,calibrators[key].Info.subsetbl] = calibrators[key].lincal(data[p], additivein, verbose=True)
@@ -209,7 +210,7 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 				calibrators[key].lincal(data[p], additivein, verbose=True)
 			else:
 				additivein[:,:,calibrators[key].Info.subsetbl] = additivein[:,:,calibrators[key].Info.subsetbl] + calibrators[key].lincal(data[p], additivein, verbose=True)
-	print "Done."
+	print "Done. %fmin"%(float(time.time()-timer)/60.)
 	sys.stdout.flush()
 	#######################save results###############################
 	calibrators[key].utctimes = timing
