@@ -44,10 +44,11 @@ o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'tim
 o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
 o.add_option('-o', '--outputpath', action = 'store', default = None, help = 'output folder')
 o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
+o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
 
 opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
-
+create_new_uvs = opts.newuv
 ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 dataano = opts.datatag#ano for existing data and lst.dat
 sourcepath = opts.datapath
@@ -160,10 +161,12 @@ else:
 ####create redundant calibrators################
 #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
 calibrators = {}
+omnigains = {}
+adds = {}
 for p, key in zip(range(len(data)), wantpols.keys()):
 
 	calibrators[key] = RedundantCalibrator_PAPER(aa)
-	calibrators[key].read_redundantinfo(infopaths[key], verbose=True)
+	calibrators[key].read_redundantinfo(infopaths[key], verbose=False)
 	calibrators[key].nTime = len(timing)
 	calibrators[key].nFrequency = nfreq
 
@@ -194,17 +197,31 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 			for f in range(additivein.shape[1]):#doing for loop to save memory usage at the expense of negligible time
 				additivein[:,f] = ss.convolve(additivein[:,f], np.ones(removeadditiveperiod * 2 + 1)[:, None], mode='same')/weight[:, None]
 			calibrators[key].computeUBLFit = False
-			additivein[:,:,calibrators[key].Info.subsetbl] = additivein[:,:,calibrators[key].Info.subsetbl] + calibrators[key].lincal(data[p], additivein, verbose=True)
+			if i == nadditiveloop - 1:
+				calibrators[key].lincal(data[p], additivein, verbose=True)
+			else:
+				additivein[:,:,calibrators[key].Info.subsetbl] = additivein[:,:,calibrators[key].Info.subsetbl] + calibrators[key].lincal(data[p], additivein, verbose=True)
 	print "Done."
 	sys.stdout.flush()
 	#######################save results###############################
-
+	calibrators[key].utctimes = timing
+	omnigains[key] = calibrators[key].get_omnigain()
+	adds[key] = additivein
 	if keep_binary_calpar:
 		print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, key),
 		sys.stdout.flush()
 		#Zaki: catch these outputs and save them to wherever you like
-		calibrators[key].utctimes = timing
+
 		calibrators[key].get_calibrated_data(data[p])
 		calibrators[key].get_omnichisq()
-		calibrators[key].get_omnigain()
+
 		calibrators[key].get_omnifit()
+if create_new_uvs:
+	print FILENAME + " MSG: saving new uv files",
+	sys.stdout.flush()
+	infos = {}
+	for key in wantpols.keys():
+		infos[key] = omni.read_redundantinfo(infopaths[key])
+	omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True)
+	print "Done"
+	sys.stdout.flush()

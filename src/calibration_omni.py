@@ -17,7 +17,7 @@ with warnings.catch_warnings():
     import scipy.linalg as la
 
 FILENAME = "calibration_omni.py"
-julDelta = 2415020# =julian date - pyephem's Observer date
+julDelta = 2415020.# =julian date - pyephem's Observer date
 
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
@@ -357,6 +357,104 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
 		return data/(np.conjugate(calpar[visibilityID[:,0].astype(int)]) * calpar[visibilityID[:,1].astype(int)])
 	else:
 		raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
+
+def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols, oppath, ano, adds=None, nTotalAntenna = None, overwrite = False, verbose = False):
+	METHODNAME = "*apply_omnigain_uvs*"
+	ttotal = len(omnigains[wantpols.keys()[0]])
+	ftotal = omnigains[wantpols.keys()[0]][0,0,3]
+	if adds == None:
+		adds = {}
+		for key in wantpols.keys():
+			adds[key] = np.zeros((ttotal, ftotal, len(totalVisibilityId)))
+	if (ttotal != len(adds[wantpols.keys()[0]]) or ftotal != len(adds[wantpols.keys()[0]][0]) or len(totalVisibilityId) != len(adds[wantpols.keys()[0]][0,0])):
+		raise Exception("Error: additives have different nTime or nFrequency or number of baseline!")
+	if len(info) != len(omnigains) or len(info) != len(wantpols):
+		raise Exception("Error: info and calparfilenames have different number of polarizations!")
+
+	####get some info from the first uvfile
+	uv=ap.miriad.UV(uvfilenames[0])
+	nfreq = uv.nchan;
+	if nfreq != ftotal:
+		raise Exception("Error: uv file %s and omnigains have different nFrequency!"%uvfilenames[0])
+	if nTotalAntenna == None:
+		nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
+	else:
+		nant = nTotalAntenna
+
+	if nant * (nant + 1) / 2 < len(totalVisibilityId):
+		raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
+	startfreq = uv['sfreq']
+	dfreq = uv['sdf']
+	del(uv)
+
+	#######compute bl1dmatrix####each entry is 1 indexed with minus meaning conjugate, the bl here is the number in totalVisibilityId
+	bl1dmatrix = np.zeros((nant, nant), dtype = 'int32')
+
+	for a1a2, bl in zip(totalVisibilityId, range(len(totalVisibilityId))):
+		a1, a2 = a1a2
+		bl1dmatrix[a1, a2] = bl + 1
+		bl1dmatrix[a2, a1] = - (bl + 1)
+	####load calpar from omnigain
+	calpars = {}#bad antenna included
+	for key in wantpols.keys():
+		calpars[key] = (1. + np.zeros((ttotal, nant, nfreq),dtype='complex64'))
+		calpars[key][:,info[key]['subsetant'],:] = omnigains[key][:,:,4::2] + 1.j * omnigains[key][:,:,5::2]
+
+
+	#########start processing#######################
+	t = []
+	timing = []
+	#datapulled = False
+	for uvfile in uvfilenames:
+		uvi = ap.miriad.UV(uvfile)
+		if len(timing) > 0:
+			if verbose:
+				print FILENAME + METHODNAME + "MSG:", uvfile + ' after', timing[-1]#uv.nchan
+				sys.stdout.flush()
+
+		if oppath == None:
+			oppath = os.path.abspath(os.path.dirname(os.path.dirname(uvfile + '/'))) + '/'
+		opuvname = oppath + os.path.basename(os.path.dirname(uvfile+'/')) + ano + 'O'
+		if verbose:
+			print FILENAME + METHODNAME + "MSG: Creating %s"%opuvname
+		if overwrite and os.path.isdir(opuvname):
+			shutil.rmtree(opuvname)
+		uvo = ap.miriad.UV(opuvname, status='new')
+		uvo.init_from_uv(uvi)
+		historystr = "Applied OMNICAL on %s: "%time.asctime(time.localtime(time.time()))
+		uvo['history'] += historystr + "\n"
+		for preamble, data, flag in uvi.all(raw=True):
+			uvo.copyvr(uvi)
+			if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
+				t += [preamble[1]]
+
+				if len(t) > ttotal:
+					raise Exception(FILENAME + METHODNAME + " MSG: FATAL ERROR: omnigain input array has length", omnigains[0].shape, "but the total length is exceeded when processing " + uvfile + " Aborted!")
+			polwanted = False
+			for pol in wantpols.keys():
+				if wantpols[pol] == uvi['pol']:
+					a1, a2 = preamble[2]
+					bl = bl1dmatrix[a1, a2]
+					if bl > 0:
+						additive = adds[pol][len(t) - 1, :, bl - 1]
+					elif bl < 0:
+						additive = adds[pol][len(t) - 1, :, - bl - 1].conjugate()
+					else:
+						additive = 0
+						flag[:] = True
+					#print data.shape, additive.shape, calpars[pol][len(t) - 1, a1].shape
+					uvo.write(preamble, (data-additive)/calpars[pol][len(t) - 1, a1].conjugate()/calpars[pol][len(t) - 1, a2], flag)
+					polwanted = True
+					break
+			if not polwanted:
+				uvo.write(preamble, data, flag)
+
+		del(uvo)
+		del(uvi)
+		#if not datapulled:
+			#print FILENAME + METHODNAME + " MSG:",  "FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting."
+			#exit(1)
+	return
 
 def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wantpols, oppath, ano, additivefilenames = None, nTotalAntenna = None, overwrite= False):
 	METHODNAME = "*apply_omnical_uvs*"
@@ -778,11 +876,10 @@ class RedundantCalibrator:
 			sa.date = utctime
 			jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
 
-		omnichisq = np.zeros((self.nTime, 2 + 1 + 2 * self.nFrequency), dtype = 'float32')
+		omnichisq = np.zeros((self.nTime, 2 + 1 + self.nFrequency), dtype = 'float32')
 		omnichisq[:, :2] = jd
 		omnichisq[:, 2] = float(self.nFrequency)
-		omnichisq[:, 3::2] = self.rawCalpar[:, :, 0]#number of lincal iters
-		omnichisq[:, 4::2] = self.rawCalpar[:, :, 2]#chisq which is sum of squares of errors in each visbility
+		omnichisq[:, 3:] = self.rawCalpar[:, :, 2]#chisq which is sum of squares of errors in each visbility
 		return omnichisq
 
 	def get_omnigain(self):
