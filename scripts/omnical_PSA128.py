@@ -6,6 +6,7 @@ import commands, os, time, math, ephem
 import omnical.calibration_omni as omni
 import optparse, sys
 import scipy.signal as ss
+import matplotlib.pyplot as plt
 FILENAME = "omnical_PSA128.py"
 
 ##########################Sub-class#############################
@@ -45,10 +46,14 @@ o.add_option('--datapath', action = 'store', default = None, help = 'uv file or 
 o.add_option('-o', '--outputpath', action = 'store', default = None, help = 'output folder')
 o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
+o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
+o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
 
 opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
 create_new_uvs = opts.newuv
+overwrite_uvs = opts.overwrite
+make_plots = opts.plot
 ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 dataano = opts.datatag#ano for existing data and lst.dat
 sourcepath = opts.datapath
@@ -222,6 +227,12 @@ if create_new_uvs:
 	infos = {}
 	for key in wantpols.keys():
 		infos[key] = omni.read_redundantinfo(infopaths[key])
-	omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True)
+	omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, overwrite = overwrite_uvs)
 	print "Done"
 	sys.stdout.flush()
+if make_plots:
+	for p,pol in zip(range(len(wantpols)), wantpols.keys()):
+		plt.subplot(1,len(wantpols),p+1)
+		plt.imshow(calibrators[pol].rawCalpar[:,:,2], vmin = 0, vmax = np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,50:-50:5,2]), interpolation='nearest')
+	plt.colorbar()
+	plt.show()
