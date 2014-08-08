@@ -113,6 +113,7 @@ step_size = .3
 
 ########Massage user parameters###################################
 sourcepath += '/'
+oppath += '/'
 utcPath = sourcepath + 'miriadextract_' + dataano + "_localtime.dat"
 lstPath = sourcepath + 'miriadextract_' + dataano + "_lsthour.dat"
 
