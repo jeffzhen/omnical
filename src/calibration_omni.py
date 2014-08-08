@@ -1249,5 +1249,36 @@ class RedundantCalibrator:
 
 
 
+def omniview(data, info, plotrange = None, title = ''):
+	import matplotlib.pyplot as plt
+	d=data[info['subsetbl']][info['crossindex']]
+	if plotrange == None:
+		plotrange = 1.2*np.nanmax(np.abs(d))
+	ubl = 0
+	colors=[]
+	colorgrid = int(math.ceil((info['nUBL']/12.+1)**.34))
+	for red in range(colorgrid):
+		for green in range(colorgrid):
+			for blue in range(colorgrid):
+				#print red, green, blue
+				colors += [(np.array([red, green, blue]).astype('float')/(colorgrid - 1)).tolist()]
+	colors.remove([0,0,0])
+	colors.remove([1,1,1])
 
+	for marker in ["o", "v", "^", "<", ">", "8", "s", "p", "h", (6,1,0), (8,1,0), "d"]:
+		for color in colors:
+			#print info['ublindex'][ubl][:,2]
+			#print marker, color
+			plt.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]), marker=marker, color=color)
+			ubl += 1
+			if ubl == info['nUBL']:
+				plt.xlabel('Real')
+				plt.ylabel('Imag')
+				plt.title(title)
+				plt.grid(True)
+				plt.axis([-plotrange, plotrange, -plotrange, plotrange])
+				plt.axes().set_aspect('equal')
+				plt.axes().text(-0.9*plotrange, -0.9*plotrange, "#Ant:%i\n#UBL:%i"%(info['nAntenna'],info['nUBL']),bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.2))
+				plt.show()
+				return
 
