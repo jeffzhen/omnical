@@ -43,11 +43,12 @@ o.add_option('-i', '--infopath', action = 'store', default = '/data2/home/hz2ug/
 o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
-o.add_option('-o', '--outputpath', action = 'store', default = None, help = 'output folder')
+o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
 o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
 o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
 o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
+o.add_option('--crude', action = 'store_true', help = 'whether to apply crude calibration')
 
 opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
@@ -94,7 +95,7 @@ else:
 	removeadditive = False
 	removeadditiveperiod = -1
 
-needrawcal = False #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
+need_crude_cal = opts.crude #if true, (generally true for raw data) call raw_calibrate on first time slice of data set
 #rawpaths = {'xx':"testrawphasecalparrad_xx", 'yy':"testrawphasecalparrad_yy"}
 
 
@@ -142,7 +143,7 @@ if skip:
 	with open(utcPath) as f:
 		timing = f.readlines()
 		timing = [t.replace('\n','') for t in timing]
-	data = [np.fromfile(sourcepath + 'data_' + dataano + '_' + key, dtype = 'complex64').reshape((len(timing), nfreq, len(aa) * (len(aa) + 1) / 2)) for key in wantpols.keys()]
+	data = np.array([np.fromfile(sourcepath + 'data_' + dataano + '_' + key, dtype = 'complex64').reshape((len(timing), nfreq, len(aa) * (len(aa) + 1) / 2)) for key in wantpols.keys()])
 	print "Done."
 	sys.stdout.flush()
 
@@ -181,7 +182,7 @@ for nt,tm in zip(range(len(timing)),timing):
 	sunpos[nt] = sun.alt, sun.az
 	cenA.compute(sa)
 	cenApos[nt] = cenA.alt, cenA.az
-print FILENAME + " MSG: data time range UTC: %s to %s, sun altaz from (%f,%f) to (%f,%f), CentaurusA altaz from (%f,%f) to (%f,%f)"%(timing[0], timing[-1], sunpos[0,0], sunpos[0,1], sunpos[-1,0], sunpos[-1,1], cenApos[0,0], cenApos[0,1], cenApos[-1,0], cenApos[-1,1])
+print FILENAME + " MSG: data time range UTC: %s to %s, sun altaz from (%f,%f) to (%f,%f)"%(timing[0], timing[-1], sunpos[0,0], sunpos[0,1], sunpos[-1,0], sunpos[-1,1])#, "CentaurusA altaz from (%f,%f) to (%f,%f)"%(cenApos[0,0], cenApos[0,1], cenApos[-1,0], cenApos[-1,1])
 sys.stdout.flush()
 ####create redundant calibrators################
 #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
@@ -192,14 +193,18 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 
 	calibrators[key] = RedundantCalibrator_PAPER(aa)
 	calibrators[key].read_redundantinfo(infopaths[key], verbose=False)
+	info = calibrators[key].Info.get_info()
 	calibrators[key].nTime = len(timing)
 	calibrators[key].nFrequency = nfreq
 
 	###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
-	if needrawcal:
-		raise Exception("Raw calpar not coded for the case where you need starting raw calibration!")
-	else:
-		calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
+	if need_crude_cal:
+		initant, solution_path, _ = omni.find_solution_path(info)
+
+		crude_calpar = np.array([omni.raw_calibrate(data[p, 0, f], info, initant, solution_path) for f in range(calibrators[key].nFrequency)])
+		data[p] = omni.apply_calpar(data[p], crude_calpar, calibrators[key].totalVisibilityId)
+
+	calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
 
 
 	####calibrate################
@@ -242,6 +247,17 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 		calibrators[key].get_omnichisq()
 
 		calibrators[key].get_omnifit()
+	bad_ant_meter = calibrators[key].find_bad_ant(data = data[p])
+	#print bad_ant_cnt
+	#print (bad_ant_cnt > 20).sum()
+	nbad = 0
+	badstr = ''
+	for a in range(len(bad_ant_meter)):
+		if bad_ant_meter[a] > 20:
+			badstr += (str(a) + ',')
+			nbad += 1
+	print "BAD ANTENNA", badstr
+	print "%i NEW BAD ANTENNA(S)"%nbad
 if create_new_uvs:
 	print FILENAME + " MSG: saving new uv files",
 	sys.stdout.flush()
