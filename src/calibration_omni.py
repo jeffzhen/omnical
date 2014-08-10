@@ -1388,8 +1388,11 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
     ant_solved = 10
     additional_solution_path = []
     while len(unsolved_ant) > 0 and ant_solved > 0:#find a ubl that can solve these individual antennas not involved in the chosen 2 ubls. Use while because the first ant in the unsolved_ant may not be solvable on the first pass
+
         ant_solved = 0
         for a in unsolved_ant:
+            if verbose:
+                print "trying to solve for ", a,
             ublcnt_tmp = info['ublcount'].astype('float')
             third_ubl_good = False
             tried_all_ubl = False
@@ -1400,28 +1403,29 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
                 except:
                     tried_all_ubl = True
                     break
-
+                if verbose:
+                    print "trying ubl ", third_ubl,
                 third_ubl_good = False #assume false and start checking if this ubl 1) has this antenna 2) has another baseline whose two ants are both solved
                 if (len(info['ublindex'][third_ubl]) < 2) or (a not in info['ublindex'][third_ubl]):
-                    break
+                    continue
                 for a1, a2, bl in info['ublindex'][third_ubl]:
                     if (a1 not in unsolved_ant) and (a2 not in unsolved_ant):
                         third_ubl_good = True
+                        if verbose:
+                            print "picked ubl", info['ubl'][third_ubl], "to solve for ant", a
                         break
 
             if third_ubl_good:#figure out how to use this third ubl to solve this a
-                if verbose:
-                    print "picked ubl", info['ubl'][third_ubl], "to solve for ant", a
                 get_ubl_fit = []#a recipe for how to get the ublfit and solvefor the unsolved antenna
-                for a1, a2, bl in info['ublindex'][third_ubl]:
+                for a1, a2, bl in info['ublindex'][third_ubl].astype('int'):
                     if (a1 not in unsolved_ant) and (a2 not in unsolved_ant):
                         get_ubl_fit.append([a1, a2, bl, info['reversed'][bl]])
-                for a1, a2, bl in info['ublindex'][third_ubl]:
+                for a1, a2, bl in info['ublindex'][third_ubl].astype('int'):
                     if (a1 not in unsolved_ant) and (a2 == a):
-                        get_ubl_fit.append([a1, a2, bl, info['reversed'][bl], a1])
+                        get_ubl_fit.append([a1, a2, bl, info['reversed'][bl], 0])
                         break
                     if (a2 not in unsolved_ant) and (a1 == a):
-                        get_ubl_fit.append([a1, a2, bl, info['reversed'][bl], a2])
+                        get_ubl_fit.append([a1, a2, bl, info['reversed'][bl], 1])
                         break
                 additional_solution_path.append(get_ubl_fit)
                 ant_solved += 1
@@ -1429,14 +1433,14 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
 
 
 
-    return initialant, solution_path, len(solution_path) == len(ublindex), additional_solution_path
+    return initialant, solution_path, additional_solution_path, ((len(solution_path) == len(ublindex)) and (unsolved_ant == []))
 
 def meanAngle(a):
     return np.angle(np.mean(np.exp(1.j*np.array(a))))
 def medianAngle(a):
     return np.angle(np.median(np.cos(np.array(a))) + 1.j * np.median(np.sin(np.array(a))))
 
-def raw_calibrate(data, info, initant, solution_path):
+def raw_calibrate(data, info, initant, solution_path, additional_solution_path):
     result = np.ones(int(math.ceil((len(data)*2.)**.5)), dtype='complex64')
     calpar = np.array([[]]*info['nAntenna']).tolist()
     calpar[initant] = [0]
@@ -1449,6 +1453,16 @@ def raw_calibrate(data, info, initant, solution_path):
             calpar[i] = [meanAngle(calpar[i])]
         else:
             calpar[i] = [0]
+
+    #now deal with additional_solution_path which deal with antennas that are not included in the 2 ubls picked to be 0
+    for solution in additional_solution_path:
+        ubl_phases = np.array([s[-1]*(calpar[s[0]][0]-calpar[s[1]][0]+d[s[2]]) for s in solution[:-1]])
+        ubl_phase = medianAngle(ubl_phases)
+        #print np.angle(np.exp(1.j*ubl_phases))
+        #print calpar[solution[-1][1-solution[-1][-1]]]
+        calpar[solution[-1][1-solution[-1][-1]]] = [calpar[solution[-1][solution[-1][-1]]][0] + ((solution[-1][-1]-0.5)/-.5)*(d[solution[-1][2]] - ubl_phase * (solution[-1][-2]))]
+        #print solution[-1]
+        #print calpar[solution[-1][solution[-1][-1]]][0], ((solution[-1][-1]-0.5)/-.5),d[solution[-1][2]] , ubl_phase * (solution[-1][-2]), calpar[solution[-1][1-solution[-1][-1]]]
 
     result[info['subsetant']] = np.exp(1.j*np.array(calpar).flatten())# * result[info['subsetant']]
     return result
