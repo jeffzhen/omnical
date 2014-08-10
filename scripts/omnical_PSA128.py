@@ -43,6 +43,7 @@ o.add_option('-i', '--infopath', action = 'store', default = '/data2/home/hz2ug/
 o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
+o.add_option('--healthbar', action = 'store', type = 'float', default = 10, help = 'health threshold (0-100) over which an antenna is marked bad.')
 o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
 o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
@@ -60,6 +61,7 @@ dataano = opts.datatag#ano for existing data and lst.dat
 sourcepath = opts.datapath
 oppath = opts.outputpath
 uvfiles = args
+healthbar = opts.healthbar
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
 		uvfiles.remove(uvf)
@@ -219,19 +221,18 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 	timer = time.time()
 	additivein = np.zeros_like(data[p])
 	calibrators[key].logcal(data[p], additivein, verbose=True)
-	additivein[:,:,calibrators[key].Info.subsetbl] = calibrators[key].lincal(data[p], additivein, verbose=True)
+	additiveout = calibrators[key].lincal(data[p], additivein, verbose=True)
 	#######################remove additive###############################
 	if removeadditive:
 		nadditiveloop = 1
 		for i in range(nadditiveloop):
+			additivein[:,:,calibrators[key].Info.subsetbl] = additivein[:,:,calibrators[key].Info.subsetbl] + additiveout
 			weight = ss.convolve(np.ones(additivein.shape[0]), np.ones(removeadditiveperiod * 2 + 1), mode='same')
 			for f in range(additivein.shape[1]):#doing for loop to save memory usage at the expense of negligible time
 				additivein[:,f] = ss.convolve(additivein[:,f], np.ones(removeadditiveperiod * 2 + 1)[:, None], mode='same')/weight[:, None]
 			calibrators[key].computeUBLFit = False
-			if i == nadditiveloop - 1:
-				calibrators[key].lincal(data[p], additivein, verbose=True)
-			else:
-				additivein[:,:,calibrators[key].Info.subsetbl] = additivein[:,:,calibrators[key].Info.subsetbl] + calibrators[key].lincal(data[p], additivein, verbose=True)
+			additiveout = calibrators[key].lincal(data[p], additivein, verbose=True)
+
 	print "Done. %fmin"%(float(time.time()-timer)/60.)
 	sys.stdout.flush()
 	#######################save results###############################
@@ -245,17 +246,15 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 
 		calibrators[key].get_calibrated_data(data[p])
 		calibrators[key].get_omnichisq()
-
 		calibrators[key].get_omnifit()
 		print "Done"
 		sys.stdout.flush()
-	bad_ant_meter = calibrators[key].find_bad_ant(data = data[p])
-	#print bad_ant_cnt
-	#print (bad_ant_cnt > 20).sum()
+	bad_ant_meter = calibrators[key].find_bad_ant(data = data[p], additiveout = additiveout)
+	#print bad_ant_meter
 	nbad = 0
 	badstr = ''
 	for a in range(len(bad_ant_meter)):
-		if bad_ant_meter[a] > 20:
+		if bad_ant_meter[a] > healthbar:
 			badstr += (str(a) + ',')
 			nbad += 1
 	if nbad > 0 :
@@ -273,6 +272,6 @@ if create_new_uvs:
 if make_plots:
 	for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 		plt.subplot(1,len(wantpols),p+1)
-		plt.imshow(calibrators[pol].rawCalpar[:,:,2], vmin = 0, vmax = np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,50:-50:5,2]), interpolation='nearest')
+		plt.imshow(calibrators[pol].rawCalpar[:,:,2], vmin = 0, vmax = np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,30:-30:5,2]), interpolation='nearest')
 	plt.colorbar()
 	plt.show()
