@@ -1325,19 +1325,16 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
     ###The overarching goal is to find a solution path (a sequence of unique baselines to solve) that can get multiple solutions to multiple antennas using just two sets of ubls
     solution_path = []
 
-    antcnt = np.bincount(np.array(ublindex)[:,:2].flatten())#how many times each antenna appear in the two sets of ubls. at most 4. not useful if < 2
+    antcnt = np.bincount(np.array(ublindex)[:,:2].flatten(), minlength = info['nAntenna'])#how many times each antenna appear in the two sets of ubls. at most 4. not useful if < 2
+    unsolved_ant = []
+    for a in range(len(antcnt)):
+        if antcnt[a] == 0:
+            unsolved_ant.append(a)
     if verbose:
-        print "antcnt", antcnt
+        print "antcnt", antcnt, "Antennas", np.array(info['subsetant'])[unsolved_ant], "not directly solvable."
 
-    #useful_ant = []#ants that appear at least twice
-    #a = 0
-    #for cnt in antcnt:
-        #if cnt >= 2:
-            #useful_ant.append(a)
-        #a += 1
-    #print "useful_ant", useful_ant, len(useful_ant)
 
-    ###Status string for ubl: NoUse: none of the two ants have been solved;
+    ###Status string for ubl: NoUse: none of the two ants have been solved; Solvable: at least one of the ants have solutions; Done: used to generate one antennacalpar
     ublstatus = ["NoUse" for i in ublindex]
 
     ###antenna calpars, a list for each antenna
@@ -1352,7 +1349,7 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
             ublstatus[i] = "Solvable"
 
     ###start looping
-    solvecnt = 10#number of solved baselines in each loop
+    solvecnt = 10#number of solved baselines in each loop, 10 is an arbitrary starting point
     if verbose:
         print "new ant solved",
     while solvecnt > 0:
@@ -1386,7 +1383,53 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
                                 ublstatus[j] = "Solvable"
     if verbose:
         print ""
-    return initialant, solution_path, len(solution_path) == len(ublindex)
+
+
+    ant_solved = 10
+    additional_solution_path = []
+    while len(unsolved_ant) > 0 and ant_solved > 0:#find a ubl that can solve these individual antennas not involved in the chosen 2 ubls. Use while because the first ant in the unsolved_ant may not be solvable on the first pass
+        ant_solved = 0
+        for a in unsolved_ant:
+            ublcnt_tmp = info['ublcount'].astype('float')
+            third_ubl_good = False
+            tried_all_ubl = False
+            while (not third_ubl_good) and (not tried_all_ubl):
+                try:
+                    third_ubl = np.nanargmax(ublcnt_tmp)
+                    ublcnt_tmp[third_ubl] = np.nan
+                except:
+                    tried_all_ubl = True
+                    break
+
+                third_ubl_good = False #assume false and start checking if this ubl 1) has this antenna 2) has another baseline whose two ants are both solved
+                if (len(info['ublindex'][third_ubl]) < 2) or (a not in info['ublindex'][third_ubl]):
+                    break
+                for a1, a2, bl in info['ublindex'][third_ubl]:
+                    if (a1 not in unsolved_ant) and (a2 not in unsolved_ant):
+                        third_ubl_good = True
+                        break
+
+            if third_ubl_good:#figure out how to use this third ubl to solve this a
+                if verbose:
+                    print "picked ubl", info['ubl'][third_ubl], "to solve for ant", a
+                get_ubl_fit = []#a recipe for how to get the ublfit and solvefor the unsolved antenna
+                for a1, a2, bl in info['ublindex'][third_ubl]:
+                    if (a1 not in unsolved_ant) and (a2 not in unsolved_ant):
+                        get_ubl_fit.append([a1, a2, bl, info['reversed'][bl]])
+                for a1, a2, bl in info['ublindex'][third_ubl]:
+                    if (a1 not in unsolved_ant) and (a2 == a):
+                        get_ubl_fit.append([a1, a2, bl, info['reversed'][bl], a1])
+                        break
+                    if (a2 not in unsolved_ant) and (a1 == a):
+                        get_ubl_fit.append([a1, a2, bl, info['reversed'][bl], a2])
+                        break
+                additional_solution_path.append(get_ubl_fit)
+                ant_solved += 1
+                unsolved_ant.remove(a)
+
+
+
+    return initialant, solution_path, len(solution_path) == len(ublindex), additional_solution_path
 
 def meanAngle(a):
     return np.angle(np.mean(np.exp(1.j*np.array(a))))
@@ -1402,7 +1445,10 @@ def raw_calibrate(data, info, initant, solution_path):
     for ublindex, a in solution_path:
         calpar[ublindex[1-a]].append(calpar[ublindex[a]][0] + ((a-0.5)/-.5)*d[ublindex[2]])
     for i in range(len(calpar)):
-        calpar[i] = [meanAngle(calpar[i])]
+        if len(calpar[i]) > 0:
+            calpar[i] = [meanAngle(calpar[i])]
+        else:
+            calpar[i] = [0]
 
     result[info['subsetant']] = np.exp(1.j*np.array(calpar).flatten())# * result[info['subsetant']]
     return result
