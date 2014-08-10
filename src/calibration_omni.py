@@ -937,6 +937,8 @@ class RedundantCalibrator:
 
 
     def find_bad_ant(self, data = None, additiveout = None):
+        errstate = np.geterr()
+        np.seterr(invalid = 'ignore')
         checks = 1
         bad_count = np.zeros(self.nTotalAnt, dtype='int')
         bad_count[self.Info.subsetant] = np.array([(np.abs(self.rawCalpar[:,:,3+a]) >= .5).sum() for a in range(self.Info.nAntenna)])
@@ -950,6 +952,7 @@ class RedundantCalibrator:
             ant_level = np.array([np.median(np.abs(data[:, :, [subsetbl[crossindex[bl]] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
             median_level = np.median(ant_level, axis = 0)
             bad_count[self.Info.subsetant] += np.array([(np.abs(ant_level[a] - median_level)/median_level >= .5).sum() for a in range(self.Info.nAntenna)])
+        np.seterr(invalid = errstate['invalid'])
         return (bad_count/float(self.nTime * self.nFrequency) * 100 / checks).astype('int')
 
     def compute_redundantinfo(self, arrayinfoPath = None):

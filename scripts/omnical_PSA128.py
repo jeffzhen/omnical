@@ -247,6 +247,8 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 		calibrators[key].get_omnichisq()
 
 		calibrators[key].get_omnifit()
+		print "Done"
+		sys.stdout.flush()
 	bad_ant_meter = calibrators[key].find_bad_ant(data = data[p])
 	#print bad_ant_cnt
 	#print (bad_ant_cnt > 20).sum()
@@ -256,7 +258,8 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 		if bad_ant_meter[a] > 20:
 			badstr += (str(a) + ',')
 			nbad += 1
-	print "BAD ANTENNA", badstr
+	if nbad > 0 :
+		print "BAD ANTENNA", badstr
 	print "%i NEW BAD ANTENNA(S)"%nbad
 if create_new_uvs:
 	print FILENAME + " MSG: saving new uv files",
