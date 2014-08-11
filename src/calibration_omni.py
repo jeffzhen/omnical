@@ -963,7 +963,7 @@ class RedundantCalibrator:
 
 
 
-    def diagnose(self, data = None, additiveout = None):
+    def diagnose(self, data = None, additiveout = None, verbose = True):
         errstate = np.geterr()
         np.seterr(invalid = 'ignore')
         checks = 1
@@ -995,9 +995,19 @@ class RedundantCalibrator:
             ubl_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in ublindex[u]]]), axis = 2) for u in range(self.Info.nUBL)])
             median_level = np.median(ubl_level, axis = 0)
             bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .5).sum() for u in range(self.Info.nUBL)])
-            print median_level
+            #print median_level
         np.seterr(invalid = errstate['invalid'])
-        return (bad_count/float(self.nTime * self.nFrequency) * 100 / checks).astype('int'), (bad_ubl_count/float(self.nTime * self.nFrequency) * 100).astype('int')
+        bad_count = (bad_count/float(self.nTime * self.nFrequency) * 100 / checks).astype('int')
+        bad_ubl_count = (bad_ubl_count/float(self.nTime * self.nFrequency) * 100).astype('int')
+        if verbose:
+            #print bad_ant_cnt, bad_ubl_cnt
+            print "DETECTED BAD ANTENNA: ", [a for a in range(len(bad_count)) if bad_count[a] > 10]
+            if additiveout != None and additiveout.shape[:2] == self.rawCalpar.shape[:2]:
+                print "DETECTED BAD BASELINE TYPE: "
+                for a in range(len(bad_ubl_count)):
+                    if bad_ubl_count[a] > 10:
+                        print "index #%i, vector = %s, redundancy = %i"%(a, self.Info.ubl[a], self.Info.ublcount[a])
+        return bad_count, bad_ubl_count
 
     def compute_redundantinfo(self, arrayinfoPath = None):
         if arrayinfoPath != None and os.path.isfile(arrayinfoPath):
