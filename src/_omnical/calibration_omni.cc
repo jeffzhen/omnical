@@ -3290,7 +3290,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			(module->g2)[a3] = (module->g1)[a3];
 			for (unsigned int a = a3 + 1; a < module->g3.size(); a++){
 				cbl = info->bl1dmatrix[a3][a];
-				if (cbl < 0 or cbl > module->cdata1.size()){//badbl
+				if (cbl < 0 or cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
 					module->g1[a] = vector<float>(2,0);
 					module->g2[a] = vector<float>(2,0);
 				}else{

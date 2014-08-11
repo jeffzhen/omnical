@@ -249,7 +249,7 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 		calibrators[key].get_omnifit()
 		print "Done"
 		sys.stdout.flush()
-	calibrators[key].diagnose(data = data[p], additiveout = additiveout)
+	calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar)
 	##print bad_ant_meter
 	#nbad = 0
 	#badstr = ''
@@ -272,6 +272,8 @@ if create_new_uvs:
 if make_plots:
 	for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 		plt.subplot(1,len(wantpols),p+1)
-		plt.imshow(calibrators[pol].rawCalpar[:,:,2], vmin = 0, vmax = np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,30:-30:5,2]), interpolation='nearest')
+		plot_data = (calibrators[pol].rawCalpar[:,:,2]/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5
+		plt.imshow(plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,30:-30:5,2])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
+	plt.title('RMS fitting error per baseline')
 	plt.colorbar()
 	plt.show()

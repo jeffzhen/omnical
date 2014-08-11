@@ -146,8 +146,8 @@ class TestMethods(unittest.TestCase):
 
         newresult = np.sum(calibrators[-1].rawCalpar[:,:,3:],axis=2).flatten()
 
-        calibrators[-1].rawCalpar.tofile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical')
-        np.testing.assert_array_equal(correctresult[20:-20], newresult[20:-20])#decimal=
+        #calibrators[-1].rawCalpar.tofile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical')
+        np.testing.assert_almost_equal(correctresult[20:-20], newresult[20:-20])#decimal=
 
     def test_norm(self):
         d = np.zeros((2,3,4), dtype=np.float32)

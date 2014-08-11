@@ -963,7 +963,7 @@ class RedundantCalibrator:
 
 
 
-    def diagnose(self, data = None, additiveout = None, verbose = True):
+    def diagnose(self, data = None, additiveout = None, verbose = True, healthbar = 10, warn_low_redun = False):
         errstate = np.geterr()
         np.seterr(invalid = 'ignore')
         checks = 1
@@ -1001,12 +1001,15 @@ class RedundantCalibrator:
         bad_ubl_count = (bad_ubl_count/float(self.nTime * self.nFrequency) * 100).astype('int')
         if verbose:
             #print bad_ant_cnt, bad_ubl_cnt
-            print "DETECTED BAD ANTENNA: ", [a for a in range(len(bad_count)) if bad_count[a] > 10]
+            print "DETECTED BAD ANTENNA:"
+            for a in range(len(bad_count)):
+                if bad_count[a] > healthbar:
+                    print self.Info.subsetant[a], "badness =", bad_count[a]
             if additiveout != None and additiveout.shape[:2] == self.rawCalpar.shape[:2]:
                 print "DETECTED BAD BASELINE TYPE: "
                 for a in range(len(bad_ubl_count)):
-                    if bad_ubl_count[a] > 10:
-                        print "index #%i, vector = %s, redundancy = %i"%(a, self.Info.ubl[a], self.Info.ublcount[a])
+                    if bad_ubl_count[a] > healthbar and (self.Info.ublcount[a] > 5 or (warn_low_redun)):
+                        print "index #%i, vector = %s, redundancy = %i, badness = %i"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
         return bad_count, bad_ubl_count
 
     def compute_redundantinfo(self, arrayinfoPath = None):
