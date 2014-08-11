@@ -249,17 +249,17 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 		calibrators[key].get_omnifit()
 		print "Done"
 		sys.stdout.flush()
-	bad_ant_meter = calibrators[key].diagnose(data = data[p], additiveout = additiveout)
-	#print bad_ant_meter
-	nbad = 0
-	badstr = ''
-	for a in range(len(bad_ant_meter)):
-		if bad_ant_meter[a] > healthbar:
-			badstr += (str(a) + ',')
-			nbad += 1
-	if nbad > 0 :
-		print "BAD ANTENNA", badstr
-	print "%i NEW BAD ANTENNA(S)"%nbad
+	calibrators[key].diagnose(data = data[p], additiveout = additiveout)
+	##print bad_ant_meter
+	#nbad = 0
+	#badstr = ''
+	#for a in range(len(bad_ant_meter)):
+		#if bad_ant_meter[a] > healthbar:
+			#badstr += (str(a) + ',')
+			#nbad += 1
+	#if nbad > 0 :
+		#print "BAD ANTENNA", badstr
+	#print "%i NEW BAD ANTENNA(S)"%nbad
 if create_new_uvs:
 	print FILENAME + " MSG: saving new uv files",
 	sys.stdout.flush()
