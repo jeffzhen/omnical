@@ -249,7 +249,7 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 		calibrators[key].get_omnifit()
 		print "Done"
 		sys.stdout.flush()
-	bad_ant_meter = calibrators[key].find_bad_ant(data = data[p], additiveout = additiveout)
+	bad_ant_meter = calibrators[key].diagnose(data = data[p], additiveout = additiveout)
 	#print bad_ant_meter
 	nbad = 0
 	badstr = ''

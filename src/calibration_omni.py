@@ -710,31 +710,58 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
             print "Done."
             sys.stdout.flush()
 
+    def __getattribute__(self, key):
+        try:
+            if key in ['A','B']:
+                #print key
+                return sps.csr_matrix(_O.RedundantInfo.__getattribute__(self, key))
+            elif key in ['At','Bt']:
+                tmp = _O.RedundantInfo.__getattribute__(self, key+'sparse')
+                matrix = np.zeros((self.nAntenna + self.nUBL, len(self.crossindex)))
+                for i in tmp:
+                    matrix[i[0],i[1]] = i[2]
+                return sps.csr_matrix(matrix)
+            elif key in ['ublindex']:
+                ublindex = []
+                for i in _O.RedundantInfo.__getattribute__(self, key):
+                    while len(ublindex) < i[0] + 1:
+                        ublindex.append(np.zeros((1,3)))
+                    while len(ublindex[i[0]]) < i[1] + 1:
+                        ublindex[i[0]] = np.array(ublindex[i[0]].tolist() + [[0,0,0]])
+                    ublindex[i[0]][i[1]] = np.array(i[2:])
+                return ublindex
+
+            else:
+                return _O.RedundantInfo.__getattribute__(self, key)
+        except:
+            raise Exception("Error retrieving %s item."%key)
+
+
     def get_info(self):
         info = {}
         for key in infokeys:
             try:
-                if key in ['A','B']:
-                    #print key
-                    info[key] = sps.csr_matrix(self.__getattribute__(key))
-                elif key in ['At','Bt']:
-                    tmp = self.__getattribute__(key+'sparse')
-                    matrix = np.zeros((info['nAntenna'] + info['nUBL'], len(info['crossindex'])))
-                    for i in tmp:
-                        matrix[i[0],i[1]] = i[2]
-                    info[key] = sps.csr_matrix(matrix)
-                elif key in ['ublindex']:
-                    ublindex = []
-                    for i in self.__getattribute__(key):
-                        while len(ublindex) < i[0] + 1:
-                            ublindex.append(np.zeros((1,3)))
-                        while len(ublindex[i[0]]) < i[1] + 1:
-                            ublindex[i[0]] = np.array(ublindex[i[0]].tolist() + [[0,0,0]])
-                        ublindex[i[0]][i[1]] = np.array(i[2:])
-                    info[key] = ublindex
+                #if key in ['A','B']:
+                    ##print key
+                    #info[key] = sps.csr_matrix(self.__getattribute__(key))
+                #elif key in ['At','Bt']:
+                    #tmp = self.__getattribute__(key+'sparse')
+                    #matrix = np.zeros((info['nAntenna'] + info['nUBL'], len(info['crossindex'])))
+                    #for i in tmp:
+                        #matrix[i[0],i[1]] = i[2]
+                    #info[key] = sps.csr_matrix(matrix)
+                #elif key in ['ublindex']:
+                    #ublindex = []
+                    #for i in self.__getattribute__(key):
+                        #while len(ublindex) < i[0] + 1:
+                            #ublindex.append(np.zeros((1,3)))
+                        #while len(ublindex[i[0]]) < i[1] + 1:
+                            #ublindex[i[0]] = np.array(ublindex[i[0]].tolist() + [[0,0,0]])
+                        #ublindex[i[0]][i[1]] = np.array(i[2:])
+                    #info[key] = ublindex
 
-                else:
-                    #print key
+                #else:
+                    ##print key
                     info[key] = self.__getattribute__(key)
             except:
                 raise Exception("Error retrieving %s item."%key)
@@ -936,11 +963,12 @@ class RedundantCalibrator:
 
 
 
-    def find_bad_ant(self, data = None, additiveout = None):
+    def diagnose(self, data = None, additiveout = None):
         errstate = np.geterr()
         np.seterr(invalid = 'ignore')
         checks = 1
         bad_count = np.zeros(self.nTotalAnt, dtype='int')
+        bad_ubl_count = np.zeros(self.Info.nUBL, dtype='int')
         bad_count[self.Info.subsetant] = np.array([(np.abs(self.rawCalpar[:,:,3+a]) >= .5).sum() for a in range(self.Info.nAntenna)])
 
         if data != None and data.shape[:2] == self.rawCalpar.shape[:2]:
@@ -962,8 +990,14 @@ class RedundantCalibrator:
             ant_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
             median_level = np.median(ant_level, axis = 0)
             bad_count[self.Info.subsetant] += np.array([(np.abs(ant_level[a] - median_level)/median_level >= .5).sum() for a in range(self.Info.nAntenna)])
+
+            ublindex = [np.array(index).astype('int')[:,2] for index in self.Info.ublindex]
+            ubl_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in ublindex[u]]]), axis = 2) for u in range(self.Info.nUBL)])
+            median_level = np.median(ubl_level, axis = 0)
+            bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .5).sum() for u in range(self.Info.nUBL)])
+            print median_level
         np.seterr(invalid = errstate['invalid'])
-        return (bad_count/float(self.nTime * self.nFrequency) * 100 / checks).astype('int')
+        return (bad_count/float(self.nTime * self.nFrequency) * 100 / checks).astype('int'), (bad_ubl_count/float(self.nTime * self.nFrequency) * 100).astype('int')
 
     def compute_redundantinfo(self, arrayinfoPath = None):
         if arrayinfoPath != None and os.path.isfile(arrayinfoPath):
@@ -1293,7 +1327,7 @@ def omniview(data, info, plotrange = None, title = ''):
             for blue in range(colorgrid):
                 #print red, green, blue
                 colors += [(np.array([red, green, blue]).astype('float')/(colorgrid - 1)).tolist()]
-    colors.remove([0,0,0])
+    #colors.remove([0,0,0])
     colors.remove([1,1,1])
 
     for marker in ["o", "v", "^", "<", ">", "8", "s", "p", "h", (6,1,0), (8,1,0), "d"]:
@@ -1355,7 +1389,7 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
     ###select initial antenna
     initialant = np.argmax(antcnt)
     if verbose:
-        print "initialant", initialant
+        print "initialant", np.array(info['subsetant'])[initialant]
     calpar[initialant].append(0)
     for i in range(len(ublstatus)):
         if initialant in ublindex[i, 0:2]:
@@ -1378,7 +1412,7 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
                     #print len(calpar[ublindex[i, 1]]), calpar[ublindex[i, 1]]
                     if len(calpar[ublindex[i, 1]]) == 1:
                         if verbose:
-                            print ublindex[i, 1],
+                            print np.array(info['subsetant'])[ublindex[i, 1]],
                         for j in range(len(ublstatus)):
                             if (ublindex[i, 1] in ublindex[j, 0:2]) and ublstatus[j] == "NoUse":
                                 ublstatus[j] = "Solvable"
@@ -1390,14 +1424,23 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
                     #print len(calpar[ublindex[i, 0]]), calpar[ublindex[i, 0]]
                     if len(calpar[ublindex[i, 0]]) == 1:
                         if verbose:
-                            print ublindex[i, 0],
+                            print np.array(info['subsetant'])[ublindex[i, 0]],
                         for j in range(len(ublstatus)):
                             if (ublindex[i, 0] in ublindex[j, 0:2]) and ublstatus[j] == "NoUse":
                                 ublstatus[j] = "Solvable"
     if verbose:
         print ""
-
-
+        if len(solution_path) != len(ublindex):
+            print "Solution path has %i entries where as total candidates in ublindex have %i. The following baselines form their isolated isaland:"%(len(solution_path), len(ublindex))
+            unsolved_ubl = []
+            for i in range(len(ublstatus)):
+                if ublstatus[i] != "Done":
+                    print np.array(info['subsetant'])[ublindex[i][0]], np.array(info['subsetant'])[ublindex[i][1]]
+                    unsolved_ubl.append(ublindex[i])
+            unsolved_ubl = np.array(unsolved_ubl)[:,:2].flatten()
+            for a in range(info['nAntenna']):
+                if a in unsolved_ubl:
+                    unsolved_ant.append(a)
     ant_solved = 10
     additional_solution_path = []
     while len(unsolved_ant) > 0 and ant_solved > 0:#find a ubl that can solve these individual antennas not involved in the chosen 2 ubls. Use while because the first ant in the unsolved_ant may not be solvable on the first pass
@@ -1405,7 +1448,7 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
         ant_solved = 0
         for a in unsolved_ant:
             if verbose:
-                print "trying to solve for ", a,
+                print "trying to solve for ", np.array(info['subsetant'])[a],
             ublcnt_tmp = info['ublcount'].astype('float')
             third_ubl_good = False
             tried_all_ubl = False
@@ -1421,14 +1464,21 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
                 third_ubl_good = False #assume false and start checking if this ubl 1) has this antenna 2) has another baseline whose two ants are both solved
                 if (len(info['ublindex'][third_ubl]) < 2) or (a not in info['ublindex'][third_ubl]):
                     continue
+                third_ubl_good1 = False
+                third_ubl_good2 = False
                 for a1, a2, bl in info['ublindex'][third_ubl]:
                     if (a1 not in unsolved_ant) and (a2 not in unsolved_ant):
-                        third_ubl_good = True
-                        if verbose:
-                            print "picked ubl", info['ubl'][third_ubl], "to solve for ant", a
-                        break
-
+                        third_ubl_good1 = True
+                        if third_ubl_good2:
+                            break
+                    if ((a == a1) and (a2 not in unsolved_ant)) or ((a == a2) and (a1 not in unsolved_ant)):
+                        third_ubl_good2 = True
+                        if third_ubl_good1:
+                            break
+                third_ubl_good = (third_ubl_good1 and third_ubl_good2)
             if third_ubl_good:#figure out how to use this third ubl to solve this a
+                if verbose:
+                    print "picked ubl", info['ubl'][third_ubl], "to solve for ant", np.array(info['subsetant'])[a]
                 get_ubl_fit = []#a recipe for how to get the ublfit and solvefor the unsolved antenna
                 for a1, a2, bl in info['ublindex'][third_ubl].astype('int'):
                     if (a1 not in unsolved_ant) and (a2 not in unsolved_ant):
@@ -1446,7 +1496,8 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
 
 
 
-    return initialant, solution_path, additional_solution_path, ((len(solution_path) == len(ublindex)) and (unsolved_ant == []))
+
+    return initialant, solution_path, additional_solution_path, (unsolved_ant == [])
 
 def meanAngle(a):
     return np.angle(np.mean(np.exp(1.j*np.array(a))))
