@@ -1360,7 +1360,14 @@ def omniview(data, info, plotrange = None, title = ''):
                 plt.show()
                 return
 
-def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (intialantenna, solution_path) for raw calibration. solution path contains a list of [(a0, a1, crossubl), a] = [(ublindex entry), (which ant is solved, 0 or 1)]. When raw calibrating, initialize calpar to have [0] at initial antenna, then simply iterate along the solution_path, use crossubl and a0 or a1 specified by a to solve for the other a1 or a0 and append it to calpar. Afterwards, use mean angle on calpars
+def lin_depend(v1, v2, tol = 0):#whether v1 and v2 are linearly dependent
+    if len(v1) != len(v2):
+        raise Exception("Length mismatch %i vs %i."%(len(v1), len(v2)))
+    if la.norm(v1) == 0:
+        return True
+    return la.norm(np.dot(v1, v2)/np.dot(v1, v1) * v1 - v2) <= tol
+
+def find_solution_path(info, rawcal_ubl=[], tol = 0.0, verbose=False):#return (intialantenna, solution_path) for raw calibration. solution path contains a list of [(a0, a1, crossubl), a] = [(ublindex entry), (which ant is solved, 0 or 1)]. When raw calibrating, initialize calpar to have [0] at initial antenna, then simply iterate along the solution_path, use crossubl and a0 or a1 specified by a to solve for the other a1 or a0 and append it to calpar. Afterwards, use mean angle on calpars
     ###select 2 ubl for calibration
     if rawcal_ubl == []:
         ublcnt_tmp = info['ublcount'].astype('float')
@@ -1368,7 +1375,8 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
         ublcnt_tmp[rawcal_ubl[-1]] = np.nan
         rawcal_ubl += [np.nanargmax(ublcnt_tmp)]
         ublcnt_tmp[rawcal_ubl[-1]] = np.nan
-        while np.allclose(info['ubl'][rawcal_ubl[0]]/(la.norm(info['ubl'][rawcal_ubl[0]])/la.norm(info['ubl'][rawcal_ubl[1]])), info['ubl'][rawcal_ubl[1]]) or np.allclose(info['ubl'][rawcal_ubl[0]]/(la.norm(info['ubl'][rawcal_ubl[0]])/la.norm(info['ubl'][rawcal_ubl[1]])), -info['ubl'][rawcal_ubl[1]]):
+        #while np.allclose(info['ubl'][rawcal_ubl[0]]/(la.norm(info['ubl'][rawcal_ubl[0]])/la.norm(info['ubl'][rawcal_ubl[1]])), info['ubl'][rawcal_ubl[1]]) or np.allclose(info['ubl'][rawcal_ubl[0]]/(la.norm(info['ubl'][rawcal_ubl[0]])/la.norm(info['ubl'][rawcal_ubl[1]])), -info['ubl'][rawcal_ubl[1]]):
+        while lin_depend(info['ubl'][rawcal_ubl[0]], info['ubl'][rawcal_ubl[1]], tol=tol):
             try:
                 rawcal_ubl[1] = np.nanargmax(ublcnt_tmp)
             except:
@@ -1400,7 +1408,7 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
     ###antenna calpars, a list for each antenna
     calpar = np.array([[]] * info['nAntenna']).tolist()
     ###select initial antenna
-    initialant = np.argmax(antcnt)
+    initialant = int(np.argmax(antcnt))
     if verbose:
         print "initialant", np.array(info['subsetant'])[initialant]
     calpar[initialant].append(0)
@@ -1507,18 +1515,40 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.05, verbose=False):#return (
                 ant_solved += 1
                 unsolved_ant.remove(a)
 
-
-
-
-    return initialant, solution_path, additional_solution_path, (unsolved_ant == [])
+    #remove the effect of enforcing the two baselines to be 0, rather, set the first two linearly independent antennas w.r.t initant to be 0
+    # find two antennas:
+    a1 = initialant
+    a2 = initialant
+    for index in info['ublindex'][rawcal_ubl[0]]:
+        if index[0] == initialant:
+            a1 = int(index[1])
+            break
+        elif index[1] == initialant:
+            a1 = int(index[0])
+            break
+    bl1 = np.array(info['antloc'][a1]) - info['antloc'][initialant]
+    for index in info['ublindex'][rawcal_ubl[1]]:
+        if index[0] == initialant:
+            a2 = int(index[1])
+            break
+        elif index[1] == initialant:
+            a2 = int(index[0])
+            break
+    bl2 = np.array(info['antloc'][a2]) - info['antloc'][initialant]
+    A = np.array([bl1[:2], bl2[:2]])
+    remove_Matrix = (np.array(info['antloc'])- info['antloc'][initialant])[:,:2].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()))
+    degeneracy_remove = [a1, a2, remove_Matrix]
+    if verbose:
+        print "Degeneracy: a1 = %i, a2 = %i"%(info['subsetant'][a1], info['subsetant'][a2])
+    return initialant, solution_path, additional_solution_path, degeneracy_remove, (unsolved_ant == [])
 
 def meanAngle(a):
     return np.angle(np.mean(np.exp(1.j*np.array(a))))
 def medianAngle(a):
     return np.angle(np.median(np.cos(np.array(a))) + 1.j * np.median(np.sin(np.array(a))))
 
-def raw_calibrate(data, info, initant, solution_path, additional_solution_path):
-    result = np.ones(int(math.ceil((len(data)*2.)**.5)), dtype='complex64')
+def raw_calibrate(data, info, initant, solution_path, additional_solution_path, degeneracy_remove):
+    result = np.ones(int(math.floor((len(data)*2.)**.5)), dtype='complex64')
     calpar = np.array([[]]*info['nAntenna']).tolist()
     calpar[initant] = [0]
     d=np.angle(data[info['subsetbl']][info['crossindex']])
@@ -1541,5 +1571,10 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path):
         #print solution[-1]
         #print calpar[solution[-1][solution[-1][-1]]][0], ((solution[-1][-1]-0.5)/-.5),d[solution[-1][2]] , ubl_phase * (solution[-1][-2]), calpar[solution[-1][1-solution[-1][-1]]]
 
-    result[info['subsetant']] = np.exp(1.j*np.array(calpar).flatten())# * result[info['subsetant']]
+    calpar = (np.array(calpar).flatten() + np.pi) % (2 * np.pi) - np.pi
+    #remove the effect of enforcing the two baselines to be 0, rather, set the first two linearly independent antennas w.r.t initant to be 0
+
+    calpar = calpar - degeneracy_remove[2].dot([calpar[degeneracy_remove[0]],calpar[degeneracy_remove[1]]])
+
+    result[info['subsetant']] = np.exp(1.j*calpar)# * result[info['subsetant']]
     return result

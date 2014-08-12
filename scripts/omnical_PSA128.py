@@ -201,9 +201,9 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 
 	###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
 	if need_crude_cal:
-		initant, solution_path, additional_solution_path, _ = omni.find_solution_path(info)
+		initant, solution_path, additional_solution_path, degen, _ = omni.find_solution_path(info)
 
-		crude_calpar = np.array([omni.raw_calibrate(data[p, 0, f], info, initant, solution_path, additional_solution_path) for f in range(calibrators[key].nFrequency)])
+		crude_calpar = np.array([omni.raw_calibrate(data[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[key].nFrequency)])
 		data[p] = omni.apply_calpar(data[p], crude_calpar, calibrators[key].totalVisibilityId)
 
 	calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
