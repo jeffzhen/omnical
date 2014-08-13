@@ -65,9 +65,9 @@ healthbar = opts.healthbar
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
 		uvfiles.remove(uvf)
+		print "WARNING: uv file path %s does not exist!"%uvf
 if len(uvfiles) == 0:
-	print "ERROR: No valid uv files detected in input. Exiting!"
-	quit()
+	raise Exception("ERROR: No valid uv files detected in input. Exiting!")
 
 wantpols = {}
 for p in opts.pol.split(','): wantpols[p] = ap.miriad.str2pol[p]
@@ -78,15 +78,10 @@ sys.stdout.flush()
 aa = ap.cal.get_aa(opts.cal, np.array([.15]))
 print "Done"
 sys.stdout.flush()
-infopathxx = opts.infopath
-infopathyy = opts.infopath
 
-#badAntenna = [37]
-#badUBL = []
-
-
-
-infopaths = {'xx': infopathxx, 'yy': infopathyy}
+infopaths = {}
+for key in wantpols.keys():
+	infopaths[key]= opts.infopath
 
 
 removedegen = True
