@@ -88,7 +88,7 @@ for key in wantpols.keys():
 	infopaths[key]= opts.infopath
 
 
-removedegen = True
+removedegen = False
 removeadditive = False
 removeadditiveperiod = -1
 
@@ -224,14 +224,29 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 ####delay
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
-	fstart = 100
+	delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
+	fstart = 80
 	fend = 150
 	A = np.ones((fend-fstart, 2),dtype='float32')
 	A[:, 0] = range(fstart, fend)
 	matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[0]
-	delay[calibrators[pol].Info.subsetant] = [matrix.dot(_O.unwrap_phase(x)) for x in np.angle((np.nanmean(np.exp(1.j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna]), axis = 0) * crude_calpar[key][:, calibrators[pol].Info.subsetant])[fstart:fend].transpose())]#2D nant x freq
-	delay = delay / (2 * np.pi * dfreq) #convert slope to delay in ns. df from uv files are in GHZ
-	print FILENAME + " MSG: delay on %s:"%pol, delay
+	error_matrix = A.dot(la.pinv(A.transpose().dot(A)).dot(A.transpose())) - np.identity(len(A))
+	avg_angle = np.angle((np.nanmean(np.exp(1.j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna]), axis = 0) * crude_calpar[key][:, calibrators[pol].Info.subsetant])[fstart:fend].transpose())#2D nant x freq
+	avg_angle -= avg_angle[0]
+	nplot = 10
+	if make_plots:
+		for a in range(0, len(avg_angle), len(avg_angle)/min(10,len(avg_angle))):
+			plt.subplot(1, min(10,len(avg_angle)), (a/( len(avg_angle)/min(10,len(avg_angle)))))
+			plt.plot(avg_angle[a])
+			plt.plot((np.arange(len(A)) * matrix.dot(_O.unwrap_phase( avg_angle[a])) + np.pi)%(2*np.pi) - np.pi)
+			plt.axis([0, len(A), -np.pi, np.pi])
+		plt.show()
+	delay[calibrators[pol].Info.subsetant] = [matrix.dot(_O.unwrap_phase(x))/ (2 * np.pi * dfreq)  for x in avg_angle]
+	delay_error[calibrators[pol].Info.subsetant] = [la.norm(error_matrix.dot(_O.unwrap_phase(x)))/ (len(A))**.5 for x in avg_angle]
+	print FILENAME + " MSG: delay on %s:"%pol
+	print delay
+	print delay_error
+
 	sys.stdout.flush()
 #if make_plots:
 	#for p,pol in zip(range(len(wantpols)), wantpols.keys()):
