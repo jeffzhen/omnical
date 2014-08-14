@@ -4,8 +4,10 @@ import aipy as ap
 import numpy as np
 import commands, os, time, math, ephem
 import omnical.calibration_omni as omni
+import omnical._omnical as _O
 import optparse, sys
 import scipy.signal as ss
+import scipy.linalg as la
 from scipy.stats import nanmedian
 import matplotlib.pyplot as plt
 FILENAME = "first_cal.py"
@@ -113,7 +115,7 @@ sa = ephem.Observer()
 sa.lon = uv['longitu']
 sa.lat = uv['latitud']
 #startfreq = uv['sfreq']
-#dfreq = uv['sdf']
+dfreq = uv['sdf']
 del(uv)
 print "Done."
 sys.stdout.flush()
@@ -159,6 +161,7 @@ sys.stdout.flush()
 #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
 calibrators = {}
 ant_bad_meter = {}
+crude_calpar = {}
 for p, key in zip(range(len(data)), wantpols.keys()):
 
 	calibrators[key] = RedundantCalibrator_PAPER(aa)
@@ -170,8 +173,8 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 	###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
 	if need_crude_cal:
 		initant, solution_path, additional_solution_path, degen, _ = omni.find_solution_path(info)
-		crude_calpar = np.array([omni.raw_calibrate(data[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[key].nFrequency)])
-		data[p] = omni.apply_calpar(data[p], crude_calpar, calibrators[key].totalVisibilityId)
+		crude_calpar[key] = np.array([omni.raw_calibrate(data[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[key].nFrequency)])
+		data[p] = omni.apply_calpar(data[p], crude_calpar[key], calibrators[key].totalVisibilityId)
 
 	calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
 	####calibrate################
@@ -211,12 +214,25 @@ if new_bad_ant != []:
 	print "Done."
 	sys.stdout.flush()
 
+####amplitude
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	amp = np.ones(calibrators[pol].nTotalAnt, dtype='float')
 	amp[calibrators[pol].Info.subsetant] = 10**(nanmedian(nanmedian(calibrators[pol].rawCalpar[:,:,3:3+calibrators[pol].Info.nAntenna],axis=0),axis=0))
 	print FILENAME + " MSG: amplitude factor on %s:"%pol, amp
 	sys.stdout.flush()
 
+####delay
+for p,pol in zip(range(len(wantpols)), wantpols.keys()):
+	delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
+	fstart = 100
+	fend = 150
+	A = np.ones((fend-fstart, 2),dtype='float32')
+	A[:, 0] = range(fstart, fend)
+	matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[0]
+	delay[calibrators[pol].Info.subsetant] = [matrix.dot(_O.unwrap_phase(x)) for x in np.angle((np.nanmean(np.exp(1.j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna]), axis = 0) * crude_calpar[key][:, calibrators[pol].Info.subsetant])[fstart:fend].transpose())]#2D nant x freq
+	delay = delay / (2 * np.pi * dfreq) #convert slope to delay in ns. df from uv files are in GHZ
+	print FILENAME + " MSG: delay on %s:"%pol, delay
+	sys.stdout.flush()
 #if make_plots:
 	#for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 		#plt.subplot(1,len(wantpols),p+1)
