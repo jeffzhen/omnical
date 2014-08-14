@@ -199,7 +199,7 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 		if ab > healthbar:
 			nbad += 1
 	print FILENAME + " MSG: %i badantennas found on %s"%(nbad, key)
-	print ant_bad_meter[key]
+	#print ant_bad_meter[key]
 	sys.stdout.flush()
 
 
@@ -215,10 +215,12 @@ if new_bad_ant != []:
 	print "Done."
 	sys.stdout.flush()
 
+fstart = 80
+fend = 150
 ####amplitude
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	amp = np.ones(calibrators[pol].nTotalAnt, dtype='float')
-	amp[calibrators[pol].Info.subsetant] = 10**(nanmedian(nanmedian(calibrators[pol].rawCalpar[:,:,3:3+calibrators[pol].Info.nAntenna],axis=0),axis=0))
+	amp[calibrators[pol].Info.subsetant] = 10**(nanmedian(nanmedian(calibrators[pol].rawCalpar[:,fstart:fend,3:3+calibrators[pol].Info.nAntenna],axis=0),axis=0))
 	print FILENAME + " MSG: amplitude factor on %s:"%pol, amp
 	sys.stdout.flush()
 
@@ -226,8 +228,7 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
 	delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
-	fstart = 80
-	fend = 150
+
 	A = np.ones((fend-fstart, 2),dtype='float32')
 	A[:, 0] = range(fstart, fend)
 	matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[0]
