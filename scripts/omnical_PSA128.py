@@ -43,7 +43,7 @@ o.add_option('-i', '--infopath', action = 'store', default = '/data2/home/hz2ug/
 o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
-o.add_option('--healthbar', action = 'store', type = 'float', default = 10, help = 'health threshold (0-100) over which an antenna is marked bad.')
+o.add_option('--healthbar', action = 'store', default = '2', help = 'health threshold (0-100) over which an antenna is marked bad.')
 o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
 o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
@@ -61,7 +61,15 @@ dataano = opts.datatag#ano for existing data and lst.dat
 sourcepath = opts.datapath
 oppath = opts.outputpath
 uvfiles = args
-healthbar = opts.healthbar
+#print opts.healthbar, opts.healthbar.split(), len(opts.healthbar.split())
+if len(opts.healthbar.split(',')) == 1:
+	healthbar = float(opts.healthbar)
+	ubl_healthbar = 100
+elif len(opts.healthbar.split(',')) == 2:
+	healthbar = float(opts.healthbar.split(',')[0])
+	ubl_healthbar = float(opts.healthbar.split(',')[1])
+else:
+	raise Exception("User input healthbar option (--healthbar %s) is not recognized."%opts.healthbar)
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
 		uvfiles.remove(uvf)
@@ -244,7 +252,7 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 		calibrators[key].get_omnifit()
 		print "Done"
 		sys.stdout.flush()
-	calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar)
+	calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, ubl_healthbar = ubl_healthbar)
 	##print bad_ant_meter
 	#nbad = 0
 	#badstr = ''
