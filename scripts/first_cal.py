@@ -199,6 +199,7 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 		if ab > healthbar:
 			nbad += 1
 	print FILENAME + " MSG: %i badantennas found on %s"%(nbad, key)
+	print ant_bad_meter[key]
 	sys.stdout.flush()
 
 
@@ -238,7 +239,7 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 		for a in range(0, len(avg_angle), len(avg_angle)/min(10,len(avg_angle))):
 			plt.subplot(1, min(10,len(avg_angle)), (a/( len(avg_angle)/min(10,len(avg_angle)))))
 			plt.plot(avg_angle[a])
-			plt.plot((np.arange(len(A)) * matrix.dot(_O.unwrap_phase( avg_angle[a])) + np.pi)%(2*np.pi) - np.pi)
+			plt.plot(((error_matrix + np.identity(len(A))).dot(_O.unwrap_phase( avg_angle[a])) + np.pi)%(2*np.pi) - np.pi)
 			plt.axis([0, len(A), -np.pi, np.pi])
 		plt.show()
 	delay[calibrators[pol].Info.subsetant] = [matrix.dot(_O.unwrap_phase(x))/ (2 * np.pi * dfreq)  for x in avg_angle]
