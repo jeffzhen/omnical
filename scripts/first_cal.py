@@ -46,7 +46,8 @@ o.add_option('-i', '--infopath', action = 'store', default = '/data2/home/hz2ug/
 #o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 #o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 #o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
-o.add_option('--healthbar', action = 'store', type = 'float', default = 10, help = 'health threshold (0-100) over which an antenna is marked bad.')
+o.add_option('--healthbar', action = 'store', type = 'float', default = 2, help = 'health threshold (0-100) over which an antenna is marked bad.')
+o.add_option('-f', '--freq_range', action = 'store', default = '0,0', help = 'frequency bin number range to use for fitting amp and delay.')
 o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
 #o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 #o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
@@ -65,6 +66,7 @@ make_plots = opts.plot
 oppath = opts.outputpath
 uvfiles = args
 healthbar = opts.healthbar
+[fstart,fend] = [int(x) for x in opts.freq_range.split(',')]
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
 		uvfiles.remove(uvf)
@@ -228,13 +230,13 @@ if new_bad_ant != []:
 	print "Done."
 	sys.stdout.flush()
 
-fstart = 80
-fend = 150
+if fend == 0:
+	fend = nfreq
 ####amplitude
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	amp = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
 	amp[calibrators[pol].Info.subsetant] = 10**(nanmedian(nanmedian(calibrators[pol].rawCalpar[:,fstart:fend,3:3+calibrators[pol].Info.nAntenna],axis=0),axis=0))
-	print FILENAME + " MSG: amplitude factor on %s:"%pol
+	print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
 	print  amp
 	sys.stdout.flush()
 
@@ -250,26 +252,22 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	error_matrix = A.dot(la.pinv(A.transpose().dot(A)).dot(A.transpose())) - np.identity(len(A))
 	avg_angle = np.angle((np.nanmean(np.exp(1.j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna]), axis = 0) * crude_calpar[key][:, calibrators[pol].Info.subsetant])[fstart:fend].transpose())#2D nant x freq
 	avg_angle -= avg_angle[0]
-	nplot = 10
+	nplot = 8
+
+	delay[calibrators[pol].Info.subsetant] = [matrix.dot(_O.unwrap_phase(x))/ (2 * np.pi * dfreq)  for x in avg_angle]
+	delay_error[calibrators[pol].Info.subsetant] = [la.norm((error_matrix.dot(_O.unwrap_phase(x))+np.pi)%(2*np.pi)-np.pi)/ (len(A))**.5 for x in avg_angle]
+	print FILENAME + " MSG: delay on %s in nanoseconds:"%pol
+	print delay
+	#print delay_error
+	sys.stdout.flush()
 	if make_plots:
-		for a in range(0, len(avg_angle), len(avg_angle)/min(10,len(avg_angle))):
-			plt.subplot(1, min(10,len(avg_angle)), (a/( len(avg_angle)/min(10,len(avg_angle)))))
+		for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
+			plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
 			plt.plot(avg_angle[a])
 			plt.plot(((error_matrix + np.identity(len(A))).dot(_O.unwrap_phase( avg_angle[a])) + np.pi)%(2*np.pi) - np.pi)
 			plt.axis([0, len(A), -np.pi, np.pi])
+			#plt.axes().set_aspect('equal')
 		plt.show()
-	delay[calibrators[pol].Info.subsetant] = [matrix.dot(_O.unwrap_phase(x))/ (2 * np.pi * dfreq)  for x in avg_angle]
-	delay_error[calibrators[pol].Info.subsetant] = [la.norm(error_matrix.dot(_O.unwrap_phase(x)))/ (len(A))**.5 for x in avg_angle]
-	print FILENAME + " MSG: delay on %s:"%pol
-	print delay
-	print delay_error
+		plt.hist(delay_error[calibrators[pol].Info.subsetant], 20, normed=1)
+		plt.show()
 
-	sys.stdout.flush()
-#if make_plots:
-	#for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-		#plt.subplot(1,len(wantpols),p+1)
-		#plot_data = (calibrators[pol].rawCalpar[:,:,2]/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5
-		#plt.imshow(plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,30:-30:5,2])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
-	#plt.title('RMS fitting error per baseline')
-	#plt.colorbar()
-	#plt.show()
