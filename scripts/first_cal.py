@@ -88,7 +88,7 @@ for key in wantpols.keys():
 	infopaths[key]= opts.infopath
 
 
-removedegen = False
+removedegen = True
 removeadditive = False
 removeadditiveperiod = -1
 
@@ -192,6 +192,19 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 	additiveout = calibrators[key].lincal(data[p], additivein, verbose=True)
 	print "Done. %fmin"%(float(time.time()-timer)/60.)
 	sys.stdout.flush()
+
+	################try another generacy removal that enforce 3 antenna to have 0 phase just as crude_cal
+	A = np.zeros((calibrators[key].Info.nAntenna, 3))
+	masker = np.zeros((calibrators[key].Info.nAntenna, calibrators[key].Info.nAntenna))
+	for a in [initant, degen[0], degen[1]]:
+		A[a] = [calibrators[key].Info.antloc[a][0], calibrators[key].Info.antloc[a][1] , 1.]
+		masker[a,a] = 1.
+	matrix = np.identity(calibrators[key].Info.nAntenna) - (np.array(info['antloc'])*[1,1,0]+[0,0,1]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()).dot(masker))
+
+	calibrators[key].rawCalpar[:, :, (3 + calibrators[key].Info.nAntenna):(3 + 2 * calibrators[key].Info.nAntenna)] = matrix.dot(calibrators[key].rawCalpar[:, :, (3 + calibrators[key].Info.nAntenna):(3 + 2 * calibrators[key].Info.nAntenna)].transpose(0,2,1)).transpose(1,2,0)
+
+
+
 	#######################diagnose###############################
 	ant_bad_meter[key], _ = calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, verbose = False)
 	nbad = 0
@@ -219,13 +232,15 @@ fstart = 80
 fend = 150
 ####amplitude
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-	amp = np.ones(calibrators[pol].nTotalAnt, dtype='float')
+	amp = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
 	amp[calibrators[pol].Info.subsetant] = 10**(nanmedian(nanmedian(calibrators[pol].rawCalpar[:,fstart:fend,3:3+calibrators[pol].Info.nAntenna],axis=0),axis=0))
-	print FILENAME + " MSG: amplitude factor on %s:"%pol, amp
+	print FILENAME + " MSG: amplitude factor on %s:"%pol
+	print  amp
 	sys.stdout.flush()
 
 ####delay
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
+
 	delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
 	delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
 

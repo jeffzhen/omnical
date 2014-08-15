@@ -1006,7 +1006,7 @@ class RedundantCalibrator:
             print "DETECTED BAD ANTENNA ABOVE HEALTH THRESHOLD %i: "%healthbar
             for a in range(len(bad_count)):
                 if bad_count[a] > healthbar:
-                    print self.Info.subsetant[a], "badness =", bad_count[a]
+                    print "antenna #%i, vector = %s, badness = %i"%(self.Info.subsetant[a], self.Info.antloc[a], bad_count[a])
             #print ""
             if additiveout != None and additiveout.shape[:2] == self.rawCalpar.shape[:2] and ubl_healthbar != 100:
                 print "DETECTED BAD BASELINE TYPE ABOVE HEALTH THRESHOLD %i: "%ubl_healthbar
