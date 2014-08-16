@@ -269,15 +269,15 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	print delay
 	#print delay_error
 	sys.stdout.flush()
-	if make_plots:
-		nplot = 8
-		for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
-			plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
-			plt.plot(A[:,0], avg_angle[a])
-			plt.plot(A[:,0], (error_matrix + np.identity(len(A))).dot(avg_angle[a]))
-			#plt.axis([A[0,0], A[-1,0], -np.pi, np.pi])
-			#plt.axes().set_aspect('equal')
-		plt.show()
+	#if make_plots:
+		#nplot = 8
+		#for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
+			#plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
+			#plt.plot(A[:,0], avg_angle[a])
+			#plt.plot(A[:,0], (error_matrix + np.identity(len(A))).dot(avg_angle[a]))
+			##plt.axis([A[0,0], A[-1,0], -np.pi, np.pi])
+			##plt.axes().set_aspect('equal')
+		#plt.show()
 	if make_plots:
 		nplot = 8
 		for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
