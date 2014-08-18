@@ -3212,13 +3212,16 @@ vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >*
 }
 
 void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
+	//cout << "lincal DBG" << info->ublindex[(info->nUBL)-1][0][0] << " " << info->ublindex[(info->nUBL)-1][0][1] << " " << info->ublindex[(info->nUBL)-1][0][2] <<endl<<flush;
+	//int DBGg1 = info->ublindex[(info->nUBL)-1][0][0];
+	//int DBGg2 = info->ublindex[(info->nUBL)-1][0][1];
+	//int DBGbl = info->ublindex[(info->nUBL)-1][0][2];
 
 	////initialize data and g0 ubl0
 	for (unsigned int b = 0; b < (module->cdata1).size(); b++){
 		module->cdata1[b][0] = data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0];
 		module->cdata1[b][1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1];
 	}
-
 	float amptmp;
 	unsigned int cbl;
 	float stepsize2 = 1 - stepsize;
@@ -3245,6 +3248,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
 		}
 	}
+
 	float gre, gim, chisq, chisq2;
 	int a1, a2;
 	chisq = 0;
@@ -3258,7 +3262,9 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		chisq += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
 		//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
 	}
-
+	//cout << "lincal DBG v " << module->cdata1[DBGbl][0] << " " <<  module->cdata1[DBGbl][1] << endl<<flush;
+	//cout << "lincal DBG c0 g0 g0 " << module->ubl0[info->nUBL - 1][0] << " " <<  module->ubl0[info->nUBL -1][1]  << " " << module->g0[DBGg1][0] << " " <<  module->g0[DBGg1][1]  << " " << module->g0[DBGg2][0] << " " <<  module->g0[DBGg2][1] << endl<<flush;
+	//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;
 
 	////start iterations
 	int iter = 0;
@@ -3284,7 +3290,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			(module->g2)[a3] = (module->g1)[a3];
 			for (unsigned int a = a3 + 1; a < module->g3.size(); a++){
 				cbl = info->bl1dmatrix[a3][a];
-				if (cbl < 0 or cbl > module->cdata1.size()){//badbl
+				if (cbl < 0 or cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
 					module->g1[a] = vector<float>(2,0);
 					module->g2[a] = vector<float>(2,0);
 				}else{
@@ -3295,11 +3301,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 				}
 			}
 			module->g3[a3] = minimizecomplex(&(module->g1), &(module->g2));
-			//if(a3 == module->g3.size() - 2) printvv(&(module->g1));
-			//if(a3 == module->g3.size() - 2) printvv(&(module->g2));
 		}
-		//printvv(&(module->g0),0,10);
-		//printvv(&(module->g3),0,10);
 
 		////ubl M
 		for (int u = 0; u < info->nUBL; u++){
@@ -3318,22 +3320,20 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		////Update g and ubl
 		//float fraction;
 		for (unsigned int a = 0; a < module->g3.size(); a++){
-			//fraction = amp(module->g3[a][0] - module->g0[a][0], module->g3[a][1] - module->g0[a][1]) / amp(module->g0[a][0], module->g0[a][1]);
-			//if (fraction > componentchange){
-				//componentchange = fraction;
-			//}
-
 			module->g0[a][0] = stepsize2 * module->g0[a][0] + stepsize * module->g3[a][0];
 			module->g0[a][1] = stepsize2 * module->g0[a][1] + stepsize * module->g3[a][1];
 
 		}
 		for (unsigned int u = 0; u < module->ubl3.size(); u++){
-			//fraction = amp(module->ubl3[u][0] - module->ubl0[u][0], module->ubl3[u][1] - module->ubl0[u][1]) / amp(module->ubl0[u][0], module->ubl0[u][1]);
-			//if (fraction > componentchange){
-				//componentchange = fraction;
-			//}
-			module->ubl0[u][0] = stepsize2 * module->ubl0[u][0] + stepsize * module->ubl3[u][0];
-			module->ubl0[u][1] = stepsize2 * module->ubl0[u][1] + stepsize * module->ubl3[u][1];
+			if ((info->ublcount)[u] > 1){
+				module->ubl0[u][0] = stepsize2 * module->ubl0[u][0] + stepsize * module->ubl3[u][0];
+				module->ubl0[u][1] = stepsize2 * module->ubl0[u][1] + stepsize * module->ubl3[u][1];
+			} else{
+				//make sure there's no error on unique baselines with only 1 baseline
+				module->ubl2dgrp2[u][0][0] = module->g0[info->ublindex[u][0][0]][0] * module->g0[info->ublindex[u][0][1]][0] + module->g0[info->ublindex[u][0][0]][1] * module->g0[info->ublindex[u][0][1]][1];
+				module->ubl2dgrp2[u][0][1] = (module->g0[info->ublindex[u][0][0]][0] * module->g0[info->ublindex[u][0][1]][1] - module->g0[info->ublindex[u][0][0]][1] * module->g0[info->ublindex[u][0][1]][0]) * info->reversed[cbl];
+				module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
+			}
 		}
 
 		//compute chisq and decide convergence
@@ -3350,7 +3350,8 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		}
 		componentchange = (chisq - chisq2) / chisq;
 		chisq = chisq2;
-
+		//cout << "lincal DBG c0 g0 g0 " << module->ubl0[info->nUBL - 1][0] << " " <<  module->ubl0[info->nUBL -1][1]  << " " << module->g0[DBGg1][0] << " " <<  module->g0[DBGg1][1]  << " " << module->g0[DBGg2][0] << " " <<  module->g0[DBGg2][1] << endl<<flush;
+		//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;
 	}
 
 
@@ -3376,8 +3377,8 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		calpar->at(0) += 0;
 		calpar->at(2) = calpar->at(1);
 	}
-
-
+	//cout << "lincal DBG v "  << module->cdata1[DBGbl][0] << " " << module->cdata1[DBGbl][1] << endl<<flush;
+	//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;
 	return;
 }
 
