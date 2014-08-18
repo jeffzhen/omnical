@@ -1,14 +1,15 @@
 #$ -S /bin/bash
 #$ -V
 #$ -cwd
-#$ -e grid_output
 #$ -o grid_output
+#$ -j y
 #$ -l paper
 #$ -l h_vmem=5G
 DIRS=`pull_args.py $*`
 CALFILE=psa6240_v003
 EXT=uvcRREcAC
-
+source ~/.bashrc
+canopy-JZ_Omnical
 for dir in ${DIRS}; do
     TAG1=`echo ${dir} | cut -d /  -f 6`
     TAG2=`echo ${dir} | cut -d /  -f 6 | cut -d a -f 2`
@@ -16,10 +17,10 @@ for dir in ${DIRS}; do
     echo TAG2 ${TAG2}
     echo ==============================================================================================================================
     for CHUNK in `seq 1 1 6`; do
-        echo python scripts/omnical_PSA128.py $dir/zen.*.${CHUNK}*.${EXT} -C ${CALFILE} -p xx,yy -t aug2014  -d ${TAG1}_245${TAG2}.${CHUNK} -i doc/redundantinfo_PSA64_7ba_7bu_08-15-2014.bin --datapath /data2/home/hz2ug/omnical_old/results  -o /data4/paper/2012EoR/psa_live/PSA64_omnical_results_Aug_2014  --health 3,4 -k
+        echo python scripts/omnical_PSA128.py $dir/zen.*.${CHUNK}*.${EXT} -C ${CALFILE} -p xx,yy -t aug2014  -d ${TAG1}_245${TAG2}.${CHUNK} -i doc/redundantinfo_PSA64_7ba_7bu_08-15-2014.bin --datapath /data2/home/hz2ug/omnical_old/results  -o /data4/paper/2012EoR/psa_live/PSA64_omnical_results_Aug_2014  --health 3,4 -k --add --nadd 7 -u
         echo ----------------------------------------------------------------------------------------------------------------------------
-        canopy-JZ_Omnical
-        python scripts/omnical_PSA128.py $dir/zen.*.${CHUNK}*.${EXT} -C ${CALFILE} -p xx,yy -t aug2014  -d ${TAG1}_245${TAG2}.${CHUNK} -i doc/redundantinfo_PSA64_7ba_7bu_08-15-2014.bin --datapath /data2/home/hz2ug/omnical_old/results  -o /data4/paper/2012EoR/psa_live/PSA64_omnical_results_Aug_2014  --health 3,4 -k
+        
+        python scripts/omnical_PSA128.py $dir/zen.*.${CHUNK}*.${EXT} -C ${CALFILE} -p xx,yy -t aug2014  -d ${TAG1}_245${TAG2}.${CHUNK} -i doc/redundantinfo_PSA64_7ba_7bu_08-15-2014.bin --datapath /data2/home/hz2ug/omnical_old/results  -o /data4/paper/2012EoR/psa_live/PSA64_omnical_results_Aug_2014  --health 3,4 -k --add --nadd 7 -u
     done;
 done;
 
