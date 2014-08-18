@@ -116,7 +116,7 @@ nant = uv['nants']
 sa = ephem.Observer()
 sa.lon = uv['longitu']
 sa.lat = uv['latitud']
-#startfreq = uv['sfreq']
+startfreq = uv['sfreq']
 dfreq = uv['sdf']
 del(uv)
 print "Done."
@@ -246,26 +246,45 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
 	delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
 
+	##first get intersection for f=0
 	A = np.ones((fend-fstart, 2),dtype='float32')
-	A[:, 0] = range(fstart, fend)
+	A[:, 0] = np.arange(fstart, fend) * dfreq + startfreq
+	matrix_f0 = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[1]
+	avg_angle = np.angle((np.nanmean(np.exp(1.j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna]), axis = 0) * crude_calpar[key][:, calibrators[pol].Info.subsetant])[fstart:fend].transpose())#2D nant x freq
+	#avg_angle -= avg_angle[0]
+
+	for a in range(len(avg_angle)):
+		avg_angle[a] = _O.unwrap_phase(avg_angle[a])
+	intersect = np.array([np.round(matrix_f0.dot(x)/(2.*np.pi)) * (2.*np.pi) for x in avg_angle])#find closest multiple of 2pi for the intersect
+	avg_angle -= intersect[:,None]
+
+	##now fit
+	A = np.ones((fend-fstart, 1),dtype='float32')
+	A[:, 0] = np.arange(fstart, fend) * dfreq + startfreq
 	matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[0]
 	error_matrix = A.dot(la.pinv(A.transpose().dot(A)).dot(A.transpose())) - np.identity(len(A))
-	avg_angle = np.angle((np.nanmean(np.exp(1.j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna]), axis = 0) * crude_calpar[key][:, calibrators[pol].Info.subsetant])[fstart:fend].transpose())#2D nant x freq
-	avg_angle -= avg_angle[0]
-	nplot = 8
-
-	delay[calibrators[pol].Info.subsetant] = [matrix.dot(_O.unwrap_phase(x))/ (2 * np.pi * dfreq)  for x in avg_angle]
-	delay_error[calibrators[pol].Info.subsetant] = [la.norm((error_matrix.dot(_O.unwrap_phase(x))+np.pi)%(2*np.pi)-np.pi)/ (len(A))**.5 for x in avg_angle]
+	delay[calibrators[pol].Info.subsetant] = [matrix.dot(x)/ (2 * np.pi)  for x in avg_angle]
+	delay_error[calibrators[pol].Info.subsetant] = [la.norm((error_matrix.dot(x)+np.pi)%(2*np.pi)-np.pi)/ (len(A))**.5 for x in avg_angle]
 	print FILENAME + " MSG: delay on %s in nanoseconds:"%pol
 	print delay
 	#print delay_error
 	sys.stdout.flush()
+	#if make_plots:
+		#nplot = 8
+		#for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
+			#plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
+			#plt.plot(A[:,0], avg_angle[a])
+			#plt.plot(A[:,0], (error_matrix + np.identity(len(A))).dot(avg_angle[a]))
+			##plt.axis([A[0,0], A[-1,0], -np.pi, np.pi])
+			##plt.axes().set_aspect('equal')
+		#plt.show()
 	if make_plots:
+		nplot = 8
 		for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
 			plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
-			plt.plot(avg_angle[a])
-			plt.plot(((error_matrix + np.identity(len(A))).dot(_O.unwrap_phase( avg_angle[a])) + np.pi)%(2*np.pi) - np.pi)
-			plt.axis([0, len(A), -np.pi, np.pi])
+			plt.plot(A[:,0], (avg_angle[a]+ np.pi)%(2*np.pi) - np.pi)
+			plt.plot(A[:,0], ((error_matrix + np.identity(len(A))).dot(avg_angle[a]) + np.pi)%(2*np.pi) - np.pi)
+			plt.axis([A[0,0], A[-1,0], -np.pi, np.pi])
 			#plt.axes().set_aspect('equal')
 		plt.show()
 		plt.hist(delay_error[calibrators[pol].Info.subsetant], 20, normed=1)
