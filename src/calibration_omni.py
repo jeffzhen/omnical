@@ -365,7 +365,7 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
     else:
         raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
-def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols, oppath, ano, adds=None, nTotalAntenna = None, overwrite = False, verbose = False):
+def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols, oppath, ano, adds=None, nTotalAntenna = None, overwrite = False, comment = '', verbose = False):
     METHODNAME = "*apply_omnigain_uvs*"
     ttotal = len(omnigains[wantpols.keys()[0]])
     ftotal = omnigains[wantpols.keys()[0]][0,0,3]
@@ -429,7 +429,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
         uvo = ap.miriad.UV(opuvname, status='new')
         uvo.init_from_uv(uvi)
         historystr = "Applied OMNICAL on %s: "%time.asctime(time.localtime(time.time()))
-        uvo['history'] += historystr + "\n"
+        uvo['history'] += historystr + comment + "\n"
         for preamble, data, flag in uvi.all(raw=True):
             uvo.copyvr(uvi)
             if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice

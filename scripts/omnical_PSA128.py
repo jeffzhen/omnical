@@ -271,7 +271,7 @@ if create_new_uvs:
 	infos = {}
 	for key in wantpols.keys():
 		infos[key] = omni.read_redundantinfo(infopaths[key])
-	omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, overwrite = overwrite_uvs)
+	omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), overwrite = overwrite_uvs)
 	print "Done"
 	sys.stdout.flush()
 if make_plots:
