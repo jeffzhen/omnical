@@ -272,7 +272,7 @@ def read_redundantinfo(infopath, verbose = False):
         print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
     return info
 
-def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100):#tolerance of timing in radians in lst
+def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, verbose = False):#tolerance of timing in radians in lst
     METHODNAME = "*importuvs*"
     ############################################################
     sun = ephem.Sun()
@@ -303,7 +303,13 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
         bl1dmatrix[a2, a1] = - (bl + 1)
     ####prepare processing
     deftime = int(1.e9 / 200. / (nant * (nant + 1) / 2))
+    if verbose:
+        print "Declaring initial array shape (%i, %i, %i, %i)..."%(deftime, len(wantpols), nant * (nant + 1) / 2, nfreq),
+    sys.stdout.flush()
     data = np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')
+    if verbose:
+        print "Done."
+    sys.stdout.flush()
     #sunpos = np.zeros((deftime, 2))
     t = []#julian date
     timing = []#local time string
