@@ -282,9 +282,9 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 		nplot = 8
 		for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
 			plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
-			plt.plot(A[:,0], (avg_angle[a]+ np.pi)%(2*np.pi) - np.pi)
-			plt.plot(A[:,0], ((error_matrix + np.identity(len(A))).dot(avg_angle[a]) + np.pi)%(2*np.pi) - np.pi)
-			plt.axis([A[0,0], A[-1,0], -np.pi, np.pi])
+			plt.plot(range(fstart, fend), (avg_angle[a]+ np.pi)%(2*np.pi) - np.pi)
+			plt.plot(range(fstart, fend), ((error_matrix + np.identity(len(A))).dot(avg_angle[a]) + np.pi)%(2*np.pi) - np.pi)
+			plt.axis([fstart, fend, -np.pi, np.pi])
 			#plt.axes().set_aspect('equal')
 		plt.show()
 		plt.hist(delay_error[calibrators[pol].Info.subsetant], 20, normed=1)
