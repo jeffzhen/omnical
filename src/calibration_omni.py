@@ -463,7 +463,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
             #exit(1)
     return
 
-def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wantpols, oppath, ano, additivefilenames = None, nTotalAntenna = None, overwrite= False):
+def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wantpols, oppath, ano, additivefilenames = None, nTotalAntenna = None, comment = '', overwrite= False):
     METHODNAME = "*apply_omnical_uvs*"
     if len(additivefilenames) != len(calparfilenames) and additivefilenames != None:
         raise Exception("Error: additivefilenames and calparfilenames have different lengths!")
@@ -533,9 +533,9 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wan
         uvo = ap.miriad.UV(opuvname, status='new')
         uvo.init_from_uv(uvi)
         historystr = "Applied OMNICAL %s: "%time.asctime(time.localtime(time.time()))
-        for cpfn, adfn in zip(calparfilenames, additivefilenames):
-            historystr += os.path.abspath(cpfn) + ' ' + os.path.abspath(adfn) + ' '
-        uvo['history'] += historystr + "\n"
+        #for cpfn, adfn in zip(calparfilenames, additivefilenames):
+            #historystr += os.path.abspath(cpfn) + ' ' + os.path.abspath(adfn) + ' '
+        uvo['history'] += historystr + comment + "\n"
         for preamble, data, flag in uvi.all(raw=True):
             uvo.copyvr(uvi)
             if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
