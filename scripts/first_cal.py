@@ -237,7 +237,10 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	amp = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
 	amp[calibrators[pol].Info.subsetant] = 10**(nanmedian(nanmedian(calibrators[pol].rawCalpar[:,fstart:fend,3:3+calibrators[pol].Info.nAntenna],axis=0),axis=0))
 	print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
-	print repr(amp)
+	print '{'
+	for a1, a2 in zip(range(len(amp)), amp):
+		print "%i: %f, "%(a1,a2)
+	print '}'
 	sys.stdout.flush()
 
 ####delay
@@ -266,8 +269,10 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	delay[calibrators[pol].Info.subsetant] = [matrix.dot(x)/ (2 * np.pi)  for x in avg_angle]
 	delay_error[calibrators[pol].Info.subsetant] = [la.norm((error_matrix.dot(x)+np.pi)%(2*np.pi)-np.pi)/ (len(A))**.5 for x in avg_angle]
 	print FILENAME + " MSG: delay on %s in nanoseconds:"%pol
-	print repr(delay)
-	#print delay_error
+	print '{'
+	for a1, a2 in zip(range(len(delay)), delay):
+		print "%i: %f, "%(a1,a2)
+	print '}'
 	sys.stdout.flush()
 	#if make_plots:
 		#nplot = 8
