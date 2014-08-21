@@ -42,17 +42,17 @@ o = optparse.OptionParser()
 ap.scripting.add_standard_options(o, cal=True, pol=True)
 #o.add_option('-t', '--tag', action = 'store', default = 'PSA128', help = 'tag name of this calibration')
 #o.add_option('-d', '--datatag', action = 'store', default = 'PSA128', help = 'tag name of this data set')
-o.add_option('-i', '--infopath', action = 'store', default = '/data2/home/hz2ug/omnical/doc/redundantinfo_PSA128_17ba.bin', help = 'redundantinfo file to read')
+o.add_option('-i', '--infopath', action = 'store', default = 'DOESNTEXIST', help = 'Redundantinfo file to read.')
 #o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 #o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 #o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
-o.add_option('--healthbar', action = 'store', type = 'float', default = 2, help = 'health threshold (0-100) over which an antenna is marked bad.')
-o.add_option('-f', '--freq_range', action = 'store', default = '0,0', help = 'frequency bin number range to use for fitting amp and delay.')
-o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
+o.add_option('--healthbar', action = 'store', type = 'float', default = 2, help = 'Health threshold (0-100) over which an antenna is marked bad. 2 by default.')
+o.add_option('-f', '--freq_range', action = 'store', default = '0_0', help = 'Frequency bin number range to use for fitting amp and delay seperated by underscore. 0_0 by default and will process all frequencies.')
+o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'Output folder. Current directory by default.')
 #o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 #o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
 #o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
-o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
+o.add_option('--plot', action = 'store_true', help = 'Whether to make plots in the end.')
 #o.add_option('--crude', action = 'store_true', help = 'whether to apply crude calibration')
 
 opts,args = o.parse_args(sys.argv[1:])
@@ -66,7 +66,7 @@ make_plots = opts.plot
 oppath = opts.outputpath
 uvfiles = args
 healthbar = opts.healthbar
-[fstart,fend] = [int(x) for x in opts.freq_range.split(',')]
+[fstart,fend] = [int(x) for x in opts.freq_range.split('_')]
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
 		uvfiles.remove(uvf)
