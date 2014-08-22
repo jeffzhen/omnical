@@ -234,7 +234,7 @@ if fend == 0:
 	fend = nfreq
 ####amplitude
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-	amp = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
+	amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * 1e5 #hardcode suppression for bad antenna
 	amp[calibrators[pol].Info.subsetant] = 10**(nanmedian(nanmedian(calibrators[pol].rawCalpar[:,fstart:fend,3:3+calibrators[pol].Info.nAntenna],axis=0),axis=0))
 	print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
 	print '{'
