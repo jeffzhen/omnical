@@ -1061,6 +1061,7 @@ class RedundantCalibrator:
                     goodpairs.append([i,j])
         nBaseline=len(goodpairs)
         #from a pair of good antenna index to baseline index
+        #print goodpairs
         subsetbl=np.array([self.get_baseline([subsetant[bl[0]],subsetant[bl[1]]]) for bl in goodpairs])
         #timer.tick('c')
         ##################################################################################
@@ -1237,7 +1238,7 @@ class RedundantCalibrator:
         #timer.tick('m')
 
 
-    #inverse function of totalVisibilityId, calculate the baseline index from the antenna pair
+    #inverse function of totalVisibilityId, calculate the baseline index from the antenna pair. It allows flipping of a1 and a2, will return same result
     def get_baseline(self,pair):
         if not (type(pair) == list or type(pair) == np.ndarray or type(pair) == tuple):
             raise Exception("input needs to be a list of two numbers")
@@ -1248,11 +1249,19 @@ class RedundantCalibrator:
         elif type(pair[0]) == str or type(pair[0]) == np.string_:
             raise Exception("input needs to be number not string")
             return
-        sortp = np.array(sorted(pair))
-        for i in range(len(self.totalVisibilityId)):
-            if self.totalVisibilityId[i][0] == sortp[0] and self.totalVisibilityId[i][1] == sortp[1]:
-                return i
-        raise Exception("antenna index out of range")
+        try:
+            return self.totalVisibilityId.tolist().index(pair)
+        except:
+            try:
+                return self.totalVisibilityId.tolist().index([pair[1], pair[0]])
+            except:
+                raise Exception("Error: antenna pair %s not found in self.totalVisibilityId."%pair)
+        #Eric's old code. It's buggy and assumes totalVisibilityId contains a1,a2 where a2<=a1 always
+        #sortp = np.array(sorted(pair))
+        #for i in range(len(self.totalVisibilityId)):
+            #if self.totalVisibilityId[i][0] == sortp[0] and self.totalVisibilityId[i][1] == sortp[1]:
+                #return i
+        #raise Exception("antenna index out of range")
 
     #with antenna locations and tolerance, calculate the unique baselines. (In the order of omniscope baseline index convention)
     #compute_UBL returns the average of all baselines in that ubl group
