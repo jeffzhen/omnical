@@ -12,7 +12,7 @@ class RedundantCalibrator_MITEoR(omni.RedundantCalibrator):
     def __init__(self):
         nTotalAnt = 64
         omni.RedundantCalibrator.__init__(self, nTotalAnt)
-        self.totalVisibilityId = np.concatenate([[[i,j] for j in range(i + 1)] for i in range(self.nTotalAnt)])
+        self.totalVisibilityId = np.concatenate([[[i,j] for j in range(i, self.nTotalAnt)] for i in range(self.nTotalAnt)])
 
     def compute_redundantinfo(self, badAntenna = [], badUBL = [], antennaLocationTolerance = 1e-6):
         self.antennaLocationTolerance = antennaLocationTolerance
