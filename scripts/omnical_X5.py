@@ -67,7 +67,9 @@ if __name__ == '__main__':
     healthbar = 2
     ubl_healthbar = 100
 
-    infopaths = {'xx':'/home/omniscope/omnical/doc/redundantinfo_X5_11ba.bin', 'yy':'/home/omniscope/omnical/doc/redundantinfo_X5_11ba.bin'}
+    infopaths = {}
+    for pol in ['x','y']:
+        infopaths[pol + pol] = '/home/omniscope/omnical/doc/redundantinfo_X5_%s%s.bin'%(quat, pol)
     wantpols = {'xx':0, 'yy':3}
 
 
