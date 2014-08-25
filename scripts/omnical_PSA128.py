@@ -246,9 +246,9 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 		print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, key),
 		sys.stdout.flush()
 		#Zaki: catch these outputs and save them to wherever you like
-		calibrators[key].rawCalpar.tofile(oppath + '/' + dataano + '_' + ano + "_xx.omnical")
+		calibrators[key].rawCalpar.tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnical"%key)
 		if removeadditive:
-			adds[key].tofile(oppath + '/' + dataano + '_' + ano + "_xx.omniadd"+str(removeadditiveperiod))
+			adds[key].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omniadd"%key + str(removeadditiveperiod))
 		#calibrators[key].get_calibrated_data(data[p])
 		#calibrators[key].get_omnichisq()
 		#calibrators[key].get_omnifit()
