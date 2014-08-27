@@ -272,7 +272,7 @@ def read_redundantinfo(infopath, verbose = False):
         print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
     return info
 
-def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, verbose = False):#tolerance of timing in radians in lst
+def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files.
     METHODNAME = "*importuvs*"
     ############################################################
     sun = ephem.Sun()
@@ -302,11 +302,14 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
         bl1dmatrix[a1, a2] = bl + 1
         bl1dmatrix[a2, a1] = - (bl + 1)
     ####prepare processing
-    deftime = int(1.e9 / 200. / (nant * (nant + 1) / 2))
+    deftime = int(init_mem / 8. / nfreq / (nant * (nant + 1) / 2))#use 4GB of memory by default.
     if verbose:
         print "Declaring initial array shape (%i, %i, %i, %i)..."%(deftime, len(wantpols), nant * (nant + 1) / 2, nfreq),
     sys.stdout.flush()
-    data = np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')
+    try:
+        data = np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')
+    except MemoryError:
+        raise Exception("Failed to allocate %.2fGB of memory. Set init_mem keyword in Bytes for importuvs() to decrease initial memory allocation."%(init_mem/1.074e9))
     if verbose:
         print "Done."
     sys.stdout.flush()
