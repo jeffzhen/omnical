@@ -53,8 +53,8 @@ if __name__ == '__main__':
     make_plots = True
     calparano = '24.08.2014'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
     dirpath = '/home/omniscope/fftt/calibration/fortran_code/'
-    quat = 'q3'
-    anos = [quat + letter for letter in ['A', 'B', 'C']]
+    quat = 'qC3'
+    anos = [quat + letter for letter in ['A']]#, 'B', 'C']]
     todofiles = [dirpath + '/logcal_todo' + ano + '.txt' for ano in anos]
     dataname = 'rawcal_visibilities'
 
