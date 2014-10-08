@@ -3275,31 +3275,38 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		////calpar g
 
 		for (unsigned int a3 = 0; a3 < module->g3.size(); a3++){////g3 will be containing the final dg, g1, g2 will contain a and b as in the cost function LAMBDA = ||a + b*g||^2
-			for (unsigned int a = 0; a < a3; a++){
+			for (unsigned int a = 0; a < module->g3.size(); a++){
 				cbl = info->bl1dmatrix[a3][a];
-				if (cbl < 0 or cbl > module->cdata1.size()){//badbl
+				if (cbl < 0 or cbl > module->cdata1.size()){// or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
 					module->g1[a] = vector<float>(2,0);
 					module->g2[a] = vector<float>(2,0);
-				}else{
+				}else if(info->bl2d[info->crossindex[cbl]][1] == a3){
+
 					module->g1[a] = module->cdata1[cbl];
 					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
 					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
-				}
-			}
-			(module->g1)[a3] = vector<float>(2,0);
-			(module->g2)[a3] = (module->g1)[a3];
-			for (unsigned int a = a3 + 1; a < module->g3.size(); a++){
-				cbl = info->bl1dmatrix[a3][a];
-				if (cbl < 0 or cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
-					module->g1[a] = vector<float>(2,0);
-					module->g2[a] = vector<float>(2,0);
 				}else{
+					if(info->ublcount[info->bltoubl[cbl]] < 2){module->g1[a] = vector<float>(2,0);module->g2[a] = vector<float>(2,0);}else{
 					module->g1[a][0] = module->cdata1[cbl][0];
 					module->g1[a][1] = -module->cdata1[cbl][1];////vij needs to be conjugated
 					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
-					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);}
 				}
 			}
+			//(module->g1)[a3] = vector<float>(2,0);
+			//(module->g2)[a3] = (module->g1)[a3];
+			//for (unsigned int a = a3 + 1; a < module->g3.size(); a++){
+				//cbl = info->bl1dmatrix[a3][a];
+				//if (cbl < 0 or cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
+					//module->g1[a] = vector<float>(2,0);
+					//module->g2[a] = vector<float>(2,0);
+				//}else{
+					//module->g1[a][0] = module->cdata1[cbl][0];
+					//module->g1[a][1] = -module->cdata1[cbl][1];////vij needs to be conjugated
+					//module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
+					//module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+				//}
+			//}
 			module->g3[a3] = minimizecomplex(&(module->g1), &(module->g2));
 		}
 
