@@ -140,6 +140,7 @@ class TestMethods(unittest.TestCase):
             calibrator.get_omnifit()
 
         #########Test results############
+        #calibrators[-1].rawCalpar.tofile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical')
         correctresult = np.fromfile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical', dtype = 'float32').reshape(14,203,165)#[:,:,3:]
         nanmask = ~np.isnan(np.sum(correctresult,axis=2))#mask the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
 
