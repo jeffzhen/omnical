@@ -1,8 +1,11 @@
 import unittest, omnical._omnical as _O
+import random
 import numpy as np
 import aipy as ap
+import numpy.linalg as la
 import commands, os, time, math, ephem
 import omnical.calibration_omni as omni
+#import omnical2.calibration_omni as omni2
 
 class TestMethods(unittest.TestCase):
     def setUp(self):
@@ -38,7 +41,113 @@ class TestMethods(unittest.TestCase):
         Info = omni.RedundantInfo(infotestpath)
         self.assertTrue(omni.compare_info(correctinfo, Info.get_info(), tolerance = 1e-3))
 
+    def test_testinfo_logcal(self):
+        #check that logcal give 0 chi2 for all 20 testinfos
+        diff = np.zeros(5)
+        for index in range(5):
+            fileindex = index+1   #filenames have index that start with 1
+            ####Import arrayinfo##########################
+            arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_array_info.txt'
+            nant = 56
+            calibrator = omni.RedundantCalibrator(nant)
+            calibrator.compute_redundantinfo(arrayinfopath)
+            info = calibrator.Info.get_info()
+            ####Config parameters###################################
+            removedegen = True
+            removeadditive = False
+            needrawcal = True #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
+            keep_binary_data = True
+            keep_binary_calpar = True
+            converge_percent = 0.00001
+            max_iter = 50
+            step_size = .2
+            ####import data##################
+            datapath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_data.txt'
+            with open(datapath) as f:
+                rawinfo = [[float(x) for x in line.split()] for line in f]
+            data = np.array([i[0] + 1.0j*i[1] for i in rawinfo[:-1]],dtype = 'complex64')    #last element of rawinfo is empty
+            data = data.reshape((1,1,len(data)))
+            ####do calibration################
+            calibrator.removeDegeneracy = removedegen
+            calibrator.removeAdditive = removeadditive
+            calibrator.keepData = keep_binary_data
+            calibrator.keepCalpar = keep_binary_calpar
+            calibrator.convergePercent = converge_percent
+            calibrator.maxIteration = max_iter
+            calibrator.stepSize = step_size
+            calibrator.computeUBLFit = True
+            
+            calibrator.logcal(data, np.zeros_like(data), verbose=True)
+            log = np.copy(calibrator.rawCalpar)
+            log = np.copy(calibrator.rawCalpar)
+            ampcal = log[0,0,3:info['nAntenna']+3]
+            phasecal = log[0,0,info['nAntenna']+3: info['nAntenna']*2+3]
+            calpar = 10**(ampcal)*np.exp(1.0j*phasecal)
+            ublfit = log[0,0,3+2*info['nAntenna']::2]+1.0j*log[0,0,3+2*info['nAntenna']+1::2]
+            ####import real calibration parameter
+            calparpath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_calpar.txt'
+            with open(calparpath) as f:
+                rawinfo = [[float(x) for x in line.split()] for line in f]
+            temp = np.array(rawinfo[:-1])
+            correctcalpar = (np.array(temp[:,0]) + 1.0j*np.array(temp[:,1]))[info['subsetant']]
+            ###compare calpar with correct calpar
+            overallfactor = np.real(np.mean(ublfit))**0.5
+            diffnorm = la.norm(calpar*overallfactor - correctcalpar)
+            diff[index] = la.norm(diffnorm)
+        self.assertAlmostEqual(la.norm(diff), 0, 5)
 
+    def test_testinfo_lincal(self):
+        fileindex = 3
+        length = 100
+        loglist = np.zeros(length)
+        linlist = np.zeros(length)
+
+        ####import arrayinfo################
+        arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_array_info.txt'
+        nant = 56
+        calibrator = omni.RedundantCalibrator(nant)
+        calibrator.compute_redundantinfo(arrayinfopath)
+        info = calibrator.Info.get_info()
+
+        ####Config parameters###################################
+        removedegen = True
+        removeadditive = False
+        needrawcal = True #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
+        keep_binary_data = True
+        keep_binary_calpar = True
+        converge_percent = 0.00001
+        max_iter = 50
+        step_size = .2
+
+        ####import data##################
+        datapath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_data.txt'
+        with open(datapath) as f:
+            rawinfo = [[float(x) for x in line.split()] for line in f]
+        data = np.array([i[0] + 1.0j*i[1] for i in rawinfo[:-1]],dtype = 'complex64')    #last element of rawinfo is empty
+        truedata = data.reshape((1,1,len(data)))
+        std = 0.1
+
+        ####do calibration################
+        calibrator.removeDegeneracy = removedegen
+        calibrator.removeAdditive = removeadditive
+        calibrator.keepData = keep_binary_data
+        calibrator.keepCalpar = keep_binary_calpar
+        calibrator.convergePercent = converge_percent
+        calibrator.maxIteration = max_iter
+        calibrator.stepSize = step_size
+        calibrator.computeUBLFit = True
+
+        for i in range(length):
+            noise = (np.random.normal(scale = std, size = data.shape) + 1.0j*np.random.normal(scale = std, size = data.shape)).astype('complex64')
+            data = truedata + noise
+            calibrator.logcal(data, np.zeros_like(data), verbose=True)
+            calibrator.lincal(data, np.zeros_like(data), verbose=True)
+            
+            linchi2 = (calibrator.rawCalpar[0,0,2]/(info['A'].shape[0] - info['A'].shape[1])/(2*std**2))**0.5
+            logchi2 = (calibrator.rawCalpar[0,0,1]/(info['A'].shape[0] - info['A'].shape[1])/(2*std**2))**0.5
+            linlist[i] = linchi2
+            loglist[i] = logchi2
+        self.assertTrue(abs(np.mean(linlist)-1.0) < 0.01)
 
     def test_all(self):
         ##FILENAME = "test.py"
@@ -49,8 +158,8 @@ class TestMethods(unittest.TestCase):
         uvfiles = [os.path.dirname(os.path.realpath(__file__)) + '/test.uv']
         wantpols = {'xx':-5}#, 'yy':-6}
 
-        infopaths = {'xx':os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt', 'yy':os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt'}
-        arrayinfos = {'xx':os.path.dirname(os.path.realpath(__file__)) + '/../doc/arrayinfo_apprx_PAPER32.txt', 'yy':os.path.dirname(os.path.realpath(__file__)) + '/../doc/arrayinfo_apprx_PAPER32.txt'}
+        #infopaths = {'xx':os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt', 'yy':os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt'}
+        arrayinfos = {'xx':os.path.dirname(os.path.realpath(__file__)) + '/../doc/arrayinfo_apprx_PAPER32_badUBLpair.txt', 'yy':os.path.dirname(os.path.realpath(__file__)) + '/../doc/arrayinfo_apprx_PAPER32_badUBLpair.txt'}
 
         oppath = os.path.dirname(os.path.realpath(__file__)) + '/results/'
         if not os.path.isdir(oppath):
@@ -86,7 +195,6 @@ class TestMethods(unittest.TestCase):
         startfreq = uv['sfreq']
         dfreq = uv['sdf']
         del(uv)
-
 
         ####create redundant calibrators################
         #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
@@ -140,11 +248,10 @@ class TestMethods(unittest.TestCase):
             calibrator.get_omnifit()
 
         #########Test results############
-        #calibrators[-1].rawCalpar.tofile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical')
-        correctresult = np.fromfile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical', dtype = 'float32').reshape(14,203,165)#[:,:,3:]
+        correctresult = np.fromfile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical', dtype = 'float32').reshape(14,203,165)[:,:,:3+2*nant]
         nanmask = ~np.isnan(np.sum(correctresult,axis=2))#mask the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
 
-        newresult = calibrators[-1].rawCalpar#[:,:,3:]
+        newresult = calibrators[-1].rawCalpar[:,:,:3+2*nant]#[:,:,3:]
 
         #calibrators[-1].rawCalpar.tofile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical')
         np.testing.assert_almost_equal(correctresult[nanmask], newresult[nanmask])#decimal=
