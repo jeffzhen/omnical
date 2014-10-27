@@ -5,7 +5,6 @@ import aipy as ap
 import numpy.linalg as la
 import commands, os, time, math, ephem
 import omnical.calibration_omni as omni
-#import omnical2.calibration_omni as omni2
 
 class TestMethods(unittest.TestCase):
     def setUp(self):
@@ -43,8 +42,8 @@ class TestMethods(unittest.TestCase):
 
     def test_testinfo_logcal(self):
         #check that logcal give 0 chi2 for all 20 testinfos
-        diff = np.zeros(5)
-        for index in range(5):
+        diff = np.zeros(20)
+        for index in range(20):
             fileindex = index+1   #filenames have index that start with 1
             ####Import arrayinfo##########################
             arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_array_info.txt'
@@ -94,10 +93,10 @@ class TestMethods(unittest.TestCase):
             overallfactor = np.real(np.mean(ublfit))**0.5
             diffnorm = la.norm(calpar*overallfactor - correctcalpar)
             diff[index] = la.norm(diffnorm)
-        self.assertAlmostEqual(la.norm(diff), 0, 5)
+        self.assertAlmostEqual(la.norm(diff), 0, 4)
 
     def test_testinfo_lincal(self):
-        fileindex = 3
+        fileindex = 3      #use the 3rd file to do the test, can also change this to any number from 1 to 20
         length = 100
         loglist = np.zeros(length)
         linlist = np.zeros(length)
@@ -147,7 +146,8 @@ class TestMethods(unittest.TestCase):
             logchi2 = (calibrator.rawCalpar[0,0,1]/(info['A'].shape[0] - info['A'].shape[1])/(2*std**2))**0.5
             linlist[i] = linchi2
             loglist[i] = logchi2
-        self.assertTrue(abs(np.mean(linlist)-1.0) < 0.01)
+        self.assertTrue(abs(np.mean(linlist)-1.0) < 0.01)        #check that chi2 of lincal is close enough to 1
+        self.assertTrue(np.mean(linlist) < np.mean(loglist))     #chick that chi2 of lincal is smaller than chi2 of logcal
 
     def test_all(self):
         ##FILENAME = "test.py"
