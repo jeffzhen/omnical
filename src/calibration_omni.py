@@ -30,7 +30,7 @@ float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA'
 def read_redundantinfo_txt(infopath, verbose = False):
     METHODNAME = "read_redundantinfo_txt"
     if not os.path.isfile(infopath):
-        raise Exception('Error: file path %s does not exist!'%infopath)
+        raise Exception('Error: file %s does not exist!'%infopath)
     timer = time.time()
     with open(infopath) as f:
         rawinfo = np.array([np.array([float(x) for x in line.split()]) for line in f])
@@ -161,7 +161,7 @@ def write_redundantinfo_old(info, infopath, overwrite = False, verbose = False):
     datachunk[count] = np.array([marker])         #start with a marker
     count += 1
     if verbose:
-                print "appending", 
+                print "appending",
     for key in binaryinfokeys:
         if key in ['antloc', 'ubl','degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:  #'antloc',
             add = np.append(np.array(info[key]).flatten(),[marker])
@@ -187,7 +187,8 @@ def write_redundantinfo_old(info, infopath, overwrite = False, verbose = False):
             count += 1
             if verbose:
                 print key,
-    print ""
+    if verbose:
+        print ""
     datachunkarray = array('d',np.concatenate(tuple(datachunk)))
     outfile=open(infopath,'wb')
     datachunkarray.tofile(outfile)
@@ -333,12 +334,12 @@ def read_redundantinfo_old(infopath, verbose = False):
         info['Bt'] = info['B'].transpose()
         info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
         info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
-        info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
-        info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
-        info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
-        info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
-        info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
-        info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
+        #info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+        #info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+        #info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+        #info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+        #info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+        #info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
     if verbose:
         print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
     return info
@@ -649,7 +650,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
 
 def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wantpols, oppath, ano, additivefilenames = None, nTotalAntenna = None, comment = '', overwrite= False):
     METHODNAME = "*apply_omnical_uvs*"
-    if len(additivefilenames) != len(calparfilenames) and additivefilenames != None:
+    if len(additivefilenames) != len(calparfilenames) and additivefilenames is not None:
         raise Exception("Error: additivefilenames and calparfilenames have different lengths!")
     if len(info) != len(calparfilenames):
         raise Exception("Error: info and calparfilenames have different lengths!")
@@ -987,6 +988,7 @@ class RedundantCalibrator:
         self.maxIteration = 50 #max number of iterations in lincal
         self.stepSize = 0.3 #step size for lincal. (0, 1]. < 0.4 recommended.
         self.computeUBLFit = True
+        self.trust_period = 1 #How many time slices does lincal start from logcal result rather than the previous time slice's lincal result. default 1 means always start from logcal. if 10, it means lincal start from logcal results (or g = 1's) every 10 time slices
 
         self.nTime = 0
         self.nFrequency = 0
@@ -997,7 +999,7 @@ class RedundantCalibrator:
         self.omnigain = None
         self.omnifit = None
 
-        if info != None:
+        if info is not None:
             if type(info) == type({}):
 
                 self.Info = RedundantInfo(info)
@@ -1007,7 +1009,8 @@ class RedundantCalibrator:
                 raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
 
     def read_redundantinfo(self, infopath, verbose = False):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
-        self.Info = RedundantInfo(read_redundantinfo(infopath, verbose = verbose), verbose = verbose)
+        info = read_redundantinfo(infopath, verbose = verbose)
+        self.Info = RedundantInfo(info, verbose = verbose)
 
     def write_redundantinfo(self, infoPath, overwrite = False, verbose = False):
         methodName = '.write_redundantinfo.'
@@ -1016,7 +1019,7 @@ class RedundantCalibrator:
     def read_arrayinfo(self, arrayinfopath, verbose = False):#array info is the minimum set of information to uniquely describe a redundant array, and is needed to compute redundant info. It includes, in each line, bad antenna indices, bad unique baseline indices, tolerance of error when checking redundancy, antenna locations, and visibility's antenna pairing conventions. Unlike redundant info which is a self-contained dictionary, items in array info each have their own fields in the instance.
         methodName = ".read_arrayinfo."
         if not os.path.isfile(arrayinfopath):
-            raise Exception(self.className + methodName + "Error: Array info file " + arrayinfopath + " doesn't exist!")
+            raise IOError(self.className + methodName + "Error: Array info file " + arrayinfopath + " doesn't exist!")
         with open(arrayinfopath) as f:
             rawinfo = [[float(x) for x in line.split()] for line in f]
         if verbose:
@@ -1025,7 +1028,7 @@ class RedundantCalibrator:
         self.badAntenna = np.array(rawinfo[0]).astype(int)
         if self.badAntenna[0] < 0:
             self.badAntenna = np.zeros(0)
-        
+
         if len(np.array(rawinfo[1])) == 0 or len(np.array(rawinfo[1]))%2 != 0 or min(np.array(rawinfo[1]).astype(int)) < 0:
             self.badUBLpair = np.array([])
             #raise Exception(self.className + methodName +"Error: Format error in " + arrayinfopath + "badUBL should be specified by pairs of antenna, not odd numbers of antenna")
@@ -1039,7 +1042,7 @@ class RedundantCalibrator:
 
         for a in range(len(self.antennaLocation)):
             if len(rawinfo[a + 3]) != 3:
-                raise Exception(self.className + methodName + "Error: Format error in " + arrayinfopath + ": The antenna locations should start on the 4th line, with 3 numbers in each line!")
+                raise ValueError(self.className + methodName + "Error: Format error in " + arrayinfopath + ": The antenna locations should start on the 4th line, with 3 numbers in each line!")
             else:
                 self.antennaLocation[a] = np.array(rawinfo[a + 3])
 
@@ -1067,14 +1070,16 @@ class RedundantCalibrator:
 
     def lincal(self, data, additivein, verbose = False):
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
-            raise Exception("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
-            raise Exception("Data shape error: data and additive in have different shapes.")
+            raise ValueError("Data shape error: data and additive in have different shapes.")
         self.nTime = len(data)
         self.nFrequency = len(data[0])
-        if self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
-            raise Exception("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
-        return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+        if self.rawCalpar is None:
+            self.rawCalpar = np.zeros((self.nTime, self.nFrequency, 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
+        elif self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
+            raise ValueError("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
+        return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit), trust_period = self.trust_period)
         ##self.chisq = self.rawCalpar[:, :, 2]
         ##self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
         ##self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
@@ -1082,9 +1087,9 @@ class RedundantCalibrator:
 
     def logcal(self, data, additivein, verbose = False):
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
-            raise Exception("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
-            raise Exception("Data shape error: data and additive in have different shapes.")
+            raise ValueError("Data shape error: data and additive in have different shapes.")
         self.nTime = len(data)
         self.nFrequency = len(data[0])
         self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
@@ -1092,11 +1097,11 @@ class RedundantCalibrator:
 
     def get_calibrated_data(self, data, additivein = None):
         if data.ndim != 3 or data.shape != (self.nTime, self.nFrequency, len(self.totalVisibilityId)):
-            raise Exception("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline (%i, %i, %i)"%(self.nTime, self.nFrequency, len(self.totalVisibilityId)))
-        if additivein!= None and data.shape != additivein.shape:
-            raise Exception("Data shape error: data and additivein have different shapes.")
+            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline (%i, %i, %i)"%(self.nTime, self.nFrequency, len(self.totalVisibilityId)))
+        if additivein is not None and data.shape != additivein.shape:
+            raise ValueError("Data shape error: data and additivein have different shapes.")
         if data.shape[:2] != self.rawCalpar.shape[:2]:
-            raise Exception("Data shape error: data and self.rawCalpar have different first two dimensions.")
+            raise ValueError("Data shape error: data and self.rawCalpar have different first two dimensions.")
 
         calpar = np.ones((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
         calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
@@ -1104,6 +1109,16 @@ class RedundantCalibrator:
             return apply_calpar(data, calpar, self.totalVisibilityId)
         else:
             return apply_calpar(data - additivein, calpar, self.totalVisibilityId)
+
+    def get_modeled_data(self):
+        if self.rawCalpar is None:
+            raise ValueError("self.rawCalpar doesn't exist. Please calibrate first using logcal() or lincal().")
+        if len(self.totalVisibilityId) <= np.max(self.Info.subsetbl):
+            raise ValueError("self.totalVisibilityId of length %i is shorter than max index in subsetbl %i. Probably you are using an outdated version of redundantinfo."%(len(self.totalVisibilityId), np.max(self.Info.subsetbl)))
+        mdata = np.zeros((self.rawCalpar.shape[0], self.rawCalpar.shape[1], len(self.totalVisibilityId)), dtype='complex64')
+        mdata[..., self.Info.subsetbl[self.Info.crossindex]] = (self.rawCalpar[..., 3 + 2 * (self.Info.nAntenna)::2] + 1.j * self.rawCalpar[..., 4 + 2 * (self.Info.nAntenna)::2])[..., self.Info.bltoubl]
+        mdata[..., self.Info.subsetbl[self.Info.crossindex]] = np.abs(mdata[..., self.Info.subsetbl[self.Info.crossindex]]) * np.exp(self.Info.reversed * 1.j * np.angle(mdata[..., self.Info.subsetbl[self.Info.crossindex]])) * 10.**(self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,0]] + self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,1]]) * np.exp(-1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,0]] + 1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,1]])
+        return mdata
 
 
     def get_omnichisq(self):
@@ -1186,7 +1201,7 @@ class RedundantCalibrator:
         median_level = nanmedian(nanmedian(self.rawCalpar[:,:,3:3+self.Info.nAntenna], axis= 0), axis= 1)
         bad_count[0] = np.array([(np.abs(self.rawCalpar[:,:,3+a] - median_level) >= .5).sum() for a in range(self.Info.nAntenna)])**2
 
-        if data != None and data.shape[:2] == self.rawCalpar.shape[:2]:
+        if data is not None and data.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
             subsetbl = self.Info.subsetbl
             crossindex = self.Info.crossindex
@@ -1196,7 +1211,7 @@ class RedundantCalibrator:
             median_level = np.median(ant_level, axis = 0)
             bad_count[1] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
 
-        if additiveout != None and additiveout.shape[:2] == self.rawCalpar.shape[:2]:
+        if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
             subsetbl = self.Info.subsetbl
             crossindex = self.Info.crossindex
@@ -1221,7 +1236,7 @@ class RedundantCalibrator:
                 if bad_count[a] > healthbar:
                     print "antenna #%i, vector = %s, badness = %i"%(self.Info.subsetant[a], self.Info.antloc[a], bad_count[a])
             #print ""
-            if additiveout != None and additiveout.shape[:2] == self.rawCalpar.shape[:2] and ubl_healthbar != 100:
+            if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2] and ubl_healthbar != 100:
                 print "DETECTED BAD BASELINE TYPE ABOVE HEALTH THRESHOLD %i: "%ubl_healthbar
                 for a in range(len(bad_ubl_count)):
                     if bad_ubl_count[a] > ubl_healthbar and (self.Info.ublcount[a] > 5 or (warn_low_redun)):
@@ -1236,7 +1251,7 @@ class RedundantCalibrator:
                 if bad_count[a] > healthbar:
                     txt += "antenna #%i, vector = %s, badness = %i\n"%(self.Info.subsetant[a], self.Info.antloc[a], bad_count[a])
             #print ""
-            if additiveout != None and additiveout.shape[:2] == self.rawCalpar.shape[:2] and ubl_healthbar != 100:
+            if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2] and ubl_healthbar != 100:
                 txt += "DETECTED BAD BASELINE TYPE ABOVE HEALTH THRESHOLD %i: \n"%ubl_healthbar
                 for a in range(len(bad_ubl_count)):
                     if bad_ubl_count[a] > ubl_healthbar and (self.Info.ublcount[a] > 5 or (warn_low_redun)):
@@ -1244,7 +1259,7 @@ class RedundantCalibrator:
             return txt
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
-        if arrayinfoPath != None and os.path.isfile(arrayinfoPath):
+        if arrayinfoPath is not None and os.path.isfile(arrayinfoPath):
             self.read_arrayinfo(arrayinfoPath)
         if np.linalg.norm(self.antennaLocation) == 0:
             raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
@@ -1259,7 +1274,7 @@ class RedundantCalibrator:
             if a not in self.badAntenna:
                 subsetant.append(a)
                 ant2goodant[a] = len(subsetant) - 1
-        
+
         nAntenna=len(subsetant)
         antloc=[self.antennaLocation[ant] for ant in subsetant]
         if verbose:
@@ -1286,7 +1301,7 @@ class RedundantCalibrator:
         #print self.badUBLpair, len(self.badUBLpair),self.badUBLpair[0]
         for p in self.badUBLpair:
             self.badUBL.append(find_ublindex_all(p))
-        self.badUBL = [i for i in self.badUBL if i != None]
+        self.badUBL = [i for i in self.badUBL if i is not None]
         self.ubl2goodubl = -np.ones(len(ublall), dtype=int)
         goodu = 0
         for u in range(len(ublall)):
@@ -1323,7 +1338,7 @@ class RedundantCalibrator:
         self.totalVisibilityId_dic = {}
         for bll, (a1, a2) in enumerate(self.totalVisibilityId):
             self.totalVisibilityId_dic[(a1,a2)] = bll
-        
+
         #correct the orders of pairs in goodpair
         def correct_pairorder(pair):
             ####try:
@@ -1353,7 +1368,7 @@ class RedundantCalibrator:
                 #print "correcting"
                 temp.append(p[::-1])
         goodpairs = temp
-        
+
         #goodpairs = [correct_pairorder([subsetant[p[0]],subsetant[p[1]]]) for p in goodpairs if (correct_pairorder([subsetant[p[0]],subsetant[p[1]]]) != None and correct_pairorder([subsetant[p[0]],subsetant[p[1]]]) == True)]  #correct_pairorder([subsetant[p[0]],subsetant[p[1]]])
         nBaseline=len(goodpairs)
         if verbose:
@@ -1436,15 +1451,15 @@ class RedundantCalibrator:
             timer.tick('g')
         ###################################################
         #ublcount:  for each ubl, the number of good cross bls corresponding to it
-        
+
         countdict={}
         for bl in bltoubl:
             countdict[bl]=0
 
         for bl in bltoubl:
             countdict[bl]+=1
-        
-        
+
+
         ublcount=[]
         for i in range(nUBL):
             ublcount.append(countdict[i])
@@ -1595,8 +1610,8 @@ class RedundantCalibrator:
             return self.totalVisibilityId_dic[(pair[1],pair[0])]
         else:
             return None
-                
-                
+
+
     #compute_UBL returns the average of all baselines in that ubl group
     def compute_UBL_old2(self,tolerance = 0.1):
         #check if the tolerance is not a string
@@ -1611,7 +1626,7 @@ class RedundantCalibrator:
         ubllist = np.array([np.array([np.array([0,0,0]),1])]);
         for i in range(len(antloc)):
             #for j in range(i+1,len(antloc)):    #(this gives the same redundant info as the correct info saved in test)
-            for j in range(i+1):                 
+            for j in range(i+1):
                 bool = True
                 for k in range(len(ubllist)):
                     if  la.norm(antloc[i]-antloc[j]-ubllist[k][0])<tolerance:
@@ -1632,8 +1647,8 @@ class RedundantCalibrator:
             ublall.append(ubl[0])
         ublall=np.array(ublall)
         return ublall
-        
-        
+
+
     #compute_UBL returns the average of all baselines in that ubl group
     def compute_UBL_old(self,tolerance = 0.1):
         #check if the tolerance is not a string
@@ -1713,7 +1728,7 @@ class RedundantCalibrator:
                     ubl_vec[u2] = (ubl_vec[u1] * ublcount[u1] + ubl_vec[u2] * ublcount[u2]) / (ublcount[u1] + ublcount[u2])
                     break
             ublmap[u1] = u1
-            
+
         merged_ubl_vec = []
         for u in range(len(ubl_vec)):
             if ublmap[u] == u:
@@ -1726,8 +1741,8 @@ class RedundantCalibrator:
         for key in self.totalVisibilityUBL:
             self.totalVisibilityUBL[key] = ublmap[self.totalVisibilityUBL[key]]
         return ubl_vec
-                
-                    
+
+
     #need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
     #input the antenna pair(as a list of two numbers), return the corresponding ubl index
     def get_ublindex(self,antpair):
@@ -1787,8 +1802,13 @@ class RedundantCalibrator:
 
 
 
-def omniview(data, info, plotrange = None, title = '', plot_single_ubl = False):
+def omniview(data_in, info, plotrange = None, title = '', plot_single_ubl = False):
     import matplotlib.pyplot as plt
+    data = np.array(data_in)
+    try:#in case info is Info class
+        info = info.get_info()
+    except:
+        pass
     colors=[]
     colorgrid = int(math.ceil((info['nUBL']/12.+1)**.34))
     for red in range(colorgrid):
@@ -1798,13 +1818,16 @@ def omniview(data, info, plotrange = None, title = '', plot_single_ubl = False):
                 colors += [(np.array([red, green, blue]).astype('float')/(colorgrid - 1)).tolist()]
     #colors.remove([0,0,0])
     colors.remove([1,1,1])
-    
-    
+
+
     if len(data.shape) == 1:
         ds = [data[info['subsetbl']][info['crossindex']]]
+        fig, axes = plt.subplots(nrows=1, ncols=1, sharey=True, sharex=True)
+        axes = [axes]
     else:
         ds = data[:, info['subsetbl'][info['crossindex']]]
-    fig, axes = plt.subplots(nrows=1, ncols=len(ds), sharey=True, sharex=True)
+        fig, axes = plt.subplots(nrows=1, ncols=len(ds), sharey=True, sharex=True)
+
     for i in range(len(ds)):
         d = ds[i]
         ax = axes[i]
@@ -1831,7 +1854,7 @@ def omniview(data, info, plotrange = None, title = '', plot_single_ubl = False):
             if ubl == info['nUBL']:
                 break
     plt.axis([-plotrange, plotrange, -plotrange, plotrange])
-    
+
     plt.show()
     return
 
@@ -1842,18 +1865,37 @@ def lin_depend(v1, v2, tol = 0):#whether v1 and v2 are linearly dependent
         return True
     return la.norm(np.dot(v1, v2)/np.dot(v1, v1) * v1 - v2) <= tol
 
-def find_solution_path(info, rawcal_ubl=[], tol = 0.0, verbose=False):#return (intialantenna, solution_path) for raw calibration. solution path contains a list of [(a0, a1, crossubl), a] = [(ublindex entry), (which ant is solved, 0 or 1)]. When raw calibrating, initialize calpar to have [0] at initial antenna, then simply iterate along the solution_path, use crossubl and a0 or a1 specified by a to solve for the other a1 or a0 and append it to calpar. Afterwards, use mean angle on calpars
+def _f(rawcal_ubl=[], verbose=False):#run this function twice in a row and its christmas
+    if verbose and rawcal_ubl != []:
+        print "Starting ubl:", rawcal_ubl
+    if rawcal_ubl == []:
+        rawcal_ubl += [2,3]
+    if verbose:
+        print "ubl:", rawcal_ubl
+
+def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):#return (intialantenna, solution_path) for raw calibration. solution path contains a list of [(a0, a1, crossubl), a] = [(ublindex entry), (which ant is solved, 0 or 1)]. When raw calibrating, initialize calpar to have [0] at initial antenna, then simply iterate along the solution_path, use crossubl and a0 or a1 specified by a to solve for the other a1 or a0 and append it to calpar. Afterwards, use mean angle on calpars
     ###select 2 ubl for calibration
+    rawcal_ubl = list(input_rawcal_ubl)
+    if verbose and rawcal_ubl != []:
+        print "Starting ubl:", rawcal_ubl
     if rawcal_ubl == []:
         ublcnt_tmp = info['ublcount'].astype('float')
         rawcal_ubl += [np.argmax(ublcnt_tmp)]
+        if verbose:
+            print "Picking %s with redundancy %i as first ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]])
         ublcnt_tmp[rawcal_ubl[-1]] = np.nan
         rawcal_ubl += [np.nanargmax(ublcnt_tmp)]
+        if verbose:
+            print "Picking %s with redundancy %i as second ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]])
         ublcnt_tmp[rawcal_ubl[-1]] = np.nan
         #while np.allclose(info['ubl'][rawcal_ubl[0]]/(la.norm(info['ubl'][rawcal_ubl[0]])/la.norm(info['ubl'][rawcal_ubl[1]])), info['ubl'][rawcal_ubl[1]]) or np.allclose(info['ubl'][rawcal_ubl[0]]/(la.norm(info['ubl'][rawcal_ubl[0]])/la.norm(info['ubl'][rawcal_ubl[1]])), -info['ubl'][rawcal_ubl[1]]):
         while lin_depend(info['ubl'][rawcal_ubl[0]], info['ubl'][rawcal_ubl[1]], tol=tol):
+            if verbose:
+                print info['ubl'][rawcal_ubl[0]], "and", info['ubl'][rawcal_ubl[1]], "are linearly dependent."
             try:
                 rawcal_ubl[1] = np.nanargmax(ublcnt_tmp)
+                if verbose:
+                    print "Picking %s with redundancy %i as second ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]])
             except:
                 raise Exception("Cannot find two unique baselines that are linearly independent!")
             ublcnt_tmp[rawcal_ubl[-1]] = np.nan
@@ -2054,38 +2096,70 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
     result[info['subsetant']] = np.exp(1.j*calpar)# * result[info['subsetant']]
     return result
 
+##########################Sub-class#############################
+class RedundantCalibrator_PAPER(RedundantCalibrator):
+    def __init__(self, aa):
+        nTotalAnt = len(aa)
+        RedundantCalibrator.__init__(self, nTotalAnt)
+        self.aa = aa
+        self.antennaLocation = np.zeros((self.nTotalAnt,3))
+        for i in range(len(self.aa.ant_layout)):
+            for j in range(len(self.aa.ant_layout[0])):
+                self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
+        self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
+        self.badAntenna = []
+        self.badUBLpair = []
+        for i in range(nTotalAnt):
+            if i not in self.aa.ant_layout.flatten():
+                self.badAntenna += [i]
+
+    def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
+        self.antennaLocationTolerance = antennaLocationTolerance
+        self.badAntenna += badAntenna
+        self.badUBLpair += badUBLpair
+        RedundantCalibrator.compute_redundantinfo(self)
+
+
 class Timer():
     def __init__(self):
         self.time = time.time()
+        self.start_time = self.time
         self.last_msg = None
         self.repeat_msg = 0
 
-    def tick(self, msg=''):
+    def tick(self, msg='', mute=False):
+        msg = str(msg)
+        t = (float(time.time() - self.time)/60.)
+        m = (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
         if msg == self.last_msg:
             self.repeat_msg += 1
-            print msg + str(self.repeat_msg), "time elapsed: %f min"%(float(time.time() - self.time)/60.),
+            if not mute:
+                print msg + '*' + str(self.repeat_msg), "time elapsed: %f min"%t,
         else:
             self.repeat_msg = 0
             self.last_msg = msg
-            print msg, "Time elapsed: %f min."%(float(time.time() - self.time)/60.),
-        print "Memory usage 0: %.3fMB."%(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
+            if not mute:
+             print msg, "Time elapsed: %f min."%t,
+        if not mute:
+            print "Memory usage 0: %.3fMB."%m
         sys.stdout.flush()
         self.time = time.time()
-        
+        return t, m
+
 def remove_one_antenna(Info,badant):
     info = Info.get_info()
     #nAntenna and antloc
-    nAntenna = info['nAntenna']-1 
+    nAntenna = info['nAntenna']-1
     badindex = list(info['subsetant']).index(badant)     #the index of the bad antenna in previous subsetant
 
     subsetant = list(info['subsetant'])[:]
     subsetant.pop(badindex)      #delete the bad antenna from subsetant
     antloc = np.delete(np.array(info['antloc']),badindex,0)   #delete the bad antenna from antloc
-         
+
     #ubl and nUBL
     index = 0              #to keep track of the index of ubl the loop is at
     deletelist = []
-    for ubl in info['ublindex']:    
+    for ubl in info['ublindex']:
         if len(ubl) > 1:
             index += 1
         elif ubl[0,0] == subsetant[badant] or ubl[0,1] == subsetant[badant] :
@@ -2096,7 +2170,7 @@ def remove_one_antenna(Info,badant):
     ubl = np.array([ubl[i] for i in range(len(ubl)) if i not in deletelist])
     nUBL=len(ubl);
 
-    #subsetbl and nBaseline     
+    #subsetbl and nBaseline
     goodpairs_old = [i[::-1] for i in info['bl2d']]    #the old goodpairs
     goodpairs_index = [i for i in range(len(goodpairs_old)) if badindex not in goodpairs_old[i]]       #the index of goodpairs that doesn't contain the bad antenna
     temp = np.array([goodpairs_old[i] for i in goodpairs_index])   #the new goodpairs with antenna number (all antenna)
@@ -2122,7 +2196,7 @@ def remove_one_antenna(Info,badant):
 
     bltoubl = []
     for i in range(len(info['crossindex'])):
-        pair = [info['subsetant'][index] for index in info['bl2d'][info['crossindex'][i]]]   #get the pair of antenna from each crossindex 
+        pair = [info['subsetant'][index] for index in info['bl2d'][info['crossindex'][i]]]   #get the pair of antenna from each crossindex
         if badant in pair:
             pass
         else:
@@ -2146,7 +2220,7 @@ def remove_one_antenna(Info,badant):
     for p in goodpairs:
         if p[0]!=p[1]:
             crosspair.append(p)
-            
+
     reverse=[info['reversed'][i] for i in goodcross]
     ######################################################################################
     #reversedauto: the index of good baselines (auto included) in all baselines

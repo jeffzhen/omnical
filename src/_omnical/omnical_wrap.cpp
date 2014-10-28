@@ -1170,7 +1170,7 @@ PyTypeObject RedInfoType = {
 |_|  |_|\___/ \__,_|\__,_|_|\___| |_| |_| |_|\___|\__|_| |_|\___/ \__,_|___/ */
 
 PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
-    int uselogcal = 1, removedegen = 1, maxiter = 10, dummy = 0, computeUBLFit = 1;
+    int uselogcal = 1, removedegen = 1, maxiter = 10, dummy = 0, computeUBLFit = 1, trust_period = 1;
     float stepsize=.3, conv=.01;
     npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
     npy_intp nint, nfreq, nbls;
@@ -1178,10 +1178,10 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
     PyArrayObject *data, *additivein, *calpar; // input arrays
     PyArrayObject *additiveout=NULL; // output arrays
     PyObject *rv;
-    static char *kwlist[] = {"data", "calpar", "info", "additivein", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "computeUBLFit", "dummy"};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!|iiiffii", kwlist,
+    static char *kwlist[] = {"data", "calpar", "info", "additivein", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "computeUBLFit", "trust_period", "dummy"};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!|iiiffiii", kwlist,
             &PyArray_Type, &data, &PyArray_Type, &calpar, &RedInfoType, &redinfo, &PyArray_Type, &additivein,
-            &uselogcal, &removedegen, &maxiter, &stepsize, &conv, &computeUBLFit, &dummy))
+            &uselogcal, &removedegen, &maxiter, &stepsize, &conv, &computeUBLFit, &trust_period, &dummy))
         return NULL;
     // check shape and type of data
     if (PyArray_NDIM(data) != 3 || PyArray_TYPE(data) != PyArray_CFLOAT) {
@@ -1249,8 +1249,17 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                     //stepsize
                 //);
             } else {
-                for (unsigned int n = 0; n < calpar_v.size(); n ++){
-                    calpar_v[n] = ((float *) PyArray_GETPTR2(calpar,t,f))[n];
+                if (t % trust_period == 0 or (((float *) PyArray_GETPTR2(calpar, t, f))[1] > 0 and ((float *) PyArray_GETPTR2(calpar, t, f))[1] <= ((float *) PyArray_GETPTR2(calpar, t - 1, f))[2])){//whether to start from logcal calpar or the result of revious lincal result
+                    for (unsigned int n = 0; n < calpar_v.size(); n ++){
+                        calpar_v[n] = ((float *) PyArray_GETPTR2(calpar, t, f))[n];
+                    }
+                } else {
+                    calpar_v[0] = ((float *) PyArray_GETPTR2(calpar, t, f))[0];
+                    calpar_v[1] = ((float *) PyArray_GETPTR2(calpar, t, f))[1];
+                    calpar_v[2] = ((float *) PyArray_GETPTR2(calpar, t, f))[2];
+                    for (unsigned int n = 3; n < calpar_v.size(); n ++){
+                        calpar_v[n] = ((float *) PyArray_GETPTR2(calpar, t - 1, f))[n];
+                    }
                 }
                 lincal(
                     &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),

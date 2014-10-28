@@ -30,7 +30,11 @@ class TestMethods(unittest.TestCase):
         additivein = np.zeros_like(data)
         calpar = np.zeros((10,20,3+2*(self.i.nAntenna+self.i.nUBL)),dtype='float32')
         additiveout = _O.redcal(data, calpar, self.i, additivein, uselogcal=0)
-        self.assertTrue(np.all(calpar[:,:,:3+2*self.i.nAntenna] == 0)) # not great to be checking an initialization state
+        #print calpar[0,0,:3+2*self.i.nAntenna]
+        self.assertTrue(np.all(calpar[:,:,:2] == 0))
+        np.testing.assert_almost_equal(calpar[:,:,2], np.zeros((10,20)), 10)
+        self.assertTrue(np.all(calpar[:,:,3:3+2*self.i.nAntenna] == 0))
+        self.assertTrue(np.all(calpar[:,:,3:3+2*self.i.nAntenna] == 0)) # not great to be checking an initialization state
         self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna::2] == 0))
         self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna+1::2] == 0))
         self.assertTrue(np.all(additiveout == 0))
