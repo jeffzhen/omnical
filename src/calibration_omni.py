@@ -147,7 +147,7 @@ def write_redundantinfo_txt(info, infopath, overwrite = False, verbose = False):
     return
 
 
-def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
+def write_redundantinfo_old(info, infopath, overwrite = False, verbose = False):
     METHODNAME = "*write_redundantinfo*"
     timer = time.time()
     if (not overwrite) and os.path.isfile(infopath):
@@ -196,8 +196,68 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
         print FILENAME + "*" + METHODNAME + " MSG:", "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
     return
 
+def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
+    METHODNAME = "*write_redundantinfo*"
+    timer = time.time()
+    if (not overwrite) and os.path.isfile(infopath):
+        raise Exception("Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
+        return
+    if (overwrite) and os.path.isfile(infopath):
+        os.remove(infopath)
+    
+    binaryinfokeysnew = binaryinfokeys
+    if info['nAntenna'] > 128:
+        binaryinfokeysnew.extend(['AtAi','BtBi'])
+    marker = 9999999
+    datachunk = [0 for i in range(len(binaryinfokeysnew)+1)]
+    count = 0
+    datachunk[count] = np.array([marker])         #start with a marker
+    count += 1
+    if verbose:
+                print "appending", 
+    for key in binaryinfokeysnew:
+        if key in ['antloc', 'ubl','degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:  #'antloc',
+            add = np.append(np.array(info[key]).flatten(),[marker])
+            datachunk[count] = add
+            count += 1
+            if verbose:
+                print key,
+        elif key == 'ublindex':
+            add = np.append(np.vstack(info[key]).flatten(),[marker])
+            datachunk[count] = add
+            count += 1
+            if verbose:
+                print key,
+        elif key in ['A','B']:
+            if info['nAntenna'] > 128:
+                row = info[key].nonzero()[0]           #row index of non zero entries
+                column = info[key].nonzero()[1]        #column index of non zero entries
+                nonzero = np.transpose(np.array([row,column]))       #a list of non zero entries
+                temp = np.array([np.array([row[i],column[i],info[key][nonzero[i,0],nonzero[i,1]]]) for i in range(len(nonzero))])
+                add = np.append(np.array(temp.flatten()),[marker])
+                datachunk[count] = add
+            else:
+                add = np.append(np.array(info[key].todense().flatten()).flatten(),[marker])
+                datachunk[count] = add
+            count += 1
+            if verbose:
+                print key,
+        else:
+            add = np.append(np.array(info[key]).flatten(),[marker])
+            datachunk[count] = add
+            count += 1
+            if verbose:
+                print key,
+    print ""
+    datachunkarray = array('d',np.concatenate(tuple(datachunk)))
+    outfile=open(infopath,'wb')
+    datachunkarray.tofile(outfile)
+    outfile.close()
+    if verbose:
+        print FILENAME + "*" + METHODNAME + " MSG:", "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
+    return
 
-def read_redundantinfo(infopath, verbose = False):
+def read_redundantinfo_old(infopath, verbose = False):
     METHODNAME = "read_redundantinfo"
     timer = time.time()
     if not os.path.isfile(infopath):
@@ -273,6 +333,113 @@ def read_redundantinfo(infopath, verbose = False):
         info['Bt'] = info['B'].transpose()
         info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
         info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
+        info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+        info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+        info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+        info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+        info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+        info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
+    if verbose:
+        print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
+    return info
+
+
+def read_redundantinfo(infopath, verbose = False):
+    METHODNAME = "read_redundantinfo"
+    timer = time.time()
+    if not os.path.isfile(infopath):
+        raise Exception('Error: file path %s does not exist!'%infopath)
+    with open(infopath) as f:
+        farray=array('d')
+        farray.fromstring(f.read())
+        datachunk = np.array(farray)
+        marker = 9999999
+        markerindex=np.where(datachunk == marker)[0]
+        rawinfo=np.array([np.array(datachunk[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
+
+    if verbose:
+        print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
+
+    info = {}
+    infocount = 0;
+    info['nAntenna'] = int(rawinfo[infocount][0]) #number of good antennas among all (64) antennas, same as the length of subsetant
+    infocount += 1
+    info['nUBL'] = int(rawinfo[infocount][0]) #number of unique baselines
+    infocount += 1
+    nbl = int(rawinfo[infocount][0])
+    info['nBaseline'] = nbl
+    infocount += 1
+    info['subsetant'] = rawinfo[infocount].astype(int) #the index of good antennas in all (64) antennas
+    infocount += 1
+    info['antloc'] = rawinfo[infocount].reshape((info['nAntenna'],3)) #the index of good antennas in all (64) antennas
+    infocount += 1
+    info['subsetbl'] = rawinfo[infocount].astype(int) #the index of good baselines (auto included) in all baselines
+    infocount += 1
+    info['ubl'] = rawinfo[infocount].reshape((info['nUBL'],3)) #unique baseline vectors
+    infocount += 1
+    info['bltoubl'] = rawinfo[infocount].astype(int) #cross bl number to ubl index
+    infocount += 1
+    info['reversed'] = rawinfo[infocount].astype(int) #cross only bl if reversed -1, otherwise 1
+    infocount += 1
+    info['reversedauto'] = rawinfo[infocount].astype(int) #the index of good baselines (auto included) in all baselines
+    infocount += 1
+    info['autoindex'] = rawinfo[infocount].astype(int)  #index of auto bls among good bls
+    infocount += 1
+    info['crossindex'] = rawinfo[infocount].astype(int)  #index of cross bls among good bls
+    infocount += 1
+    ncross = len(info['crossindex'])
+    info['ncross'] = ncross
+    info['bl2d'] = rawinfo[infocount].reshape(nbl, 2).astype(int) #from 1d bl index to a pair of antenna numbers
+    infocount += 1
+    info['ublcount'] = rawinfo[infocount].astype(int) #for each ubl, the number of good cross bls corresponding to it
+    infocount += 1
+    info['ublindex'] = range((info['nUBL'])) #//for each ubl, the vector<int> contains (ant1, ant2, crossbl)
+    tmp = rawinfo[infocount].reshape(ncross, 3).astype(int)
+    infocount += 1
+    cnter = 0
+    for i in range(info['nUBL']):
+        info['ublindex'][i] = np.zeros((info['ublcount'][i],3))
+        for j in range(len(info['ublindex'][i])):
+            info['ublindex'][i][j] = tmp[cnter]
+            cnter+=1
+    info['ublindex'] = np.asarray(info['ublindex'])
+
+    info['bl1dmatrix'] = rawinfo[infocount].reshape((info['nAntenna'], info['nAntenna'])).astype(int) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
+    infocount += 1
+    #matrices
+    info['degenM'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'], info['nAntenna']))
+    infocount += 1
+    if info['nAntenna'] > 128:   #change to 128 afterwards
+        sparse_entries = rawinfo[infocount].reshape((len(rawinfo[infocount])/3,3))
+        row = sparse_entries[:,0]
+        column = sparse_entries[:,1]
+        value = sparse_entries[:,2]
+        info['A'] = sps.csr_matrix((value,(row,column)),shape=(ncross, info['nAntenna'] + info['nUBL']))
+    else:
+        info['A'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #A matrix for logcal amplitude
+    infocount += 1
+    if info['nAntenna'] > 128:
+        sparse_entries = rawinfo[infocount].reshape((len(rawinfo[infocount])/3,3))
+        row = sparse_entries[:,0]
+        column = sparse_entries[:,1]
+        value = sparse_entries[:,2]
+        info['B'] = sps.csr_matrix((value,(row,column)),shape=(ncross, info['nAntenna'] + info['nUBL']))
+    else:
+        info['B'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #B matrix for logcal phase
+    infocount += 1
+    if info['nAntenna'] > 128:
+        info['AtAi'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'],info['nAntenna'] + info['nUBL']))
+        infocount += 1
+        info['BtBi'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'],info['nAntenna'] + info['nUBL']))
+        infocount += 1
+    ##The sparse matrices are treated a little differently because they are not rectangular
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore",category=DeprecationWarning)
+        info['At'] = info['A'].transpose()
+        info['Bt'] = info['B'].transpose()
+        if info['nAntenna'] <= 128:
+            info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
+            info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
         info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
         info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
         info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
@@ -803,7 +970,7 @@ class RedundantCalibrator:
         self.antennaLocation = np.zeros((self.nTotalAnt, 3))
         side = int(nTotalAnt**.5)
         for a in range(nTotalAnt):
-			self.antennaLocation[a] = np.array([a/side, a%side, 0])
+            self.antennaLocation[a] = np.array([a/side, a%side, 0])
         self.antennaLocationTolerance = 10**(-6)
         self.badAntenna = []
         self.badUBL = []
