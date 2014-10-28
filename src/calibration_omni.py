@@ -20,7 +20,7 @@ with warnings.catch_warnings():
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
 
-infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi','totalVisibilityId']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
 
 
@@ -410,7 +410,7 @@ def read_redundantinfo(infopath, verbose = False):
     #matrices
     info['degenM'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'], info['nAntenna']))
     infocount += 1
-    if info['nAntenna'] > 128:   #change to 128 afterwards
+    if info['nAntenna'] > 128:   
         sparse_entries = rawinfo[infocount].reshape((len(rawinfo[infocount])/3,3))
         row = sparse_entries[:,0]
         column = sparse_entries[:,1]
@@ -1010,6 +1010,7 @@ class RedundantCalibrator:
 
     def read_redundantinfo(self, infopath, verbose = False):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
         info = read_redundantinfo(infopath, verbose = verbose)
+        self.totalVisibilityId = info['totalVisibilityId']
         self.Info = RedundantInfo(info, verbose = verbose)
 
     def write_redundantinfo(self, infoPath, overwrite = False, verbose = False):
