@@ -10,7 +10,7 @@ class TestMethods(unittest.TestCase):
     def setUp(self):
         self.i = _O.RedundantInfo()
         self.i.readredundantinfo(os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt')
-        
+
     def test_phase(self):
         self.assertAlmostEqual(_O.phase(1.,0.), 0., 5)
         self.assertAlmostEqual(_O.phase(-1.,0.), np.pi, 5)
@@ -24,7 +24,7 @@ class TestMethods(unittest.TestCase):
         self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna::2] == 1))
         self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna+1::2] == 0))
         self.assertTrue(np.all(additiveout == 0))
-        
+
     def test_redcal_lin(self):
         data = np.ones((10,20,32*33/2), dtype=np.complex64)
         additivein = np.zeros_like(data)
@@ -41,7 +41,7 @@ class TestMethods(unittest.TestCase):
 
     def test_infoIO(self):
         correctinfo = omni.read_redundantinfo_txt(os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt', verbose = False)
-        infotestpath = './redundantinfo_test.bin'
+        infotestpath = os.path.dirname(os.path.realpath(__file__)) + '/redundantinfo_test.bin'
         omni.write_redundantinfo(correctinfo, infotestpath, overwrite = True, verbose = False)
         Info = omni.RedundantInfo(infotestpath)
         self.assertTrue(omni.compare_info(correctinfo, Info.get_info(), tolerance = 1e-3))
@@ -81,7 +81,7 @@ class TestMethods(unittest.TestCase):
             calibrator.maxIteration = max_iter
             calibrator.stepSize = step_size
             calibrator.computeUBLFit = True
-            
+
             calibrator.logcal(data, np.zeros_like(data), verbose=True)
             log = np.copy(calibrator.rawCalpar)
             log = np.copy(calibrator.rawCalpar)
@@ -147,7 +147,7 @@ class TestMethods(unittest.TestCase):
             data = truedata + noise
             calibrator.logcal(data, np.zeros_like(data), verbose=True)
             calibrator.lincal(data, np.zeros_like(data), verbose=True)
-            
+
             linchi2 = (calibrator.rawCalpar[0,0,2]/(info['A'].shape[0] - info['A'].shape[1])/(2*std**2))**0.5
             logchi2 = (calibrator.rawCalpar[0,0,1]/(info['A'].shape[0] - info['A'].shape[1])/(2*std**2))**0.5
             linlist[i] = linchi2
@@ -252,8 +252,8 @@ class TestUV(unittest.TestCase):
             calibrator.computeUBLFit = False
 
 
-            calibrator.logcal(data[p], np.zeros_like(data[p]), verbose=True)
-            calibrator.lincal(data[p], np.zeros_like(data[p]), verbose=True)
+            calibrator.logcal(data[p], np.zeros_like(data[p]), verbose=False)
+            additiveout = calibrator.lincal(data[p], np.zeros_like(data[p]), verbose=False)
 
             calibrator.utctimes = timing
             calibrator.get_calibrated_data(data[p])
@@ -268,6 +268,8 @@ class TestUV(unittest.TestCase):
         omni.write_redundantinfo(calibrators[-1].Info.get_info(), os.path.dirname(os.path.realpath(__file__)) + '/results/new_info.bin', overwrite = True)
         newresult = calibrators[-1].rawCalpar[:,:,:]
         np.testing.assert_almost_equal(correctresult[:,:,1:3][nanmask], newresult[:,:,1:3][nanmask], decimal = 5)
+        np.testing.assert_almost_equal(np.sum(np.abs(data[-1] - calibrators[-1].get_modeled_data())[:,:,calibrators[-1].Info.subsetbl[calibrators[-1].Info.crossindex]]**2, axis=2)[nanmask], newresult[:,:,2][nanmask], decimal = 5)
+        np.testing.assert_almost_equal(np.sum(np.abs(additiveout)[:,:,calibrators[-1].Info.crossindex]**2, axis=2)[nanmask], newresult[:,:,2][nanmask], decimal = 5)
         np.testing.assert_almost_equal(correctresult[:,:,3:67][nanmask], newresult[:,:,3:67][nanmask], decimal = 5)
         np.testing.assert_almost_equal(np.sort(np.abs(correctresult[:,:,67:][nanmask])), np.sort(np.abs(newresult[:,:,67:][nanmask])), decimal = 5)
 

@@ -284,6 +284,8 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	print '}'
 	sys.stdout.flush()
 
+
+
 ####delay
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 
@@ -337,3 +339,10 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 		plt.hist(delay_error[calibrators[pol].Info.subsetant], 20)
 		plt.show()
 
+print "Bad antennas found: ",
+bad_str = ""
+for bant in badAntenna:
+	bad_str += (str(int(bant)) + ",")
+if bad_str[-1] == ",":
+	bad_str = bad_str[:-1]
+print bad_str

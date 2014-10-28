@@ -1,6 +1,6 @@
 import datetime
-import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime, shutil, resource
-import time
+import socket, math, random, traceback, ephem, string, commands, datetime, shutil, resource, threading, time
+import multiprocessing as mp
 from time import ctime
 import aipy as ap
 import struct
@@ -22,7 +22,7 @@ julDelta = 2415020.# =julian date - pyephem's Observer date
 
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi','totalVisibilityId']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
-
+cal_name = {0: "Lincal", 1: "Logcal"}
 
 int_infokeys = ['nAntenna','nUBL','nBaseline']
 intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
@@ -959,6 +959,21 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
                 raise Exception("Error retrieving %s item."%key)
         return info
 
+def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit = 1, trust_period = 1):#####same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container
+
+    np_rawCalpar = np.frombuffer(rawCalpar, dtype='float32')
+    np_rawCalpar.shape=(data.shape[0], data.shape[1], len(rawCalpar) / data.shape[0] / data.shape[1])
+    #print np_rawCalpar.dtype, np_rawCalpar.shape
+
+    np_additive_out = np.frombuffer(additive_out, dtype='complex64')
+    np_additive_out.shape = data.shape
+    _O.redcal2(data, np_rawCalpar, Info, additivein, np_additive_out, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
+
+    #np_additive_out = _O.redcal(data, np_rawCalpar, Info, additivein, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
+    #additive_out[:len(additive_out)/2] = np.real(np_additive_out.flatten())
+    #additive_out[len(additive_out)/2:] = np.imag(np_additive_out.flatten())
+
+
 
 class RedundantCalibrator:
 #This class is the main tool for performing redundant calibration on data sets. For a given redundant configuration, say 32 antennas with 3 bad antennas, the user should create one instance of Redundant calibrator and reuse it for all data collected from that array. In general, upon creating an instance, the user need to create the info field of the instance by either computing it or reading it from a text file. readyForCpp(verbose = True) should be a very helpful function to provide information on what information is missing for running the calibration.
@@ -1007,6 +1022,21 @@ class RedundantCalibrator:
                 self.read_redundantinfo(info)
             else:
                 raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
+
+    def __repr__(self,):
+        return self.__str__()
+
+    def __str__(self,):
+        if self.Info is None:
+            return "<Uninitialized %i antenna RedundantCalibrator with no RedundantInfo.>"%self.nAntenna
+        else:
+            return "<RedundantCalibrator for an %i antenna array: %i good baselines including %i good antennas and %i unique baselines.>"%(self.nTotalAnt, len(self.Info.crossindex), self.Info.nAntenna, self.Info.nUBL)
+
+    def __getattr__(self, name):
+        try:
+            return self.Info.__getattribute__(name)
+        except:
+            raise AttributeError("RedundantCalibrator has no attribute named %s"%name)
 
     def read_redundantinfo(self, infopath, verbose = False):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
         info = read_redundantinfo(infopath, verbose = verbose)
@@ -1069,7 +1099,7 @@ class RedundantCalibrator:
             print "Bad UBL indices:", self.badUBLpair
 
 
-    def lincal(self, data, additivein, verbose = False):
+    def lincal(self, data, additivein, nthread = None, verbose = False):
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
             raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
@@ -1080,13 +1110,17 @@ class RedundantCalibrator:
             self.rawCalpar = np.zeros((self.nTime, self.nFrequency, 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
         elif self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
             raise ValueError("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
-        return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit), trust_period = self.trust_period)
-        ##self.chisq = self.rawCalpar[:, :, 2]
+        if nthread is None:
+            nthread = nthread = min(mp.cpu_count() - 1, self.nFrequency)
+        if nthread < 2:
+            return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit), trust_period = self.trust_period)
+        else:
+            return self._redcal_multithread(data, additivein, 0, nthread, verbose = verbose)        ##self.chisq = self.rawCalpar[:, :, 2]
         ##self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
         ##self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
         ##self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
 
-    def logcal(self, data, additivein, verbose = False):
+    def logcal(self, data, additivein, nthread = None, verbose = False):
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
             raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
@@ -1094,7 +1128,71 @@ class RedundantCalibrator:
         self.nTime = len(data)
         self.nFrequency = len(data[0])
         self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
-        return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+
+        if nthread is None:
+            nthread = min(mp.cpu_count() - 1, self.nFrequency)
+        if nthread < 2:
+            return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+        else:
+            return self._redcal_multithread(data, additivein, 1, nthread, verbose = verbose)
+
+    def _redcal_multithread(self, data, additivein, uselogcal, nthread, verbose = False):
+        #if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
+            #raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+        #if data.shape != additivein.shape:
+            #raise ValueError("Data shape error: data and additive in have different shapes.")
+        #self.nTime = len(data)
+        #self.nFrequency = len(data[0])
+        #self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
+        nthread = min(nthread, self.nFrequency)
+        additiveouts = {}
+        np_additiveouts = {}
+        #additiveout = np.zeros_like(data[:, :, self.Info.subsetbl])
+        rawCalpar = {}
+        np_rawCalpar = {}
+        threads = {}
+        fchunk = {}
+        chunk = int(self.nFrequency) / int(nthread)
+        excess = int(self.nFrequency) % int(nthread)
+        kwarg = {"removedegen": int(self.removeDegeneracy), "uselogcal": uselogcal, "maxiter": int(self.maxIteration), "conv": float(self.convergePercent), "stepsize": float(self.stepSize), "computeUBLFit": int(self.computeUBLFit), "trust_period": self.trust_period}
+
+        for i in range(nthread):
+            if excess == 0:
+                fchunk[i] = (i * chunk, min((1 + i) * chunk, self.nFrequency),)
+            elif i < excess:
+                fchunk[i] = (i * (chunk+1), min((1 + i) * (chunk+1), self.nFrequency),)
+            else:
+                fchunk[i] = (fchunk[i-1][1], min(fchunk[i-1][1] + chunk, self.nFrequency),)
+            #if verbose:
+                #print fchunk[i],
+            rawCalpar[i] = mp.RawArray('f', self.nTime * (fchunk[i][1] - fchunk[i][0]) * (self.rawCalpar.shape[2]))
+            np_rawCalpar[i] = np.frombuffer(rawCalpar[i], dtype='float32')
+            np_rawCalpar[i].shape = (self.rawCalpar.shape[0], fchunk[i][1]-fchunk[i][0], self.rawCalpar.shape[2])
+            np_rawCalpar[i][:] = self.rawCalpar[:, fchunk[i][0]:fchunk[i][1]]
+
+            additiveouts[i] = mp.RawArray('f', self.nTime * (fchunk[i][1] - fchunk[i][0]) * len(self.Info.subsetbl) * 2)#factor of 2 for re/im
+            np_additiveouts[i] = np.frombuffer(additiveouts[i], dtype='complex64')
+            np_additiveouts[i].shape = (data.shape[0], fchunk[i][1]-fchunk[i][0], len(self.Info.subsetbl))
+
+            threads[i] = mp.Process(target = _redcal, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
+            #threads[i] = threading.Thread(target = _O.redcal2, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
+        if verbose:
+            print "Starting %s Process"%cal_name[uselogcal],
+        for i in range(nthread):
+            if verbose:
+                print "#%i"%i,
+                sys.stdout.flush()
+            threads[i].start()
+        if verbose:
+            print "Finished Process",
+        for i in range(nthread):
+            threads[i].join()
+            if verbose:
+                print "#%i"%i,
+        if verbose:
+            print ""
+        self.rawCalpar = np.concatenate([np_rawCalpar[i] for i in range(nthread)],axis=1)
+        return np.concatenate([np_additiveouts[i] for i in range(nthread)],axis=1)
 
     def get_calibrated_data(self, data, additivein = None):
         if data.ndim != 3 or data.shape != (self.nTime, self.nFrequency, len(self.totalVisibilityId)):
