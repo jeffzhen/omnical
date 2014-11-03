@@ -840,10 +840,12 @@ class RedundantCalibrator:
         if self.badAntenna[0] < 0:
             self.badAntenna = np.zeros(0)
         
-        if len(np.array(rawinfo[1]).astype(int))%2 != 0:
-            raise Exception(self.className + methodName +"Error: Format error in " + arrayinfopath + "badUBL should be specified by pairs of antenna, not odd numbers of antenna")
-        rawpair = np.array(rawinfo[1]).astype(int)
-        self.badUBLpair = np.reshape(rawpair,(len(rawpair)/2,2))
+        if len(np.array(rawinfo[1]).astype(int))%2 != 0 or min(np.array(rawinfo[1]).astype(int)) < 0:
+            self.badUBLpair = np.array([])
+            #raise Exception(self.className + methodName +"Error: Format error in " + arrayinfopath + "badUBL should be specified by pairs of antenna, not odd numbers of antenna")
+        else:
+            rawpair = np.array(rawinfo[1]).astype(int)
+            self.badUBLpair = np.reshape(rawpair,(len(rawpair)/2,2))
         #if self.badUBL[0] < 0:#todonow
         #    self.badUBL = np.zeros(0)
 
