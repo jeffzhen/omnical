@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+import numpy.linalg as la
 import commands, os, time, math, ephem
 import omnical.calibration_omni as omni
 import optparse, sys
@@ -9,14 +10,29 @@ import matplotlib.pyplot as plt
 FILENAME = "omnical_CHIME.py"
 
 
+##########################Sub-class#############################
+class RedundantCalibrator_CHIME(omni.RedundantCalibrator):
+    def __init__(self, nAnt):
+        omni.RedundantCalibrator.__init__(self, nAnt)
+        self.totalVisibilityId = np.concatenate([[[j,i] for j in range(i, self.nTotalAnt)] for i in range(self.nTotalAnt)])
+
+    def compute_redundantinfo(self, npz, badAntenna = [], badUBL = [], antennaLocationTolerance = 1e-6):
+        self.antennaLocationTolerance = antennaLocationTolerance
+        self.badAntenna = badAntenna
+        #print self.badAntenna
+        self.badUBL = badUBL
+        self.antennaLocation = np.ones((len(npz['feed_positions']),3))
+        self.antennaLocation[:, :2] = npz['feed_positions']
+        omni.RedundantCalibrator.compute_redundantinfo(self)
+
 
 
 ######################################################################
 ##############Config parameters###################################
 ######################################################################
 o = optparse.OptionParser()
-o.add_option('-a', '--nant', action = 'store', type = 'int', default = 8, help = 'n antenna.')
-o.add_option('-f', '--nchan', action = 'store', type = 'int', default = 1, help = 'n frequency chan.')
+o.add_option('-a', '--nant', action = 'store', type = 'int', default = 8, help = 'n antenna. not necessary')
+o.add_option('-f', '--nchan', action = 'store', type = 'int', default = 1, help = 'n frequency chan. not necessary')
 o.add_option('-p', '--pol', action = 'store', default = 'x', help = 'polarization of the data, x for xx and y for yy.')
 o.add_option('-t', '--tag', action = 'store', default = 'CHIME', help = 'tag name of this calibration')
 o.add_option('-d', '--datatag', action = 'store', default = 'CHIME', help = 'tag name of this data set')
@@ -66,7 +82,9 @@ for key in wantpols.keys():
 	infopaths[key]= opts.infopath
 
 
-removedegen = True
+removedegen = False
+know_sim_phase = True
+fixed_ants = [0, 1, 4]
 if opts.add and opts.nadd > 0:
 	removeadditive = True
 	removeadditiveperiod = opts.nadd
@@ -92,7 +110,7 @@ step_size = .3
 ######################################################################
 
 ########Massage user parameters###################################
-sourcepath += '/'
+#sourcepath += '/'
 oppath += '/'
 
 
@@ -104,15 +122,15 @@ oppath += '/'
 print FILENAME + " MSG:",  len(uvfiles), "data files to be processed for " + ano
 sys.stdout.flush()
 nt = 0
-data = None
+data = [None]
 for uv_file in uvfiles:
 	data_pack = np.load(uv_file)
 	nf = data_pack['corr_data'].shape[0]
 	nt = nt + data_pack['corr_data'].shape[2]
-	if data == None:
-		data = data_pack['corr_data'].transpose(2,0,1)
+	if data[0] == None:
+		data[0] = data_pack['corr_data'].astype('complex64').transpose(2,0,1)
 	else:
-		data = np.concatenate((data, data_pack['corr_data'].transpose(2,0,1)))
+		data[0] = np.concatenate((data[0], data_pack['corr_data'].astype('complex64').transpose(2,0,1)))
 print FILENAME + " MSG:",  nt, "slices read in %i channels"%nfreq
 sys.stdout.flush()
 
@@ -124,17 +142,19 @@ omnigains = {}
 adds = {}
 for p, key in zip(range(len(data)), wantpols.keys()):
 
-	calibrators[key] = RedundantCalibrator(nant)
-	calibrators[key].read_redundantinfo(infopaths[key], verbose=False)
+	calibrators[key] = RedundantCalibrator_CHIME(len(data_pack['feed_positions']))
+	calibrators[key].compute_redundantinfo(data_pack)
 	info = calibrators[key].Info.get_info()
 	calibrators[key].nTime = nt
 	calibrators[key].nFrequency = nfreq
 
 	###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
 	if need_crude_cal:
-		raise Exception("Not yet implemented")
-	calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
+		initant, solution_path, additional_solution_path, degen, _ = omni.find_solution_path(info)
+		crude_calpar[key] = np.array([omni.raw_calibrate(data[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[key].nFrequency)])
+		data[p] = omni.apply_calpar(data[p], crude_calpar[key], calibrators[key].totalVisibilityId)
 
+	calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
 
 	####calibrate################
 	calibrators[key].removeDegeneracy = removedegen
@@ -162,10 +182,11 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 
 	print "Done. %fmin"%(float(time.time()-timer)/60.)
 	sys.stdout.flush()
+
+	#####for simulation only#########
+	if know_sim_phase:
+		calibrators[key].rawCalpar[:,:,3+info['nAntenna']:3+info['nAntenna']*2] = calibrators[key].rawCalpar[:,:,3+info['nAntenna']:3+info['nAntenna']*2] - info['antloc'].dot(la.inv(info['antloc'][fixed_ants]).dot(calibrators[key].rawCalpar[:,:,3+info['nAntenna']:3+info['nAntenna']*2][:,:,fixed_ants].transpose(0,2,1)).transpose(1,0,2)).transpose(1,2,0)
 	#######################save results###############################
-	calibrators[key].utctimes = timing
-	omnigains[key] = calibrators[key].get_omnigain()
-	adds[key] = additivein
 	if keep_binary_calpar:
 		print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, key),
 		sys.stdout.flush()

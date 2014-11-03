@@ -1513,7 +1513,7 @@ def find_solution_path(info, rawcal_ubl=[], tol = 0.0, verbose=False):#return (i
         print "ubl:", info['ubl'][rawcal_ubl[0]], info['ubl'][rawcal_ubl[1]]
 
     if info['ublcount'][rawcal_ubl[0]] + info['ublcount'][rawcal_ubl[1]] <= info['nAntenna'] + 2:
-        raise Exception('Array not redundant enough! Two most redundant baselines %s and %s have %i and %i baselines, which is less than 2 + %i'%(info['UBL'][rawcal_ubl[0]],info['UBL'][rawcal_ubl[1]], info['ublcount'][rawcal_ubl[0]],info['ublcount'][rawcal_ubl[1]], info['nAntenna']))
+        raise Exception('Array not redundant enough! Two most redundant baselines %s and %s have %i and %i baselines, which is not larger than 2 + %i'%(info['ubl'][rawcal_ubl[0]],info['ubl'][rawcal_ubl[1]], info['ublcount'][rawcal_ubl[0]],info['ublcount'][rawcal_ubl[1]], info['nAntenna']))
 
     ublindex = np.concatenate((np.array(info['ublindex'][rawcal_ubl[0]]).astype('int'), np.array(info['ublindex'][rawcal_ubl[1]]).astype('int')))#merge ublindex since we set both ubl phase to 0
 
