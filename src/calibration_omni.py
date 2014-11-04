@@ -876,7 +876,7 @@ class RedundantCalibrator:
         if verbose:
             print "Total number of visibilities:", bl,
             print "Bad antenna indices:", self.badAntenna,
-            print "Bad UBL indices:", self.badUBL
+            print "Bad UBL indices:", self.badUBLpair
 
 
     def lincal(self, data, additivein, verbose = False):
@@ -1456,10 +1456,6 @@ class RedundantCalibrator:
 
 def omniview(data, info, plotrange = None, title = ''):
     import matplotlib.pyplot as plt
-    d=data[info['subsetbl']][info['crossindex']]
-    if plotrange == None:
-        plotrange = 1.2*np.nanmax(np.abs(d))
-    ubl = 0
     colors=[]
     colorgrid = int(math.ceil((info['nUBL']/12.+1)**.34))
     for red in range(colorgrid):
@@ -1469,23 +1465,41 @@ def omniview(data, info, plotrange = None, title = ''):
                 colors += [(np.array([red, green, blue]).astype('float')/(colorgrid - 1)).tolist()]
     #colors.remove([0,0,0])
     colors.remove([1,1,1])
+    
+    
+    if len(data.shape) == 1:
+        ds = [data[info['subsetbl']][info['crossindex']]]
+    else:
+        ds = data[:, info['subsetbl'][info['crossindex']]]
+    fig, axes = plt.subplots(nrows=1, ncols=len(ds), sharey=True, sharex=True)
+    for i in range(len(ds)):
+        d = ds[i]
+        ax = axes[i]
+        if plotrange == None:
+            plotrange = 1.2*np.nanmax(np.abs(d))
 
-    for marker in ["o", "v", "^", "<", ">", "8", "s", "p", "h", (6,1,0), (8,1,0), "d"]:
-        for color in colors:
-            #print info['ublindex'][ubl][:,2]
-            #print marker, color
-            plt.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker=marker, color=color)
-            ubl += 1
+        ubl = 0
+        for marker in ["o", "v", "^", "<", ">", "8", "s", "p", "h", (6,1,0), (8,1,0), "d"]:
+            for color in colors:
+                #print info['ublindex'][ubl][:,2]
+                #print marker, color
+                ax.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker=marker, color=color)
+                ubl += 1
+                if ubl == info['nUBL']:
+                    #if i == 1:
+                        #ax.text(-(len(ds)-1 + 0.7)*plotrange, -0.7*plotrange, "#Ant:%i\n#UBL:%i"%(info['nAntenna'],info['nUBL']),bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.2))
+                    ax.set_title(title + "\n#Ant:%i\n#UBL:%i"%(info['nAntenna'],info['nUBL']))
+                    ax.grid(True)
+                    ax.set(adjustable='datalim', aspect=1)
+                    ax.set_xlabel('Real')
+                    ax.set_ylabel('Imag')
+                    break
             if ubl == info['nUBL']:
-                plt.xlabel('Real')
-                plt.ylabel('Imag')
-                plt.title(title)
-                plt.grid(True)
-                plt.axis([-plotrange, plotrange, -plotrange, plotrange])
-                plt.axes().set_aspect('equal')
-                plt.axes().text(-0.9*plotrange, -0.9*plotrange, "#Ant:%i\n#UBL:%i"%(info['nAntenna'],info['nUBL']),bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.2))
-                plt.show()
-                return
+                break
+    plt.axis([-plotrange, plotrange, -plotrange, plotrange])
+    
+    plt.show()
+    return
 
 def lin_depend(v1, v2, tol = 0):#whether v1 and v2 are linearly dependent
     if len(v1) != len(v2):

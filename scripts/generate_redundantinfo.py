@@ -43,7 +43,7 @@ if __name__ == '__main__':
 	o.add_option('-o', '--path', action = 'store', default = '', help = 'output name with path')
 	o.add_option('-e', '--tol', action = 'store', type = 'float', default = 1e-2, help = 'tolerance of antenna location deviation when computing unique baselines.')
 	o.add_option('--ba', action = 'store', default = '', help = 'bad antenna number indices seperated by commas')
-	o.add_option('--bu', action = 'store', default = '', help = 'bad unique baseline indices seperated by commas')
+	o.add_option('--bu', action = 'store', default = '', help = 'bad unique baseline indicated by ant pairs (seperated by .) seperated by commas: 1.2,3.4,10.11')
 	o.add_option('--overwrite', action = 'store_true', help = 'overwrite if file exists')
 	opts,args = o.parse_args(sys.argv[1:])
 
@@ -59,9 +59,9 @@ if __name__ == '__main__':
 	except:
 		badAntenna = []
 	try:
-		badUBL = [int(i) for i in opts.bu.split(',')]
+		badUBLpair = np.array([[int(j) for j in opts.bu.split('.')] for i in opts.bu.split(',')])
 	except:
-		badUBL = []
+		badUBLpair = np.array([])
 	print 'Bad Antennas:', badAntenna
 	print 'Bad unique baselines:', badUBL
 

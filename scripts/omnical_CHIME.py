@@ -16,11 +16,11 @@ class RedundantCalibrator_CHIME(omni.RedundantCalibrator):
         omni.RedundantCalibrator.__init__(self, nAnt)
         self.totalVisibilityId = np.concatenate([[[j,i] for j in range(i, self.nTotalAnt)] for i in range(self.nTotalAnt)])
 
-    def compute_redundantinfo(self, npz, badAntenna = [], badUBL = [], antennaLocationTolerance = 1e-6):
+    def compute_redundantinfo(self, npz, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
         self.antennaLocationTolerance = antennaLocationTolerance
         self.badAntenna = badAntenna
         #print self.badAntenna
-        self.badUBL = badUBL
+        self.badUBLpair = badUBLpair
         self.antennaLocation = np.ones((len(npz['feed_positions']),3))
         self.antennaLocation[:, :2] = npz['feed_positions']
         omni.RedundantCalibrator.compute_redundantinfo(self)
@@ -44,7 +44,8 @@ o.add_option('--healthbar', action = 'store', default = '2', help = 'health thre
 o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
 o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
 o.add_option('--crude', action = 'store_true', help = 'whether to apply crude calibration')
-
+o.add_option('--ba', action = 'store', default = '', help = 'bad antenna number indices seperated by commas')
+o.add_option('--bu', action = 'store', default = '', help = 'bad unique baseline indicated by ant pairs (seperated by .) seperated by commas: 1.2,3.4,10.11')
 
 opts,args = o.parse_args(sys.argv[1:])
 make_plots = opts.plot
@@ -55,6 +56,16 @@ oppath = opts.outputpath
 uvfiles = args
 nfreq = opts.nchan
 nant = opts.nant
+try:
+	badAntenna = [int(i) for i in opts.ba.split(',')]
+except:
+	badAntenna = []
+try:
+	badUBLpair = np.array([[int(j) for j in i.split('.')] for i in opts.bu.split(',')])
+except:
+	badUBLpair = np.array([])
+print 'Bad Antennas:', badAntenna
+print 'Bad unique baselines:', badUBLpair
 
 #print opts.healthbar, opts.healthbar.split(), len(opts.healthbar.split())
 if len(opts.healthbar.split(',')) == 1:
@@ -82,7 +93,7 @@ for key in wantpols.keys():
 	infopaths[key]= opts.infopath
 
 
-removedegen = False
+removedegen = True
 know_sim_phase = True
 fixed_ants = [0, 1, 4]
 if opts.add and opts.nadd > 0:
@@ -113,16 +124,11 @@ step_size = .3
 #sourcepath += '/'
 oppath += '/'
 
-
-
-
-
-
 ###start reading data################
 print FILENAME + " MSG:",  len(uvfiles), "data files to be processed for " + ano
 sys.stdout.flush()
 nt = 0
-data = [None]
+data = [None,None]
 for uv_file in uvfiles:
 	data_pack = np.load(uv_file)
 	nf = data_pack['corr_data'].shape[0]
@@ -140,10 +146,11 @@ sys.stdout.flush()
 calibrators = {}
 omnigains = {}
 adds = {}
+cdata = [None,None]
 for p, key in zip(range(len(data)), wantpols.keys()):
 
 	calibrators[key] = RedundantCalibrator_CHIME(len(data_pack['feed_positions']))
-	calibrators[key].compute_redundantinfo(data_pack)
+	calibrators[key].compute_redundantinfo(data_pack, badAntenna = badAntenna, badUBLpair = badUBLpair)
 	info = calibrators[key].Info.get_info()
 	calibrators[key].nTime = nt
 	calibrators[key].nFrequency = nfreq
@@ -185,21 +192,28 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 
 	#####for simulation only#########
 	if know_sim_phase:
-		calibrators[key].rawCalpar[:,:,3+info['nAntenna']:3+info['nAntenna']*2] = calibrators[key].rawCalpar[:,:,3+info['nAntenna']:3+info['nAntenna']*2] - info['antloc'].dot(la.inv(info['antloc'][fixed_ants]).dot(calibrators[key].rawCalpar[:,:,3+info['nAntenna']:3+info['nAntenna']*2][:,:,fixed_ants].transpose(0,2,1)).transpose(1,0,2)).transpose(1,2,0)
+		degenmatrix = la.inv(info['antloc'][fixed_ants]).dot(calibrators[key].rawCalpar[:,:,3+info['nAntenna']:3+info['nAntenna']*2][:,:,fixed_ants].transpose(0,2,1)).transpose(1,0,2)
+		calibrators[key].rawCalpar[:,:,3+info['nAntenna']:3+info['nAntenna']*2] = calibrators[key].rawCalpar[:,:,3+info['nAntenna']:3+info['nAntenna']*2] - info['antloc'].dot(degenmatrix).transpose(1,2,0)
+		calvis = calibrators[key].rawCalpar[:,:,3+info['nAntenna']*2::2] + 1.j * calibrators[key].rawCalpar[:,:,3+info['nAntenna']*2+1::2]
+		calvis = calvis * np.exp(1.j * (info['ubl'].dot(degenmatrix).transpose(1,2,0)))
+		calibrators[key].rawCalpar[:,:,3+info['nAntenna']*2::2] = np.real(calvis)
+		calibrators[key].rawCalpar[:,:,3+info['nAntenna']*2+1::2] = np.imag(calvis)
+	calpar = 10**(calibrators[key].rawCalpar[:,:,3:3+info['nAntenna']])*np.exp(1.j*calibrators[key].rawCalpar[:,:,3+info['nAntenna']:3+info['nAntenna']*2])
+	cdata[p] = omni.apply_calpar(data[p],calpar,calibrators[key].totalVisibilityId)
 	#######################save results###############################
 	if keep_binary_calpar:
 		print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, key),
 		sys.stdout.flush()
 		#Zaki: catch these outputs and save them to wherever you like
-		calibrators[key].rawCalpar.tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnical"%key)
-		if removeadditive:
-			adds[key].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omniadd"%key + str(removeadditiveperiod))
+		calibrators[key].rawCalpar.tofile(oppath + '/' + dataano + '_' + ano + "_%s_%i_%i_%i.omnical"%(key, calibrators[key].rawCalpar.shape[0], calibrators[key].rawCalpar.shape[1], calibrators[key].rawCalpar.shape[2]))
+		#if removeadditive:
+			#adds[key].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omniadd"%key + str(removeadditiveperiod))
 		#calibrators[key].get_calibrated_data(data[p])
 		#calibrators[key].get_omnichisq()
 		#calibrators[key].get_omnifit()
 		print "Done"
 		sys.stdout.flush()
-	calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, ubl_healthbar = ubl_healthbar)
+	#calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, ubl_healthbar = ubl_healthbar)
 	##print bad_ant_meter
 	#nbad = 0
 	#badstr = ''
