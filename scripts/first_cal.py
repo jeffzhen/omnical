@@ -116,6 +116,7 @@ nant = uv['nants']
 sa = ephem.Observer()
 sa.lon = uv['longitu']
 sa.lat = uv['latitud']
+sa.pressure = 0
 startfreq = uv['sfreq']
 dfreq = uv['sdf']
 del(uv)
@@ -139,7 +140,7 @@ southern_points = {'hyd':{'ra': '09:18:05.7', 'dec': '-12:05:44'},
 'cyg':{'ra': '19:59:28.3', 'dec': '40:44:02'},
 'pic':{'ra': '05:19:49.7', 'dec': '-45:46:44'},
 'vir':{'ra': '12:30:49.4', 'dec': '12:23:28'},
-'for':{'ra': '03:22:41.7', 'dec': '-37:12m30s'}}
+'for':{'ra': '03:22:41.7', 'dec': '-37:12:30'}}
 
 for source in southern_points.keys():
 	southern_points[source]['body'] = ephem.FixedBody()
