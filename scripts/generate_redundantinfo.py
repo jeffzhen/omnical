@@ -22,10 +22,10 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
 		for i in range(nTotalAnt):
 			if i not in self.aa.ant_layout.flatten():
 				self.badAntenna += [i]
-	def compute_redundantinfo(self, badAntenna = [], badUBL = [], antennaLocationTolerance = 1e-6):
+	def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
 		self.antennaLocationTolerance = antennaLocationTolerance
 		self.badAntenna += badAntenna
-		self.badUBL = badUBL
+		self.badUBLpair = badUBLpair
 
 		omni.RedundantCalibrator.compute_redundantinfo(self)
 
@@ -59,15 +59,15 @@ if __name__ == '__main__':
 	except:
 		badAntenna = []
 	try:
-		badUBLpair = np.array([[int(j) for j in opts.bu.split('.')] for i in opts.bu.split(',')])
+		badUBLpair = np.array([[int(j) for j in i] for i in opts.bu.split(',')])
 	except:
 		badUBLpair = np.array([])
 	print 'Bad Antennas:', badAntenna
-	print 'Bad unique baselines:', badUBL
+	print 'Bad unique baselines:', badUBLpair
 
 	calibrator = RedundantCalibrator_PAPER(aa)
 	timer = time.time()
-	calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBL = badUBL, antennaLocationTolerance = opts.tol)
+	calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBLpair = badUBLpair, antennaLocationTolerance = opts.tol)
 	print "Redundant info computed in %f minutes."%((time.time() - timer)/60.)
 	calibrator.write_redundantinfo(infoPath = opts.path, overwrite = opts.overwrite, verbose = False)
 
