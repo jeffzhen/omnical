@@ -19,14 +19,14 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
 				self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
 		self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
 		self.badAntenna = []
+		self.badUBLpair = []
 		for i in range(nTotalAnt):
 			if i not in self.aa.ant_layout.flatten():
 				self.badAntenna += [i]
 	def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
 		self.antennaLocationTolerance = antennaLocationTolerance
 		self.badAntenna += badAntenna
-		self.badUBLpair = badUBLpair
-
+		self.badUBLpair += badUBLpair
 		omni.RedundantCalibrator.compute_redundantinfo(self)
 
 
@@ -59,9 +59,12 @@ if __name__ == '__main__':
 	except:
 		badAntenna = []
 	try:
-		badUBLpair = np.array([[int(j) for j in i] for i in opts.bu.split(',')])
+		if opts.bu != '':
+			badUBLpair = [[int(j) for j in i] for i in opts.bu.split(',')]
+		else:
+			badUBLpair = []
 	except:
-		badUBLpair = np.array([])
+		badUBLpair = []
 	print 'Bad Antennas:', badAntenna
 	print 'Bad unique baselines:', badUBLpair
 

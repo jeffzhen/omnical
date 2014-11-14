@@ -1068,11 +1068,13 @@ class RedundantCalibrator:
             return np.linalg.norm(np.array(a1)-np.array(a2))
         #find badUBL with badUBLpair
         def find_ublindex_all(pair):
+            #print pair
             for i in range(len(ublall)):
                 if dis(self.antennaLocation[pair[0]]-self.antennaLocation[pair[1]],ublall[i]) < tolerance or dis(self.antennaLocation[pair[0]]-self.antennaLocation[pair[1]],-ublall[i]) < tolerance:
                     return i
             return None
             #raise Exception("Error: something wrong in identifying badUBL from badUBLpair")    #delete this line afterwards
+        #print self.badUBLpair, len(self.badUBLpair),self.badUBLpair[0]
         for p in self.badUBLpair:
             self.badUBL.append(find_ublindex_all(p))
         self.badUBL = [i for i in self.badUBL if i != None]
