@@ -60,7 +60,7 @@ if __name__ == '__main__':
 		badAntenna = []
 	try:
 		if opts.bu != '':
-			badUBLpair = [[int(j) for j in i] for i in opts.bu.split(',')]
+			badUBLpair = [[int(j) for j in i.split('.')] for i in opts.bu.split(',')]
 		else:
 			badUBLpair = []
 	except:
