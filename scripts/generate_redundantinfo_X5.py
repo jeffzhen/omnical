@@ -52,17 +52,17 @@ if __name__ == '__main__':
         badAntenna = [int(i) for i in opts.ba.split(',')]
     except:
         badAntenna = []
-    try:
-        badUBL = [int(i) for i in opts.bu.split(',')]
-    except:
-        badUBL = []
-    print 'Bad Antennas:', badAntenna
-    print 'Bad unique baselines:', badUBL
+	try:
+		badUBLpair = np.array([[int(j) for j in i] for i in opts.bu.split(',')])
+	except:
+		badUBLpair = np.array([])
+	print 'Bad Antennas:', badAntenna
+	print 'Bad unique baselines:', badUBLpair
 
-    calibrator = RedundantCalibrator_MITEoR()
-    timer = time.time()
-    calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBL = badUBL, antennaLocationTolerance = opts.tol)
-    print "Redundant info computed in %f minutes."%((time.time() - timer)/60.)
-    calibrator.write_redundantinfo(infoPath = opts.path, overwrite = opts.overwrite, verbose = False)
+	calibrator = RedundantCalibrator_PAPER(aa)
+	timer = time.time()
+	calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBLpair = badUBLpair, antennaLocationTolerance = opts.tol)
+	print "Redundant info computed in %f minutes."%((time.time() - timer)/60.)
+	calibrator.write_redundantinfo(infoPath = opts.path, overwrite = opts.overwrite, verbose = False)
 
 
