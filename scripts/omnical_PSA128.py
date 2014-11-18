@@ -42,7 +42,7 @@ o.add_option('-d', '--datatag', action = 'store', default = 'PSA128', help = 'ta
 o.add_option('-i', '--infopath', action = 'store', default = '/data2/home/hz2ug/omnical/doc/redundantinfo_PSA128_17ba.bin', help = 'redundantinfo file to read')
 o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
-o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
+o.add_option('--datapath', action = 'store', default = '.', help = 'uv file or binary file folder')
 o.add_option('--healthbar', action = 'store', default = '2', help = 'health threshold (0-100) over which an antenna is marked bad.')
 o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
 o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
