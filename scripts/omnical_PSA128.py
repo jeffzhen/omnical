@@ -6,7 +6,6 @@ import commands, os, time, math, ephem
 import omnical.calibration_omni as omni
 import optparse, sys
 import scipy.signal as ss
-import matplotlib.pyplot as plt
 FILENAME = "omnical_PSA128.py"
 
 ##########################Sub-class#############################
@@ -275,6 +274,7 @@ if create_new_uvs:
 	print "Done"
 	sys.stdout.flush()
 if make_plots:
+	import matplotlib.pyplot as plt
 	for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 		plt.subplot(1,len(wantpols),p+1)
 		plot_data = (calibrators[pol].rawCalpar[:,:,2]/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5
