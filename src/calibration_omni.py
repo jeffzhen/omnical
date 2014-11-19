@@ -1472,7 +1472,7 @@ class RedundantCalibrator:
 
 
 
-def omniview(data, info, plotrange = None, title = ''):
+def omniview(data, info, plotrange = None, title = '', plot_single_ubl = False):
     import matplotlib.pyplot as plt
     colors=[]
     colorgrid = int(math.ceil((info['nUBL']/12.+1)**.34))
@@ -1501,7 +1501,8 @@ def omniview(data, info, plotrange = None, title = ''):
             for color in colors:
                 #print info['ublindex'][ubl][:,2]
                 #print marker, color
-                ax.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker=marker, color=color)
+                if (plot_single_ubl or len(np.array(info['ublindex'][ubl]) > 1:
+                    ax.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker=marker, color=color)
                 ubl += 1
                 if ubl == info['nUBL']:
                     #if i == 1:
