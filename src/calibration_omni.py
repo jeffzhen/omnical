@@ -991,7 +991,7 @@ class RedundantCalibrator:
 
 
 
-    def diagnose(self, data = None, additiveout = None, verbose = True, healthbar = 2, ubl_healthbar = 50, warn_low_redun = False):
+    def diagnose(self, data = None, additiveout = None, verbose = True, healthbar = 2, ubl_healthbar = 50, warn_low_redun = False, ouput_txt = False):
         errstate = np.geterr()
         np.seterr(invalid = 'ignore')
         checks = 1
@@ -1041,8 +1041,21 @@ class RedundantCalibrator:
                     if bad_ubl_count[a] > ubl_healthbar and (self.Info.ublcount[a] > 5 or (warn_low_redun)):
                         print "index #%i, vector = %s, redundancy = %i, badness = %i"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
                 #print ""
-        return bad_count, bad_ubl_count
-
+        if not ouput_txt:
+			return bad_count, bad_ubl_count
+		else:
+			txt = ''
+            txt += "DETECTED BAD ANTENNA ABOVE HEALTH THRESHOLD %i: \n"%healthbar
+            for a in range(len(bad_count)):
+                if bad_count[a] > healthbar:
+                    txt += "antenna #%i, vector = %s, badness = %i\n"%(self.Info.subsetant[a], self.Info.antloc[a], bad_count[a])
+            #print ""
+            if additiveout != None and additiveout.shape[:2] == self.rawCalpar.shape[:2] and ubl_healthbar != 100:
+                txt += "DETECTED BAD BASELINE TYPE ABOVE HEALTH THRESHOLD %i: \n"%ubl_healthbar
+                for a in range(len(bad_ubl_count)):
+                    if bad_ubl_count[a] > ubl_healthbar and (self.Info.ublcount[a] > 5 or (warn_low_redun)):
+                        txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
+				return txt
 
     def compute_redundantinfo(self, arrayinfoPath = None):
         if arrayinfoPath != None and os.path.isfile(arrayinfoPath):

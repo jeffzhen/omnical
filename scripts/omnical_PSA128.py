@@ -253,19 +253,11 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 		#calibrators[key].get_omnifit()
 		print "Done"
 		sys.stdout.flush()
-	bad_count, bad_ubl_count = calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, ubl_healthbar = ubl_healthbar)
-	np.savetxt(oppath + '/' + dataano + '_' + ano + "_%s.antb"%key, bad_count)
-	np.savetxt(oppath + '/' + dataano + '_' + ano + "_%s.ublb"%key, bad_ubl_count)
-	##print bad_ant_meter
-	#nbad = 0
-	#badstr = ''
-	#for a in range(len(bad_ant_meter)):
-		#if bad_ant_meter[a] > healthbar:
-			#badstr += (str(a) + ',')
-			#nbad += 1
-	#if nbad > 0 :
-		#print "BAD ANTENNA", badstr
-	#print "%i NEW BAD ANTENNA(S)"%nbad
+	diag_txt = calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, ubl_healthbar = ubl_healthbar, ouput_txt = True)
+	text_file = open(oppath + '/' + dataano + '_' + ano + "_%s.diagtxt"%key, "a")
+	text_file.write(diag_txt)
+	text_file.close()
+
 if create_new_uvs:
 	print FILENAME + " MSG: saving new uv files",
 	sys.stdout.flush()
