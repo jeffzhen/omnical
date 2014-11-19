@@ -1501,7 +1501,7 @@ def omniview(data, info, plotrange = None, title = '', plot_single_ubl = False):
             for color in colors:
                 #print info['ublindex'][ubl][:,2]
                 #print marker, color
-                if (plot_single_ubl or len(np.array(info['ublindex'][ubl]) > 1:
+                if plot_single_ubl or len(info['ublindex'][ubl]) > 1:
                     ax.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker=marker, color=color)
                 ubl += 1
                 if ubl == info['nUBL']:
