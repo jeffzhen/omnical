@@ -142,11 +142,12 @@ sys.stdout.flush()
 
 ###start reading miriads################
 if skip:
-    print FILENAME + " MSG: SKIPPED reading uvfiles. Reading binary data files directly...", (len(timing), nfreq, len(aa) * (len(aa) + 1) / 2), "...",
+    print FILENAME + " MSG: SKIPPED reading uvfiles. Reading binary data files directly...", 
     sys.stdout.flush()
     with open(utcPath) as f:
         timing = f.readlines()
         timing = [t.replace('\n','') for t in timing]
+    print (len(timing), nfreq, len(aa) * (len(aa) + 1) / 2), "...",
     data = np.array([np.fromfile(sourcepath + 'data_' + dataano + '_' + key, dtype = 'complex64').reshape((len(timing), nfreq, len(aa) * (len(aa) + 1) / 2)) for key in wantpols.keys()])
     print "Done."
     sys.stdout.flush()
