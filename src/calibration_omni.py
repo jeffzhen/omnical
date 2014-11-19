@@ -302,12 +302,12 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
         bl1dmatrix[a1, a2] = bl + 1
         bl1dmatrix[a2, a1] = - (bl + 1)
     ####prepare processing
-    deftime = int(init_mem / 8. / nfreq / (nant * (nant + 1) / 2))#use 4GB of memory by default.
+    deftime = int(init_mem / 8. / nfreq / len(totalVisibilityId))#use 4GB of memory by default.
     if verbose:
-        print "Declaring initial array shape (%i, %i, %i, %i)..."%(deftime, len(wantpols), nant * (nant + 1) / 2, nfreq),
+        print "Declaring initial array shape (%i, %i, %i, %i)..."%(deftime, len(wantpols), len(totalVisibilityId), nfreq),
     sys.stdout.flush()
     try:
-        data = np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')
+        data = np.zeros((deftime, len(wantpols), len(totalVisibilityId), nfreq), dtype = 'complex64')
     except MemoryError:
         raise Exception("Failed to allocate %.2fGB of memory. Set init_mem keyword in Bytes for importuvs() to decrease initial memory allocation."%(init_mem/1.074e9))
     if verbose:
