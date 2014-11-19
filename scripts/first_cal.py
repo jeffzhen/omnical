@@ -50,6 +50,7 @@ o.add_option('-i', '--infopath', action = 'store', default = 'DOESNTEXIST', help
 #o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 #o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
 o.add_option('--healthbar', action = 'store', type = 'float', default = 2, help = 'Health threshold (0-100) over which an antenna is marked bad. 2 by default.')
+o.add_option('--suppress', action = 'store', type = 'float', default = 1, help = 'Amplitude of the gains for the bad antennas. Larger means more suppressed.')
 o.add_option('-f', '--freq_range', action = 'store', default = '0_0', help = 'Frequency bin number range to use for fitting amp and delay seperated by underscore. 0_0 by default and will process all frequencies.')
 o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'Output folder. Current directory by default.')
 #o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
@@ -57,6 +58,7 @@ o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'Outp
 #o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
 o.add_option('--plot', action = 'store_true', help = 'Whether to make plots in the end.')
 #o.add_option('--crude', action = 'store_true', help = 'whether to apply crude calibration')
+
 
 opts,args = o.parse_args(sys.argv[1:])
 #skip = opts.skip
@@ -69,6 +71,7 @@ make_plots = opts.plot
 oppath = opts.outputpath
 uvfiles = args
 healthbar = opts.healthbar
+bad_ant_suppress = opts.suppress
 [fstart,fend] = [int(x) for x in opts.freq_range.split('_')]
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
@@ -238,7 +241,7 @@ if fend == 0:
 	fend = nfreq
 ####amplitude
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-	amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * 1e5 #hardcode suppression for bad antenna
+	amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
 	amp[calibrators[pol].Info.subsetant] = 10**(nanmedian(nanmedian(calibrators[pol].rawCalpar[:,fstart:fend,3:3+calibrators[pol].Info.nAntenna],axis=0),axis=0))
 	print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
 	print '{'
