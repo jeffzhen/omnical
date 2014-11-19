@@ -1042,9 +1042,9 @@ class RedundantCalibrator:
                         print "index #%i, vector = %s, redundancy = %i, badness = %i"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
                 #print ""
         if not ouput_txt:
-			return bad_count, bad_ubl_count
-		else:
-			txt = ''
+            return bad_count, bad_ubl_count
+        else:
+            txt = ''
             txt += "DETECTED BAD ANTENNA ABOVE HEALTH THRESHOLD %i: \n"%healthbar
             for a in range(len(bad_count)):
                 if bad_count[a] > healthbar:
@@ -1055,7 +1055,7 @@ class RedundantCalibrator:
                 for a in range(len(bad_ubl_count)):
                     if bad_ubl_count[a] > ubl_healthbar and (self.Info.ublcount[a] > 5 or (warn_low_redun)):
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
-				return txt
+                return txt
 
     def compute_redundantinfo(self, arrayinfoPath = None):
         if arrayinfoPath != None and os.path.isfile(arrayinfoPath):
