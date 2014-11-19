@@ -427,8 +427,11 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
         opuvname = oppath + os.path.basename(os.path.dirname(uvfile+'/')) + ano + 'O'
         if verbose:
             print FILENAME + METHODNAME + "MSG: Creating %s"%opuvname
-        if overwrite and os.path.isdir(opuvname):
-            shutil.rmtree(opuvname)
+        if os.path.isdir(opuvname):
+            if overwrite:
+                shutil.rmtree(opuvname)
+            else:
+                raise IOError("%s already exists. Use overwrite option to overwrite."%opuvname)
         uvo = ap.miriad.UV(opuvname, status='new')
         uvo.init_from_uv(uvi)
         historystr = "Applied OMNICAL on %s: "%time.asctime(time.localtime(time.time()))
