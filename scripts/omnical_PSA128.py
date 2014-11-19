@@ -142,7 +142,7 @@ sys.stdout.flush()
 
 ###start reading miriads################
 if skip:
-    print FILENAME + " MSG: SKIPPED reading uvfiles. Reading binary data files directly...",
+    print FILENAME + " MSG: SKIPPED reading uvfiles. Reading binary data files directly...", (len(timing), nfreq, len(aa) * (len(aa) + 1) / 2), "...",
     sys.stdout.flush()
     with open(utcPath) as f:
         timing = f.readlines()
@@ -155,7 +155,7 @@ else:
     print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
     sys.stdout.flush()
     data, t, timing, lst = omni.importuvs(uvfiles, np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), wantpols, timingTolerance=100)#, nTotalAntenna = len(aa))
-    print FILENAME + " MSG:",  len(t), "slices read."
+    print FILENAME + " MSG:",  len(t), "slices read. data shape: ", data
     sys.stdout.flush()
 
     if keep_binary_data:
