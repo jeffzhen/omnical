@@ -333,7 +333,7 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
                 #sun.compute(sa)
                 timing += [sa.date.__str__()]
                 if abs((uv['lst'] - float(sa.sidereal_time()) + math.pi)%(2*math.pi) - math.pi) >= timingTolerance:
-                    raise Exception("Error: uv['lst'] is %f radians whereas time computed by aipy is %f radians, the difference is larger than tolerance of %f."%(uv['lst'], float(sa.sidereal_time()), timingTolerance))
+                    raise Exception("Error: uv['lst'] is %f radians whereas time computed by ephem is %f radians, the difference is larger than tolerance of %f."%(uv['lst'], float(sa.sidereal_time()), timingTolerance))
                 else:
                     lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
                 if len(t) > len(data):
