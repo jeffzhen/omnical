@@ -14,23 +14,26 @@ FILENAME = "first_cal.py"
 
 ##########################Sub-class#############################
 class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
-	def __init__(self, aa):
-		nTotalAnt = len(aa)
-		omni.RedundantCalibrator.__init__(self, nTotalAnt)
-		self.aa = aa
-
-	def compute_redundantinfo(self, badAntenna = [], badUBL = [], antennaLocationTolerance = 1e-6):
-		self.antennaLocationTolerance = antennaLocationTolerance
-		self.badAntenna = badAntenna
-		self.badUBL = badUBL
-		self.antennaLocation = np.zeros((self.nTotalAnt,3))
-		for i in range(len(self.aa.ant_layout)):
-			for j in range(len(self.aa.ant_layout[0])):
-				self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
-		self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
-		omni.RedundantCalibrator.compute_redundantinfo(self)
-
-
+    def __init__(self, aa):
+        nTotalAnt = len(aa)
+        omni.RedundantCalibrator.__init__(self, nTotalAnt)
+        self.aa = aa
+        self.antennaLocation = np.zeros((self.nTotalAnt,3))
+        for i in range(len(self.aa.ant_layout)):
+            for j in range(len(self.aa.ant_layout[0])):
+                self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
+        self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
+        self.badAntenna = []
+        self.badUBLpair = []
+        for i in range(nTotalAnt):
+            if i not in self.aa.ant_layout.flatten():
+                self.badAntenna += [i]
+                
+    def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
+        self.antennaLocationTolerance = antennaLocationTolerance
+        self.badAntenna += badAntenna
+        self.badUBLpair += badUBLpair
+        omni.RedundantCalibrator.compute_redundantinfo(self)
 
 
 
@@ -42,18 +45,20 @@ o = optparse.OptionParser()
 ap.scripting.add_standard_options(o, cal=True, pol=True)
 #o.add_option('-t', '--tag', action = 'store', default = 'PSA128', help = 'tag name of this calibration')
 #o.add_option('-d', '--datatag', action = 'store', default = 'PSA128', help = 'tag name of this data set')
-o.add_option('-i', '--infopath', action = 'store', default = '/data2/home/hz2ug/omnical/doc/redundantinfo_PSA128_17ba.bin', help = 'redundantinfo file to read')
+o.add_option('-i', '--infopath', action = 'store', default = 'DOESNTEXIST', help = 'Redundantinfo file to read.')
 #o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 #o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 #o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
-o.add_option('--healthbar', action = 'store', type = 'float', default = 2, help = 'health threshold (0-100) over which an antenna is marked bad.')
-o.add_option('-f', '--freq_range', action = 'store', default = '0,0', help = 'frequency bin number range to use for fitting amp and delay.')
-o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
+o.add_option('--healthbar', action = 'store', type = 'float', default = 2, help = 'Health threshold (0-100) over which an antenna is marked bad. 2 by default.')
+o.add_option('--suppress', action = 'store', type = 'float', default = 1, help = 'Amplitude of the gains for the bad antennas. Larger means more suppressed.')
+o.add_option('-f', '--freq_range', action = 'store', default = '0_0', help = 'Frequency bin number range to use for fitting amp and delay seperated by underscore. 0_0 by default and will process all frequencies.')
+o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'Output folder. Current directory by default.')
 #o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 #o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
 #o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
-o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
+o.add_option('--plot', action = 'store_true', help = 'Whether to make plots in the end.')
 #o.add_option('--crude', action = 'store_true', help = 'whether to apply crude calibration')
+
 
 opts,args = o.parse_args(sys.argv[1:])
 #skip = opts.skip
@@ -66,7 +71,8 @@ make_plots = opts.plot
 oppath = opts.outputpath
 uvfiles = args
 healthbar = opts.healthbar
-[fstart,fend] = [int(x) for x in opts.freq_range.split(',')]
+bad_ant_suppress = opts.suppress
+[fstart,fend] = [int(x) for x in opts.freq_range.split('_')]
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
 		uvfiles.remove(uvf)
@@ -116,6 +122,7 @@ nant = uv['nants']
 sa = ephem.Observer()
 sa.lon = uv['longitu']
 sa.lat = uv['latitud']
+sa.pressure = 0
 startfreq = uv['sfreq']
 dfreq = uv['sdf']
 del(uv)
@@ -139,7 +146,7 @@ southern_points = {'hyd':{'ra': '09:18:05.7', 'dec': '-12:05:44'},
 'cyg':{'ra': '19:59:28.3', 'dec': '40:44:02'},
 'pic':{'ra': '05:19:49.7', 'dec': '-45:46:44'},
 'vir':{'ra': '12:30:49.4', 'dec': '12:23:28'},
-'for':{'ra': '03:22:41.7', 'dec': '-37:12m30s'}}
+'for':{'ra': '03:22:41.7', 'dec': '-37:12:30'}}
 
 for source in southern_points.keys():
 	southern_points[source]['body'] = ephem.FixedBody()
@@ -213,7 +220,7 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 	for ab in ant_bad_meter[key]:
 		if ab > healthbar:
 			nbad += 1
-	print FILENAME + " MSG: %i badantennas found on %s"%(nbad, key)
+	print FILENAME + " MSG: %i bad antennas found on %s"%(nbad, key)
 	#print ant_bad_meter[key]
 	sys.stdout.flush()
 
@@ -234,10 +241,13 @@ if fend == 0:
 	fend = nfreq
 ####amplitude
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-	amp = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
+	amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
 	amp[calibrators[pol].Info.subsetant] = 10**(nanmedian(nanmedian(calibrators[pol].rawCalpar[:,fstart:fend,3:3+calibrators[pol].Info.nAntenna],axis=0),axis=0))
 	print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
-	print  amp
+	print '{'
+	for a1, a2 in zip(range(len(amp)), amp):
+		print "%i: %f, "%(a1,a2)
+	print '}'
 	sys.stdout.flush()
 
 ####delay
@@ -266,8 +276,10 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	delay[calibrators[pol].Info.subsetant] = [matrix.dot(x)/ (2 * np.pi)  for x in avg_angle]
 	delay_error[calibrators[pol].Info.subsetant] = [la.norm((error_matrix.dot(x)+np.pi)%(2*np.pi)-np.pi)/ (len(A))**.5 for x in avg_angle]
 	print FILENAME + " MSG: delay on %s in nanoseconds:"%pol
-	print delay
-	#print delay_error
+	print '{'
+	for a1, a2 in zip(range(len(delay)), delay):
+		print "%i: %f, "%(a1,a2)
+	print '}'
 	sys.stdout.flush()
 	#if make_plots:
 		#nplot = 8
@@ -282,9 +294,9 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 		nplot = 8
 		for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
 			plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
-			plt.plot(A[:,0], (avg_angle[a]+ np.pi)%(2*np.pi) - np.pi)
-			plt.plot(A[:,0], ((error_matrix + np.identity(len(A))).dot(avg_angle[a]) + np.pi)%(2*np.pi) - np.pi)
-			plt.axis([A[0,0], A[-1,0], -np.pi, np.pi])
+			plt.plot(range(fstart, fend), (avg_angle[a]+ np.pi)%(2*np.pi) - np.pi)
+			plt.plot(range(fstart, fend), ((error_matrix + np.identity(len(A))).dot(avg_angle[a]) + np.pi)%(2*np.pi) - np.pi)
+			plt.axis([fstart, fend, -np.pi, np.pi])
 			#plt.axes().set_aspect('equal')
 		plt.show()
 		plt.hist(delay_error[calibrators[pol].Info.subsetant], 20, normed=1)
