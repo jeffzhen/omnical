@@ -292,7 +292,7 @@ class TestRedInfo(unittest.TestCase):
     def test_getset_float2d(self):
         i = _O.RedundantInfo()
         floats = np.array([[1,2],[4,5]], dtype=np.float32)
-        for k in ['antloc','ubl','degenM','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:
+        for k in ['antloc','ubl','degenM','AtAi','BtBi']:#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:
             i.__setattr__(k, floats)
             self.assertTrue(np.all(i.__getattribute__(k) == floats))
     def test_readredundantinfo(self):

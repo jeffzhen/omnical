@@ -835,227 +835,227 @@ int RedInfoObject_set_BtBi(RedInfoObject *self, PyObject *value, void *closure) 
     return 0;
 }
 
-// RedundantInfo.AtAiAt (1D integer array)
-PyObject *RedInfoObject_get_AtAiAt(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.AtAiAt.size(), self->info.AtAiAt[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.AtAiAt[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.AtAiAt (1D integer array)
+////PyObject *RedInfoObject_get_AtAiAt(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.AtAiAt.size(), self->info.AtAiAt[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.AtAiAt[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_AtAiAt(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "AtAiAt must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "AtAiAt must be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.AtAiAt.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.AtAiAt[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.AtAiAt[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_AtAiAt(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "AtAiAt must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "AtAiAt must be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.AtAiAt.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.AtAiAt[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.AtAiAt[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.BtBiBt (1D integer array)
-PyObject *RedInfoObject_get_BtBiBt(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.BtBiBt.size(), self->info.BtBiBt[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.BtBiBt[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.BtBiBt (1D integer array)
+////PyObject *RedInfoObject_get_BtBiBt(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.BtBiBt.size(), self->info.BtBiBt[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.BtBiBt[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_BtBiBt(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "BtBiBt must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "BtBiBt must be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.BtBiBt.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.BtBiBt[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.BtBiBt[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_BtBiBt(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "BtBiBt must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "BtBiBt must be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.BtBiBt.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.BtBiBt[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.BtBiBt[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.PA (1D integer array)
-PyObject *RedInfoObject_get_PA(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.PA.size(), self->info.PA[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.PA[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.PA (1D integer array)
+////PyObject *RedInfoObject_get_PA(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.PA.size(), self->info.PA[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.PA[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_PA(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "PA must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "PA must be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.PA.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.PA[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.PA[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_PA(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "PA must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "PA must be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.PA.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.PA[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.PA[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.PB (1D integer array)
-PyObject *RedInfoObject_get_PB(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.PB.size(), self->info.PB[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.PB[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.PB (1D integer array)
+////PyObject *RedInfoObject_get_PB(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.PB.size(), self->info.PB[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.PB[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_PB(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "PB must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "PB must be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.PB.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.PB[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.PB[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_PB(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "PB must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "PB must be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.PB.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.PB[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.PB[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.ImPA (1D integer array)
-PyObject *RedInfoObject_get_ImPA(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.ImPA.size(), self->info.ImPA[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.ImPA[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.ImPA (1D integer array)
+////PyObject *RedInfoObject_get_ImPA(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.ImPA.size(), self->info.ImPA[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.ImPA[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_ImPA(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "ImPA must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "ImPA be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.ImPA.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.ImPA[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.ImPA[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_ImPA(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "ImPA must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "ImPA be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.ImPA.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.ImPA[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.ImPA[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.ImPB (1D integer array)
-PyObject *RedInfoObject_get_ImPB(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.ImPB.size(), self->info.ImPB[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.ImPB[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.ImPB (1D integer array)
+////PyObject *RedInfoObject_get_ImPB(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.ImPB.size(), self->info.ImPB[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.ImPB[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_ImPB(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "ImPB must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "ImPB must be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.ImPB.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.ImPB[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.ImPB[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_ImPB(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "ImPB must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "ImPB must be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.ImPB.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.ImPB[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.ImPB[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
 /*___          _ ___        __                        _   _               _
 |  _ \ ___  __| |_ _|_ __  / _| ___    _ __ ___   ___| |_| |__   ___   __| |
@@ -1111,12 +1111,12 @@ static PyGetSetDef RedInfoObject_getseters[] = {
     {"Btsparse", (getter)RedInfoObject_get_Btsparse, (setter)RedInfoObject_set_Btsparse, "Btsparse", NULL},
     {"AtAi", (getter)RedInfoObject_get_AtAi, (setter)RedInfoObject_set_AtAi, "AtAi", NULL},
     {"BtBi", (getter)RedInfoObject_get_BtBi, (setter)RedInfoObject_set_BtBi, "BtBi", NULL},
-    {"AtAiAt", (getter)RedInfoObject_get_AtAiAt, (setter)RedInfoObject_set_AtAiAt, "AtAiAt", NULL},
-    {"BtBiBt", (getter)RedInfoObject_get_BtBiBt, (setter)RedInfoObject_set_BtBiBt, "BtBiBt", NULL},
-    {"PA", (getter)RedInfoObject_get_PA, (setter)RedInfoObject_set_PA, "PA", NULL},
-    {"PB", (getter)RedInfoObject_get_PB, (setter)RedInfoObject_set_PB, "PB", NULL},
-    {"ImPA", (getter)RedInfoObject_get_ImPA, (setter)RedInfoObject_set_ImPA, "ImPA", NULL},
-    {"ImPB", (getter)RedInfoObject_get_ImPB, (setter)RedInfoObject_set_ImPB, "ImPB", NULL},
+    ////{"AtAiAt", (getter)RedInfoObject_get_AtAiAt, (setter)RedInfoObject_set_AtAiAt, "AtAiAt", NULL},
+    ////{"BtBiBt", (getter)RedInfoObject_get_BtBiBt, (setter)RedInfoObject_set_BtBiBt, "BtBiBt", NULL},
+    ////{"PA", (getter)RedInfoObject_get_PA, (setter)RedInfoObject_set_PA, "PA", NULL},
+    ////{"PB", (getter)RedInfoObject_get_PB, (setter)RedInfoObject_set_PB, "PB", NULL},
+    ////{"ImPA", (getter)RedInfoObject_get_ImPA, (setter)RedInfoObject_set_ImPA, "ImPA", NULL},
+    ////{"ImPB", (getter)RedInfoObject_get_ImPB, (setter)RedInfoObject_set_ImPB, "ImPB", NULL},
     {NULL}  /* Sentinel */
 };
 

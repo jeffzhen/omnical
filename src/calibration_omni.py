@@ -20,13 +20,13 @@ with warnings.catch_warnings():
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
 
-infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
 
 
 int_infokeys = ['nAntenna','nUBL','nBaseline']
 intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
-float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 def read_redundantinfo_txt(infopath, verbose = False):
     METHODNAME = "read_redundantinfo_txt"
     if not os.path.isfile(infopath):
@@ -585,7 +585,7 @@ def stdmatrix(length, polydegree):#to find out the error in fitting y by a polyn
 #input two different redundant info, output True if they are the same and False if they are different
 def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
     try:
-        floatkeys=['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+        floatkeys=float_infokeys#['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
         intkeys = ['nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix']
         infomatrices=['A','B','At','Bt']
         specialkeys = ['ublindex']
@@ -1320,18 +1320,18 @@ class RedundantCalibrator:
                     timer.tick('m')
                 info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
                 info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
-                if verbose:
-                    timer.tick('m')
-                info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
-                info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
-                if verbose:
-                    timer.tick('m')
-                info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
-                info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
-                if verbose:
-                    timer.tick('m')
-                info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
-                info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
+                #if verbose:
+                    #timer.tick('m')
+                #info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+                #info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+                #if verbose:
+                    #timer.tick('m')
+                #info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+                #info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+                #if verbose:
+                    #timer.tick('m')
+                #info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+                #info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
 
         if verbose:
             timer.tick('m')
@@ -1777,8 +1777,8 @@ class Timer():
         else:
             self.repeat_msg = 0
             self.last_msg = msg
-            print msg, "time elapsed: %f min"%(float(time.time() - self.time)/60.),
-        print "Memory usage 0: %.3fMB"%(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
+            print msg, "Time elapsed: %f min."%(float(time.time() - self.time)/60.),
+        print "Memory usage 0: %.3fMB."%(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
         sys.stdout.flush()
         self.time = time.time()
         
@@ -1988,10 +1988,10 @@ def remove_one_antenna(Info,badant):
             info['Bt'] = info['B'].transpose()
             info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
             info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
-            info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
-            info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
-            info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
-            info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
-            info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
-            info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
+            ##info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+            ##info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+            ##info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+            ##info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+            ##info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+            ##info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
     return RedundantInfo(info)
