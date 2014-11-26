@@ -3174,6 +3174,9 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	}
 	vecmatmul(&(info->AtAi), &(module->x3), &(module->x1));
 	vecmatmul(&(info->BtBi), &(module->x4), &(module->x2));
+	//vecmatmul(&(info->AtAiAt), &(module->amp1), &(module->x1));
+	//vecmatmul(&(info->BtBiBt), &(module->pha1), &(module->x2));
+
 
 	for(int b = 0; b < ncross; b++) {
 		float amp = pow(10, module->x1[nant + info->bltoubl[b]] + module->x1[info->bl2d[info->crossindex[b]][0]] + module->x1[info->bl2d[info->crossindex[b]][1]]);

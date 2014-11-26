@@ -1,5 +1,5 @@
 import datetime
-import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime, shutil
+import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime, shutil, resource
 import time
 from time import ctime
 import aipy as ap
@@ -1060,24 +1060,27 @@ class RedundantCalibrator:
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
             return txt
 
-    def compute_redundantinfo(self, arrayinfoPath = None):
+    def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
         if arrayinfoPath != None and os.path.isfile(arrayinfoPath):
             self.read_arrayinfo(arrayinfoPath)
         if np.linalg.norm(self.antennaLocation) == 0:
             raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
-        #timer = Timer()
+        if verbose:
+            timer = Timer()
         #nAntenna and subsetant : get rid of the bad antennas
         nant=len(self.antennaLocation)
         subsetant=[i for i in range(nant) if i not in self.badAntenna]
         nAntenna=len(subsetant)
         antloc=[self.antennaLocation[ant] for ant in subsetant]
-        #timer.tick('a')
+        if verbose:
+            timer.tick('a')
         ##########################################################################################
         #find out ubl
         #use the function compute_UBL to find the ubl
         tolerance=self.antennaLocationTolerance;
         ublall=self.compute_UBL(tolerance)
-        #timer.tick('b')
+        if verbose:
+            timer.tick('b')
         #################################################################################################
         #calculate the norm of the difference of two vectors (just la.norm actually)
         def dis(a1,a2):
@@ -1137,7 +1140,8 @@ class RedundantCalibrator:
 
         #from a pair of good antenna index to baseline index
         subsetbl = np.array([self.get_baseline([subsetant[bl[0]],subsetant[bl[1]]]) for bl in goodpairs])
-        #timer.tick('c')
+        if verbose:
+            timer.tick('c')
         ##################################################################################
         #bltoubl: cross bl number to ubl index
         def findublindex(pair,ubl=ubl):
@@ -1152,7 +1156,8 @@ class RedundantCalibrator:
         for p in goodpairs:
             if p[0]!=p[1]:
                 bltoubl.append(findublindex(p))
-        #timer.tick('d')
+        if verbose:
+            timer.tick('d')
         #################################################################################
         #reversed:   cross only bl if reversed -1, otherwise 1
         crosspair=[]
@@ -1169,7 +1174,8 @@ class RedundantCalibrator:
                 reverse.append(1)
             else :
                 print "something's wrong with bltoubl"
-        #timer.tick('e')
+        if verbose:
+            timer.tick('e')
         ######################################################################################
         #reversedauto: the index of good baselines (auto included) in all baselines
         #autoindex: index of auto bls among good bls
@@ -1192,14 +1198,16 @@ class RedundantCalibrator:
         autoindex=np.array(autoindex)
         crossindex=np.array(crossindex)
         ncross=len(crossindex)
-        #timer.tick('f')
+        if verbose:
+            timer.tick('f')
         ###################################################
         #bl2d:  from 1d bl index to a pair of antenna numbers
         bl2d=[]
         for pair in goodpairs:
             bl2d.append(pair)#(pair[::-1])
         bl2d=np.array(bl2d)
-        #timer.tick('g')
+        if verbose:
+            timer.tick('g')
         ###################################################
         #ublcount:  for each ubl, the number of good cross bls corresponding to it
         
@@ -1215,7 +1223,8 @@ class RedundantCalibrator:
         for i in range(nUBL):
             ublcount.append(countdict[i])
         ublcount=np.array(ublcount)
-        #timer.tick('h')
+        if verbose:
+            timer.tick('h')
         ####################################################################################
         #ublindex:  //for each ubl, the vector<int> contains (ant1, ant2, crossbl)
         countdict={}
@@ -1234,7 +1243,8 @@ class RedundantCalibrator:
         for i in range(len(ublindex)):
             ublindex[i]=np.array(ublindex[i])
         ublindex=np.array(ublindex)
-        #timer.tick('i')
+        if verbose:
+            timer.tick('i')
         ###############################################################################
         #bl1dmatrix: a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
                 #I suppose 99999 for bad and auto baselines?
@@ -1242,7 +1252,8 @@ class RedundantCalibrator:
         for i in range(len(crosspair)):
             bl1dmatrix[crosspair[i][1]][crosspair[i][0]]=i
             bl1dmatrix[crosspair[i][0]][crosspair[i][1]]=i
-        #timer.tick('j')
+        if verbose:
+            timer.tick('j')
         ####################################################################################3
         #degenM:
         a=[]
@@ -1274,7 +1285,8 @@ class RedundantCalibrator:
             B[i][crosspair[i][1]]=reverse[i]*1  #-1
             B[i][nAntenna+bltoubl[i]]=1
         B=sps.csr_matrix(B)
-        #timer.tick('k')
+        if verbose:
+            timer.tick('k')
         ###########################################################################
         #create info dictionary
         info={}
@@ -1298,21 +1310,34 @@ class RedundantCalibrator:
         info['degenM']=degenM
         info['A']=A
         info['B']=B
+        if verbose:
+            timer.tick('l')
         with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=DeprecationWarning)
                 info['At'] = info['A'].transpose()
                 info['Bt'] = info['B'].transpose()
+                if verbose:
+                    timer.tick('m')
                 info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
                 info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
+                if verbose:
+                    timer.tick('m')
                 info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
                 info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+                if verbose:
+                    timer.tick('m')
                 info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
                 info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+                if verbose:
+                    timer.tick('m')
                 info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
                 info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
-        #timer.tick('l')
+
+        if verbose:
+            timer.tick('m')
         self.Info = RedundantInfo(info)
-        #timer.tick('m')
+        if verbose:
+            timer.tick('n')
 
 
     #inverse function of totalVisibilityId, calculate the baseline index from the antenna pair. It allows flipping of a1 and a2, will return same result
@@ -1742,9 +1767,18 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
 class Timer():
     def __init__(self):
         self.time = time.time()
+        self.last_msg = None
+        self.repeat_msg = 0
 
     def tick(self, msg=''):
-        print msg, "time elapsed: %f min"%(float(time.time() - self.time)/60.)
+        if msg == self.last_msg:
+            self.repeat_msg += 1
+            print msg + str(self.repeat_msg), "time elapsed: %f min"%(float(time.time() - self.time)/60.),
+        else:
+            self.repeat_msg = 0
+            self.last_msg = msg
+            print msg, "time elapsed: %f min"%(float(time.time() - self.time)/60.),
+        print "Memory usage 0: %.3fMB"%(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
         sys.stdout.flush()
         self.time = time.time()
         
