@@ -252,9 +252,8 @@ class TestMethods(unittest.TestCase):
         nanmask = ~np.isnan(np.sum(correctresult,axis=2))#mask the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
         calibrators[-1].rawCalpar.tofile(os.path.dirname(os.path.realpath(__file__)) + '/results/new_result.omnical')
         newresult = calibrators[-1].rawCalpar[:,:,1:]
-
-        #calibrators[-1].rawCalpar.tofile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical')
-        np.testing.assert_almost_equal(np.sort(np.abs(correctresult[nanmask])), np.sort(np.abs(newresult[nanmask])), decimal = 5)
+        np.testing.assert_almost_equal(correctresult[:,:,1:67][nanmask], newresult[:,:,1:67][nanmask], decimal = 5)
+        np.testing.assert_almost_equal(np.sort(np.abs(correctresult[:,:,67:][nanmask])), np.sort(np.abs(newresult[:,:,67:][nanmask])), decimal = 5)
 
     def test_norm(self):
         d = np.zeros((2,3,4), dtype=np.float32)
