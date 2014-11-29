@@ -1369,7 +1369,7 @@ class RedundantCalibrator:
                 
                 
     #compute_UBL returns the average of all baselines in that ubl group
-    def compute_UBL_old(self,tolerance = 0.1):
+    def compute_UBL_old2(self,tolerance = 0.1):
         #check if the tolerance is not a string
         if type(tolerance) == str:
             raise Exception("tolerance needs to be number not string")
@@ -1436,8 +1436,17 @@ class RedundantCalibrator:
         ublall=np.array(ublall)
         return ublall
         
-    
-
+    def compute_UBL_new(self,tolerance = 0.1):
+        ubl = set([])
+        for a1, a2 in self.totalVisibilityId:
+            if a1 != a2 and a1 not in self.badAntenna and a2 not in self.badAntenna:
+                loc_tuple = tuple(np.round((self.antennaLocation[a2] - self.antennaLocation[a1]) / float(tolerance)) * tolerance)
+                neg_loc_tuple = tuple(np.round((self.antennaLocation[a1] - self.antennaLocation[a2]) / float(tolerance)) * tolerance)
+                if loc_tuple not in ubl and neg_loc_tuple not in ubl:
+                    ubl.add(loc_tuple)
+        return np.array([qaz for qaz in ubl])
+                
+                    
     #need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
     #input the antenna pair(as a list of two numbers), return the corresponding ubl index
     def get_ublindex(self,antpair):
