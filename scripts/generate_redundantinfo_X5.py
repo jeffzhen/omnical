@@ -19,8 +19,8 @@ class RedundantCalibrator_MITEoR(omni.RedundantCalibrator):
         self.badUBLpair = badUBLpair
         self.antennaLocation = np.zeros((self.nTotalAnt,3))
         for i in range(self.nTotalAnt):
-            self.antennaLocation[i] = np.array([(i/16)*2 + (i%4)/2, ((i/4)%4)*2 + (i%4)%2, 0])
-        omni.RedundantCalibrator.compute_redundantinfo(self, verbose= verbose)
+            self.antennaLocation[i] = np.array([(i/16)*2 + (i%4)/2, ((i/4)%4)*2 + (i%4)%2, 0])# + np.random.randn(3)/10000.
+        omni.RedundantCalibrator.compute_redundantinfo(self, verbose = verbose)
 
 
 
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     calibrator = RedundantCalibrator_MITEoR(nant)
     timer = time.time()
     calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBLpair = badUBLpair, antennaLocationTolerance = opts.tol, verbose = True)
-    print "Redundant info computed in %f minutes."%((time.time() - timer)/60.)
+    print "Redundant info computed in %f minutes. %i good antenna, %i good UBL."%((time.time() - timer)/60., calibrator.Info.nAntenna, calibrator.Info.nUBL)
     calibrator.write_redundantinfo(infoPath = opts.path, overwrite = opts.overwrite, verbose = False)
 
 

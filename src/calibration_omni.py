@@ -1169,7 +1169,7 @@ class RedundantCalibrator:
             if cond == True:
                 temp.append(p)
             if cond == False:
-                ####print "correcting"
+                #print "correcting"
                 temp.append(p[::-1])
         goodpairs = temp
         
@@ -1504,6 +1504,7 @@ class RedundantCalibrator:
         ubl_vec = np.zeros((len(ubl), 3))
         self.totalVisibilityUBL = {}
 
+        ublcount = np.zeros(len(ubl))
         for u, grid_ubl_vec in enumerate(ubl):
             for bl in ubl[grid_ubl_vec]:
                 assert bl != 0
@@ -1513,13 +1514,37 @@ class RedundantCalibrator:
                 else:
                     ubl_vec[u] = ubl_vec[u] + self.antennaLocation[a1] - self.antennaLocation[a2]
                 self.totalVisibilityUBL[(a1, a2)] = u
-            ubl_vec[u] = ubl_vec[u] / len(ubl[grid_ubl_vec])
+            ublcount[u] = len(ubl[grid_ubl_vec])
+            ubl_vec[u] = ubl_vec[u] / ublcount[u]
 
-        reorder = (ubl_vec[:,1]*1e6 + ubl_vec[:,0]).argsort()
+        reorder = (ubl_vec[:,1]*1e9 + ubl_vec[:,0]).argsort()
         rereorder = reorder.argsort()
         for key in self.totalVisibilityUBL:
             self.totalVisibilityUBL[key] = rereorder[self.totalVisibilityUBL[key]]
-        return ubl_vec[reorder]
+        ubl_vec = ubl_vec[reorder]
+
+        #now I need to deal with the fact that no matter how coarse my grid is, it's possible for a single group of ubl to fall into two adjacent grids. So I'm going to check if any of the final ubl vectors are seperated by less than tolerance. If so, merge them
+        ublmap = {}
+        for u1 in range(len(ubl_vec)):
+            for u2 in range(u1):
+                if la.norm(ubl_vec[u2] - ubl_vec[u1]) < tolerance or la.norm(ubl_vec[u2] + ubl_vec[u1]) < tolerance:
+                    ublmap[u1] = u2
+                    ubl_vec[u2] = (ubl_vec[u1] * ublcount[u1] + ubl_vec[u2] * ublcount[u2]) / (ublcount[u1] + ublcount[u2])
+                    break
+            ublmap[u1] = u1
+            
+        merged_ubl_vec = []
+        for u in range(len(ubl_vec)):
+            if ublmap[u] == u:
+                merged_ubl_vec.append(ubl_vec[u])
+                ublmap[u] = len(merged_ubl_vec) - 1
+            else:
+                ublmap[u] = ublmap[ublmap[u]]
+        merged_ubl_vec = np.array(merged_ubl_vec)
+
+        for key in self.totalVisibilityUBL:
+            self.totalVisibilityUBL[key] = ublmap[self.totalVisibilityUBL[key]]
+        return ubl_vec
                 
                     
     #need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
