@@ -280,7 +280,7 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
     ####get some info from the first uvfile####################
     uv=ap.miriad.UV(uvfilenames[0])
     nfreq = uv.nchan;
-    if nTotalAntenna == None:
+    if nTotalAntenna is None:
         nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
     else:
         nant = nTotalAntenna
@@ -372,7 +372,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
     METHODNAME = "*apply_omnigain_uvs*"
     ttotal = len(omnigains[wantpols.keys()[0]])
     ftotal = omnigains[wantpols.keys()[0]][0,0,3]
-    if adds == None:
+    if adds is None:
         adds = {}
         for key in wantpols.keys():
             adds[key] = np.zeros((ttotal, ftotal, len(totalVisibilityId)))
@@ -386,7 +386,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
     nfreq = uv.nchan;
     if nfreq != ftotal:
         raise Exception("Error: uv file %s and omnigains have different nFrequency!"%uvfilenames[0])
-    if nTotalAntenna == None:
+    if nTotalAntenna is None:
         nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
     else:
         nant = nTotalAntenna
@@ -422,7 +422,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
                 print FILENAME + METHODNAME + "MSG:", uvfile + ' after', timing[-1]#uv.nchan
                 sys.stdout.flush()
 
-        if oppath == None:
+        if oppath is None:
             oppath = os.path.abspath(os.path.dirname(os.path.dirname(uvfile + '/'))) + '/'
         opuvname = oppath + os.path.basename(os.path.dirname(uvfile+'/')) + ano + 'O'
         if verbose:
@@ -475,13 +475,13 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wan
         raise Exception("Error: additivefilenames and calparfilenames have different lengths!")
     if len(info) != len(calparfilenames):
         raise Exception("Error: info and calparfilenames have different lengths!")
-    if additivefilenames == None:
+    if additivefilenames is None:
         additivefilenames = ["iDontThinkYouHaveAFileCalledThis" for _ in calparfilenames]
 
     ####get some info from the first uvfile
     uv=ap.miriad.UV(uvfilenames[0])
     nfreq = uv.nchan;
-    if nTotalAntenna == None:
+    if nTotalAntenna is None:
         nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
     else:
         nant = nTotalAntenna
@@ -530,7 +530,7 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wan
         if len(timing) > 0:
             print FILENAME + METHODNAME + "MSG:", uvfile + ' after', timing[-1]#uv.nchan
 
-        if oppath == None:
+        if oppath is None:
             oppath = os.path.abspath(os.path.dirname(os.path.dirname(uvfile + '/'))) + '/'
         opuvname = oppath + os.path.basename(os.path.dirname(uvfile+'/')) + ano + 'O'
         print FILENAME + METHODNAME + "MSG: Creating %s"%opuvname
@@ -628,7 +628,7 @@ def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
         return False
 
 def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputPath should be a path without extensions like .omnigain which will be appended
-    if outputPath == None:
+    if outputPath is None:
         outputPath = omnicalPath.replace('.omnical', '')
 
     #info = redundantCalibrator.info
@@ -919,14 +919,14 @@ class RedundantCalibrator:
 
         calpar = np.ones((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
         calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
-        if additivein == None:
+        if additivein is None:
             return apply_calpar(data, calpar, self.totalVisibilityId)
         else:
             return apply_calpar(data - additivein, calpar, self.totalVisibilityId)
 
 
     def get_omnichisq(self):
-        if self.utctimes == None or self.rawCalpar == None:
+        if self.utctimes is None or self.rawCalpar is None:
             raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
         if len(self.utctimes) != len(self.rawCalpar):
             raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
@@ -943,7 +943,7 @@ class RedundantCalibrator:
         return omnichisq
 
     def get_omnigain(self):
-        if self.utctimes == None or self.rawCalpar == None:
+        if self.utctimes is None or self.rawCalpar is None:
             raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
         if len(self.utctimes) != len(self.rawCalpar):
             raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
@@ -962,7 +962,7 @@ class RedundantCalibrator:
         return omnigain
 
     def get_omnifit(self):
-        if self.utctimes == None or self.rawCalpar == None:
+        if self.utctimes is None or self.rawCalpar is None:
             raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
         if len(self.utctimes) != len(self.rawCalpar):
             raise Exception("Error: length of self.utctimes is not equal to self.rawCalpar. One of them is wrong.")
@@ -1404,7 +1404,7 @@ class RedundantCalibrator:
             ####except:
                 #####raise Exception("Error: antenna pair %s not found in self.totalVisibilityId."%pair)
                 ####return None
-        if self.totalVisibilityId_dic == None:
+        if self.totalVisibilityId_dic is None:
             self.totalVisibilityId_dic = {}
             for bll, (a1, a2) in enumerate(self.totalVisibilityId):
                 self.totalVisibilityId_dic[(a1,a2)] = bll
@@ -1627,7 +1627,7 @@ def omniview(data, info, plotrange = None, title = '', plot_single_ubl = False):
     for i in range(len(ds)):
         d = ds[i]
         ax = axes[i]
-        if plotrange == None:
+        if plotrange is None:
             plotrange = 1.2*np.nanmax(np.abs(d))
 
         ubl = 0
