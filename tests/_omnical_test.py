@@ -151,6 +151,14 @@ class TestMethods(unittest.TestCase):
         self.assertTrue(abs(np.mean(linlist)-1.0) < 0.01)        #check that chi2 of lincal is close enough to 1
         self.assertTrue(np.mean(linlist) < np.mean(loglist))     #chick that chi2 of lincal is smaller than chi2 of logcal
 
+
+    def test_norm(self):
+        d = np.zeros((2,3,4), dtype=np.float32)
+        d[:,:,0] = 7
+        #print _O.norm(d)
+        np.testing.assert_array_equal(_O.norm(d), d.flatten()[:6])
+
+class TestUV(unittest.TestCase):
     def test_all(self):
         ##FILENAME = "test.py"
         ######################################################################
@@ -250,19 +258,14 @@ class TestMethods(unittest.TestCase):
             calibrator.get_omnifit()
 
         #########Test results############
-        correctresult = np.fromfile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical', dtype = 'float32').reshape(14,203,165)[:,:,1:]
+        correctresult = np.fromfile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical', dtype = 'float32').reshape(14,203,165)[:,:,:]
         nanmask = ~np.isnan(np.sum(correctresult,axis=2))#mask the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
         calibrators[-1].rawCalpar.tofile(os.path.dirname(os.path.realpath(__file__)) + '/results/new_result.omnical')
         omni.write_redundantinfo(calibrators[-1].Info.get_info(), os.path.dirname(os.path.realpath(__file__)) + '/results/new_info.bin', overwrite = True)
-        newresult = calibrators[-1].rawCalpar[:,:,1:]
-        np.testing.assert_almost_equal(correctresult[:,:,1:67][nanmask], newresult[:,:,1:67][nanmask], decimal = 5)
+        newresult = calibrators[-1].rawCalpar[:,:,:]
+        np.testing.assert_almost_equal(correctresult[:,:,1:3][nanmask], newresult[:,:,1:3][nanmask], decimal = 5)
+        np.testing.assert_almost_equal(correctresult[:,:,3:67][nanmask], newresult[:,:,3:67][nanmask], decimal = 5)
         np.testing.assert_almost_equal(np.sort(np.abs(correctresult[:,:,67:][nanmask])), np.sort(np.abs(newresult[:,:,67:][nanmask])), decimal = 5)
-
-    def test_norm(self):
-        d = np.zeros((2,3,4), dtype=np.float32)
-        d[:,:,0] = 7
-        #print _O.norm(d)
-        np.testing.assert_array_equal(_O.norm(d), d.flatten()[:6])
 
 class TestRedInfo(unittest.TestCase):
     def test_getset(self):

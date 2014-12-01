@@ -1406,7 +1406,7 @@ class RedundantCalibrator:
         
         
     #compute_UBL returns the average of all baselines in that ubl group
-    def compute_UBL(self,tolerance = 0.1):
+    def compute_UBL_old(self,tolerance = 0.1):
         #check if the tolerance is not a string
         if type(tolerance) == str:
             raise Exception("tolerance needs to be number not string")
@@ -1435,8 +1435,40 @@ class RedundantCalibrator:
             ublall.append(ubl[0])
         ublall=np.array(ublall)
         return ublall
-        
-    def compute_UBL_new(self,tolerance = 0.1):
+
+    def compute_UBL(self,tolerance = 0.1):
+        #check if the tolerance is not a string
+        if type(tolerance) == str:
+            raise Exception("tolerance needs to be number not string")
+            return
+        ubllist = np.array([np.array([np.array([0,0,0]),1])]);
+        for pair in self.totalVisibilityId:
+            if pair[0] not in self.badAntenna and pair[1] not in self.badAntenna:
+                [i,j] = pair
+                bool = True
+                for k in range(len(ubllist)):
+                    if  la.norm(self.antennaLocation[i]-self.antennaLocation[j]-ubllist[k][0])<tolerance:
+                        n=ubllist[k][1]
+                        ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]+self.antennaLocation[i]-self.antennaLocation[j])
+                        ubllist[k][1]+=1
+                        bool = False
+                    elif  la.norm(self.antennaLocation[i]-self.antennaLocation[j]+ubllist[k][0])<tolerance:
+                        n=ubllist[k][1]
+                        ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]-(self.antennaLocation[i]-self.antennaLocation[j]))
+                        ubllist[k][1]+=1
+                        bool = False
+                if bool :
+                    ubllist = np.append(ubllist,np.array([np.array([self.antennaLocation[j]-self.antennaLocation[i],1])]),axis=0)
+        ubllist = np.delete(ubllist,0,0)
+        ublall = np.array([ubl[0] for ubl in ubllist])
+        for i, ubl in enumerate(ublall):
+            if ubl[0] < 0:
+                #print "reverting ", i, ublall[i]
+                ublall[i] = -ublall[i]
+        #print ublall[48]
+        return ublall[(ublall[:,1]*1e6 + ublall[:,0]).argsort()]
+
+    def compute_UBL2(self,tolerance = 0.1):
         ubl = set([])
         for a1, a2 in self.totalVisibilityId:
             if a1 != a2 and a1 not in self.badAntenna and a2 not in self.badAntenna:

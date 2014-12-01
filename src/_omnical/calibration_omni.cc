@@ -3338,9 +3338,23 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 				module->ubl0[u][1] = stepsize2 * module->ubl0[u][1] + stepsize * module->ubl3[u][1];
 			} else{
 				//make sure there's no error on unique baselines with only 1 baseline
-				module->ubl2dgrp2[u][0][0] = module->g0[info->ublindex[u][0][0]][0] * module->g0[info->ublindex[u][0][1]][0] + module->g0[info->ublindex[u][0][0]][1] * module->g0[info->ublindex[u][0][1]][1];
-				module->ubl2dgrp2[u][0][1] = (module->g0[info->ublindex[u][0][0]][0] * module->g0[info->ublindex[u][0][1]][1] - module->g0[info->ublindex[u][0][0]][1] * module->g0[info->ublindex[u][0][1]][0]) * info->reversed[cbl];
-				module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
+				////cbl = info->ublindex[u][0][2];
+				////module->ubl2dgrp1[u][0][0] = module->cdata1[cbl][0];
+				////module->ubl2dgrp1[u][0][1] = module->cdata1[cbl][1] * info->reversed[cbl];;
+				////module->ubl2dgrp2[u][0][0] = module->g0[info->ublindex[u][0][0]][0] * module->g0[info->ublindex[u][0][1]][0] + module->g0[info->ublindex[u][0][0]][1] * module->g0[info->ublindex[u][0][1]][1];
+				////module->ubl2dgrp2[u][0][1] = (module->g0[info->ublindex[u][0][0]][0] * module->g0[info->ublindex[u][0][1]][1] - module->g0[info->ublindex[u][0][0]][1] * module->g0[info->ublindex[u][0][1]][0]) * info->reversed[cbl];
+				////module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
+				for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
+					cbl = info->ublindex[u][i][2];
+					module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
+					module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+					module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
+					module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+				}
+
+				module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
+				module->ubl0[u][0] = module->ubl3[u][0];
+				module->ubl0[u][1] = module->ubl3[u][1];
 			}
 		}
 
