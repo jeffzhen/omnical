@@ -1496,9 +1496,9 @@ class RedundantCalibrator:
                     ubl[neg_loc_tuple].add(- bl - 1)
                 else:
                     if loc_tuple[0] >= 0:
-                        ubl[loc_tuple] = {bl + 1}
+                        ubl[loc_tuple] = set([bl + 1])
                     else:
-                        ubl[neg_loc_tuple] = {-bl - 1}
+                        ubl[neg_loc_tuple] = set([-bl - 1])
 
         #calculate actual average of the gridded baseline vectors to get an accurate representation of the ubl vector
         ubl_vec = np.zeros((len(ubl), 3))
