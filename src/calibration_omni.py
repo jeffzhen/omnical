@@ -794,8 +794,10 @@ class RedundantCalibrator:
         self.badAntenna = []
         self.badUBL = []
         self.badUBLpair = []
+        self.ubl2goodubl = None
         self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(self.nTotalAnt)])#PAPER miriad convention by default
-
+        self.totalVisibilityId_dic = None
+        self.totalVisibilityUBL = None
         self.Info = None
         self.removeDegeneracy = True
         self.removeAdditive = False
@@ -1069,7 +1071,14 @@ class RedundantCalibrator:
             timer = Timer()
         #nAntenna and subsetant : get rid of the bad antennas
         nant=len(self.antennaLocation)
-        subsetant=[i for i in range(nant) if i not in self.badAntenna]
+        #subsetant=[i for i in range(nant) if i not in self.badAntenna]
+        ant2goodant = -np.ones(len(self.antennaLocation), dtype=int)
+        subsetant = []
+        for a in range(len(self.antennaLocation)):
+            if a not in self.badAntenna:
+                subsetant.append(a)
+                ant2goodant[a] = len(subsetant) - 1
+        
         nAntenna=len(subsetant)
         antloc=[self.antennaLocation[ant] for ant in subsetant]
         if verbose:
@@ -1097,6 +1106,13 @@ class RedundantCalibrator:
         for p in self.badUBLpair:
             self.badUBL.append(find_ublindex_all(p))
         self.badUBL = [i for i in self.badUBL if i != None]
+        self.ubl2goodubl = -np.ones(len(ublall), dtype=int)
+        goodu = 0
+        for u in range(len(ublall)):
+            if u not in self.badUBL:
+                self.ubl2goodubl[u] = goodu
+                goodu = goodu + 1
+
         #delete the bad ubl's
         ubl=np.delete(ublall,np.array(self.badUBL).astype('int'),0)
         nUBL=len(ubl);
@@ -1112,19 +1128,40 @@ class RedundantCalibrator:
                 if bool == False:
                     nbl+=1
                     goodpairs.append([i,j])
+        ####for a1, a2 in self.totalVisibilityId:
+            ####i = ant2goodant[a1]
+            ####j = ant2goodant[a2]
+            ####if i >= 0 and j >= 0:
+                ####bool=False
+                ####for bl in badbl:
+                    ####bool = bool or dis(antloc[i]-antloc[j],bl)<tolerance or dis(antloc[i]-antloc[j],-bl)<tolerance
+                ####if bool == False:
+                    ####nbl+=1
+                    ####goodpairs.append([i,j])
 
+        self.totalVisibilityId_dic = {}
+        for bll, (a1, a2) in enumerate(self.totalVisibilityId):
+            self.totalVisibilityId_dic[(a1,a2)] = bll
+        
         #correct the orders of pairs in goodpair
         def correct_pairorder(pair):
-            try:
-                self.totalVisibilityId.tolist().index([pair[0],pair[1]])
+            ####try:
+                ####self.totalVisibilityId.tolist().index([pair[0],pair[1]])
+                ####return True
+            ####except:
+                ####try:
+                    ####self.totalVisibilityId.tolist().index([pair[1], pair[0]])
+                    ####return False
+                ####except:
+                    ####return None
+            if (pair[0], pair[1]) in self.totalVisibilityId_dic:
                 return True
-            except:
-                try:
-                    self.totalVisibilityId.tolist().index([pair[1], pair[0]])
-                    return False
-                except:
-                    return None
-                    
+            elif (pair[1], pair[0]) in self.totalVisibilityId_dic:
+                return False
+            else:
+                return None
+        if verbose:
+            timer.tick('c')
         #exclude pairs that are not in totalVisibilityId
         temp = []
         for p in goodpairs:
@@ -1132,26 +1169,31 @@ class RedundantCalibrator:
             if cond == True:
                 temp.append(p)
             if cond == False:
+                ####print "correcting"
                 temp.append(p[::-1])
         goodpairs = temp
         
         #goodpairs = [correct_pairorder([subsetant[p[0]],subsetant[p[1]]]) for p in goodpairs if (correct_pairorder([subsetant[p[0]],subsetant[p[1]]]) != None and correct_pairorder([subsetant[p[0]],subsetant[p[1]]]) == True)]  #correct_pairorder([subsetant[p[0]],subsetant[p[1]]])
         nBaseline=len(goodpairs)
-
+        if verbose:
+            timer.tick('c')
         #from a pair of good antenna index to baseline index
         subsetbl = np.array([self.get_baseline([subsetant[bl[0]],subsetant[bl[1]]]) for bl in goodpairs])
         if verbose:
             timer.tick('c')
         ##################################################################################
         #bltoubl: cross bl number to ubl index
-        def findublindex(pair,ubl=ubl):
-            i=pair[0]
-            j=pair[1]
-            for k in range(len(ubl)):
-                if dis(antloc[i]-antloc[j],ubl[k])<tolerance or dis(antloc[i]-antloc[j],-ubl[k])<tolerance:
-                    return k
-            print pair
-            return "no match"
+        ####def findublindex(pair,ubl=ubl):
+            ####i=pair[0]
+            ####j=pair[1]
+            ####for k in range(len(ubl)):
+                ####if dis(antloc[i]-antloc[j],ubl[k])<tolerance or dis(antloc[i]-antloc[j],-ubl[k])<tolerance:
+                    ####return k
+            ####print pair
+            ####return "no match"
+        def findublindex(pair):
+            if (subsetant[pair[0]], subsetant[pair[1]]) in self.totalVisibilityUBL:
+                return self.ubl2goodubl[self.totalVisibilityUBL[(subsetant[pair[0]], subsetant[pair[1]])]]
         bltoubl=[];
         for p in goodpairs:
             if p[0]!=p[1]:
@@ -1173,7 +1215,10 @@ class RedundantCalibrator:
             elif dis(antloc[i]-antloc[j],-ubl[bltoubl[k]])<tolerance:
                 reverse.append(1)
             else :
-                print "something's wrong with bltoubl"
+                print "something's wrong with bltoubl", crosspair[k], antloc[i]-antloc[j], bltoubl[k], ubl[bltoubl[k]]
+                print i,j, subsetant[i], subsetant[j]
+                print self.totalVisibilityUBL[(subsetant[i], subsetant[j])]
+                exit(1)
         if verbose:
             timer.tick('e')
         ######################################################################################
@@ -1351,21 +1396,24 @@ class RedundantCalibrator:
         elif type(pair[0]) == str or type(pair[0]) == np.string_:
             raise Exception("input needs to be number not string")
             return
-        try:
-            return self.totalVisibilityId.tolist().index([pair[0],pair[1]])
-        except:
-            try:
-                return self.totalVisibilityId.tolist().index([pair[1], pair[0]])
-            except:
-                #raise Exception("Error: antenna pair %s not found in self.totalVisibilityId."%pair)
-                return None
-        #Eric's old code. It's buggy and assumes totalVisibilityId contains a1,a2 where a2<=a1 always
-        #sortp = np.array(sorted(pair))
-        #for i in range(len(self.totalVisibilityId)):
-            #if self.totalVisibilityId[i][0] == sortp[0] and self.totalVisibilityId[i][1] == sortp[1]:
-                #return i
-        #raise Exception("antenna index out of range")
-
+        ####try:
+            ####return self.totalVisibilityId.tolist().index([pair[0],pair[1]])
+        ####except:
+            ####try:
+                ####return self.totalVisibilityId.tolist().index([pair[1], pair[0]])
+            ####except:
+                #####raise Exception("Error: antenna pair %s not found in self.totalVisibilityId."%pair)
+                ####return None
+        if self.totalVisibilityId_dic == None:
+            self.totalVisibilityId_dic = {}
+            for bll, (a1, a2) in enumerate(self.totalVisibilityId):
+                self.totalVisibilityId_dic[(a1,a2)] = bll
+        if (pair[0],pair[1]) in self.totalVisibilityId_dic:
+            return self.totalVisibilityId_dic[(pair[0],pair[1])]
+        elif (pair[1],pair[0]) in self.totalVisibilityId_dic:
+            return self.totalVisibilityId_dic[(pair[1],pair[0])]
+        else:
+            return None
                 
                 
     #compute_UBL returns the average of all baselines in that ubl group
@@ -1437,46 +1485,41 @@ class RedundantCalibrator:
         return ublall
 
     def compute_UBL(self,tolerance = 0.1):
-        #check if the tolerance is not a string
-        if type(tolerance) == str:
-            raise Exception("tolerance needs to be number not string")
-            return
-        ubllist = np.array([np.array([np.array([0,0,0]),1])]);
-        for pair in self.totalVisibilityId:
-            if pair[0] not in self.badAntenna and pair[1] not in self.badAntenna:
-                [i,j] = pair
-                bool = True
-                for k in range(len(ubllist)):
-                    if  la.norm(self.antennaLocation[i]-self.antennaLocation[j]-ubllist[k][0])<tolerance:
-                        n=ubllist[k][1]
-                        ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]+self.antennaLocation[i]-self.antennaLocation[j])
-                        ubllist[k][1]+=1
-                        bool = False
-                    elif  la.norm(self.antennaLocation[i]-self.antennaLocation[j]+ubllist[k][0])<tolerance:
-                        n=ubllist[k][1]
-                        ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]-(self.antennaLocation[i]-self.antennaLocation[j]))
-                        ubllist[k][1]+=1
-                        bool = False
-                if bool :
-                    ubllist = np.append(ubllist,np.array([np.array([self.antennaLocation[j]-self.antennaLocation[i],1])]),axis=0)
-        ubllist = np.delete(ubllist,0,0)
-        ublall = np.array([ubl[0] for ubl in ubllist])
-        for i, ubl in enumerate(ublall):
-            if ubl[0] < 0:
-                #print "reverting ", i, ublall[i]
-                ublall[i] = -ublall[i]
-        #print ublall[48]
-        return ublall[(ublall[:,1]*1e6 + ublall[:,0]).argsort()]
-
-    def compute_UBL2(self,tolerance = 0.1):
-        ubl = set([])
-        for a1, a2 in self.totalVisibilityId:
+        ubl = {}
+        for bl, (a1, a2) in enumerate(self.totalVisibilityId):
             if a1 != a2 and a1 not in self.badAntenna and a2 not in self.badAntenna:
                 loc_tuple = tuple(np.round((self.antennaLocation[a2] - self.antennaLocation[a1]) / float(tolerance)) * tolerance)
                 neg_loc_tuple = tuple(np.round((self.antennaLocation[a1] - self.antennaLocation[a2]) / float(tolerance)) * tolerance)
-                if loc_tuple not in ubl and neg_loc_tuple not in ubl:
-                    ubl.add(loc_tuple)
-        return np.array([qaz for qaz in ubl])
+                if loc_tuple in ubl:
+                    ubl[loc_tuple].add(bl + 1)
+                elif neg_loc_tuple in ubl:
+                    ubl[neg_loc_tuple].add(- bl - 1)
+                else:
+                    if loc_tuple[0] >= 0:
+                        ubl[loc_tuple] = {bl + 1}
+                    else:
+                        ubl[neg_loc_tuple] = {-bl - 1}
+
+        #calculate actual average of the gridded baseline vectors to get an accurate representation of the ubl vector
+        ubl_vec = np.zeros((len(ubl), 3))
+        self.totalVisibilityUBL = {}
+
+        for u, grid_ubl_vec in enumerate(ubl):
+            for bl in ubl[grid_ubl_vec]:
+                assert bl != 0
+                a1, a2 = self.totalVisibilityId[abs(bl) - 1]
+                if bl > 0:
+                    ubl_vec[u] = ubl_vec[u] + self.antennaLocation[a2] - self.antennaLocation[a1]
+                else:
+                    ubl_vec[u] = ubl_vec[u] + self.antennaLocation[a1] - self.antennaLocation[a2]
+                self.totalVisibilityUBL[(a1, a2)] = u
+            ubl_vec[u] = ubl_vec[u] / len(ubl[grid_ubl_vec])
+
+        reorder = (ubl_vec[:,1]*1e6 + ubl_vec[:,0]).argsort()
+        rereorder = reorder.argsort()
+        for key in self.totalVisibilityUBL:
+            self.totalVisibilityUBL[key] = rereorder[self.totalVisibilityUBL[key]]
+        return ubl_vec[reorder]
                 
                     
     #need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
