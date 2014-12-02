@@ -273,12 +273,12 @@ def read_redundantinfo(infopath, verbose = False):
         info['Bt'] = info['B'].transpose()
         info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
         info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
-        info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
-        info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
-        info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
-        info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
-        info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
-        info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
+        #info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+        #info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+        #info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+        #info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+        #info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+        #info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
     if verbose:
         print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
     return info
