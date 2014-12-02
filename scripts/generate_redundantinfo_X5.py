@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     calibrator = RedundantCalibrator_MITEoR(nant)
     timer = time.time()
-    calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBLpair = badUBLpair, antennaLocationTolerance = opts.tol, verbose = True)
+    calibrator.compute_redundantinfo(badAntenna = badAntenna, badUBLpair = badUBLpair, antennaLocationTolerance = opts.tol, verbose = False)
     print "Redundant info computed in %f minutes. %i good antenna, %i good UBL."%((time.time() - timer)/60., calibrator.Info.nAntenna, calibrator.Info.nUBL)
     calibrator.write_redundantinfo(infoPath = opts.path, overwrite = opts.overwrite, verbose = False)
 

@@ -164,18 +164,26 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
         if key in ['antloc', 'ubl','degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:  #'antloc',
             add = np.append(np.array(info[key]).flatten(),[marker])
             datachunk[count] = add
+            if verbose:
+                print "appending", key
             count += 1
         elif key == 'ublindex':
             add = np.append(np.vstack(info[key]).flatten(),[marker])
             datachunk[count] = add
+            if verbose:
+                print "appending", key
             count += 1
         elif key in ['A','B']:
             add = np.append(np.array(info[key].todense().flatten()).flatten(),[marker])
             datachunk[count] = add
+            if verbose:
+                print "appending", key
             count += 1
         else:
             add = np.append(np.array(info[key]).flatten(),[marker])
             datachunk[count] = add
+            if verbose:
+                print "appending", key
             count += 1
     datachunkarray = array('d',np.concatenate(tuple(datachunk)))
     outfile=open(infopath,'wb')
