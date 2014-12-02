@@ -803,7 +803,7 @@ class RedundantCalibrator:
         self.antennaLocation = np.zeros((self.nTotalAnt, 3))
         side = int(nTotalAnt**.5)
         for a in range(nTotalAnt):
-			self.antennaLocation[a] = np.array([a/side, a%side, 0])
+            self.antennaLocation[a] = np.array([a/side, a%side, 0])
         self.antennaLocationTolerance = 10**(-6)
         self.badAntenna = []
         self.badUBL = []
@@ -1622,6 +1622,10 @@ class RedundantCalibrator:
 
 def omniview(data, info, plotrange = None, title = '', plot_single_ubl = False):
     import matplotlib.pyplot as plt
+    try:#in case info is Info class
+        info = info.get_info()
+    except:
+        pass
     colors=[]
     colorgrid = int(math.ceil((info['nUBL']/12.+1)**.34))
     for red in range(colorgrid):
@@ -1635,9 +1639,12 @@ def omniview(data, info, plotrange = None, title = '', plot_single_ubl = False):
     
     if len(data.shape) == 1:
         ds = [data[info['subsetbl']][info['crossindex']]]
+        fig, axes = plt.subplots(nrows=1, ncols=1, sharey=True, sharex=True)
+        axes = [axes]
     else:
         ds = data[:, info['subsetbl'][info['crossindex']]]
-    fig, axes = plt.subplots(nrows=1, ncols=len(ds), sharey=True, sharex=True)
+        fig, axes = plt.subplots(nrows=1, ncols=len(ds), sharey=True, sharex=True)
+    
     for i in range(len(ds)):
         d = ds[i]
         ax = axes[i]
@@ -1890,20 +1897,28 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
 class Timer():
     def __init__(self):
         self.time = time.time()
+        self.start_time = self.time
         self.last_msg = None
         self.repeat_msg = 0
 
-    def tick(self, msg=''):
+    def tick(self, msg='', mute=False):
+        msg = str(msg)
+        t = (float(time.time() - self.time)/60.)
+        m = (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
         if msg == self.last_msg:
             self.repeat_msg += 1
-            print msg + str(self.repeat_msg), "time elapsed: %f min"%(float(time.time() - self.time)/60.),
+            if not mute:
+                print msg + str(self.repeat_msg), "time elapsed: %f min"%t,
         else:
             self.repeat_msg = 0
             self.last_msg = msg
-            print msg, "Time elapsed: %f min."%(float(time.time() - self.time)/60.),
-        print "Memory usage 0: %.3fMB."%(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
+            if not mute:
+             print msg, "Time elapsed: %f min."%t,
+        if not mute:
+            print "Memory usage 0: %.3fMB."%m
         sys.stdout.flush()
         self.time = time.time()
+        return t, m
         
 def remove_one_antenna(Info,badant):
     info = Info.get_info()
