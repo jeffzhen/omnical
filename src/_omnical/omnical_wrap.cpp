@@ -596,79 +596,79 @@ int RedInfoObject_set_degenM(RedInfoObject *self, PyObject *value, void *closure
     return 0;
 }
 
-// RedundantInfo.A (1D integer array)
-PyObject *RedInfoObject_get_A(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.A.size(), self->info.A[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.A[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.A (1D integer array)
+////PyObject *RedInfoObject_get_A(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.A.size(), self->info.A[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.A[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_A(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "A must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "A must be a 2D array of ints");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.A.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.A[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.A[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_A(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "A must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
+        ////PyErr_Format(PyExc_ValueError, "A must be a 2D array of ints");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.A.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.A[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.A[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.B (1D integer array)
-PyObject *RedInfoObject_get_B(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.B.size(), self->info.B[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.B[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.B (1D integer array)
+////PyObject *RedInfoObject_get_B(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.B.size(), self->info.B[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.B[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_B(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "B must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "B must be a 2D array of ints");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.B.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.B[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.B[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_B(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "B must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
+        ////PyErr_Format(PyExc_ValueError, "B must be a 2D array of ints");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.B.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.B[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.B[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
 // RedundantInfo.Atsparse (1D integer array)
 PyObject *RedInfoObject_get_Atsparse(RedInfoObject *self, void *closure) {
@@ -1105,8 +1105,8 @@ static PyGetSetDef RedInfoObject_getseters[] = {
     {"ublindex", (getter)RedInfoObject_get_ublindex, (setter)RedInfoObject_set_ublindex, "ublindex", NULL},
     {"bl1dmatrix", (getter)RedInfoObject_get_bl1dmatrix, (setter)RedInfoObject_set_bl1dmatrix, "bl1dmatrix", NULL},
     {"degenM", (getter)RedInfoObject_get_degenM, (setter)RedInfoObject_set_degenM, "degenM", NULL},
-    {"A", (getter)RedInfoObject_get_A, (setter)RedInfoObject_set_A, "A", NULL},
-    {"B", (getter)RedInfoObject_get_B, (setter)RedInfoObject_set_B, "B", NULL},
+    //{"A", (getter)RedInfoObject_get_A, (setter)RedInfoObject_set_A, "A", NULL},
+    //{"B", (getter)RedInfoObject_get_B, (setter)RedInfoObject_set_B, "B", NULL},
     {"Atsparse", (getter)RedInfoObject_get_Atsparse, (setter)RedInfoObject_set_Atsparse, "Atsparse", NULL},
     {"Btsparse", (getter)RedInfoObject_get_Btsparse, (setter)RedInfoObject_set_Btsparse, "Btsparse", NULL},
     {"AtAi", (getter)RedInfoObject_get_AtAi, (setter)RedInfoObject_set_AtAi, "AtAi", NULL},

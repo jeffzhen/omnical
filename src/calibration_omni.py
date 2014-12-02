@@ -160,23 +160,34 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
     count = 0
     datachunk[count] = np.array([marker])         #start with a marker
     count += 1
+    if verbose:
+                print "appending", 
     for key in binaryinfokeys:
         if key in ['antloc', 'ubl','degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:  #'antloc',
             add = np.append(np.array(info[key]).flatten(),[marker])
             datachunk[count] = add
             count += 1
+            if verbose:
+                print key,
         elif key == 'ublindex':
             add = np.append(np.vstack(info[key]).flatten(),[marker])
             datachunk[count] = add
             count += 1
+            if verbose:
+                print key,
         elif key in ['A','B']:
             add = np.append(np.array(info[key].todense().flatten()).flatten(),[marker])
             datachunk[count] = add
             count += 1
+            if verbose:
+                print key,
         else:
             add = np.append(np.array(info[key]).flatten(),[marker])
             datachunk[count] = add
             count += 1
+            if verbose:
+                print key,
+    print ""
     datachunkarray = array('d',np.concatenate(tuple(datachunk)))
     outfile=open(infopath,'wb')
     datachunkarray.tofile(outfile)

@@ -285,7 +285,7 @@ class TestRedInfo(unittest.TestCase):
     def test_getset_int2d(self):
         i = _O.RedundantInfo()
         ints = np.array([[1,2,3],[4,5,6]], dtype=np.int32)
-        for k in ['bl2d','bl1dmatrix','A','B']:#,'Atsparse']:
+        for k in ['bl2d','bl1dmatrix']:#,'A','B','Atsparse']:
             i.__setattr__(k, ints)
             self.assertTrue(np.all(i.__getattribute__(k) == ints))
     #def test_getset_int3d(self):
