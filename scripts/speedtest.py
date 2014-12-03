@@ -6,9 +6,10 @@ import omnical.calibration_omni as omni
 import optparse, sys
 FILENAME = "speedtest.py"
 
-sides = [4,8,12,16,20]#,24]
+sides = [4,8,12,16,20] #,24]
 noises = 10.**np.arange(-2, -.5, .5)
 times = np.zeros((len(sides), len(noises), 2))
+phase_noise = .1
 
 nt = 10
 nf = 2
@@ -34,7 +35,10 @@ for nside, side in enumerate(sides):
     data = np.zeros((nt, nf, max(calibrator.Info.subsetbl) + 1), dtype='complex64')
     th1, ph1 = .5, .5
     k1 = np.array([np.sin(th1) * np.cos(ph1), np.sin(th1) * np.sin(ph1), np.cos(th1)])
-    data[:, :, calibrator.Info.subsetbl[calibrator.Info.crossindex]] = np.exp((2*np.pi*1.j*calibrator.Info.ubl.dot(k1))[calibrator.Info.bltoubl] * calibrator.Info.reversed)[None,None,:] 
+    vis_phase = (2*np.pi*1.j*calibrator.Info.ubl.dot(k1))[calibrator.Info.bltoubl] * calibrator.Info.reversed
+    g_phase = np.random.randn(nant) * phase_noise
+    gg_phase = -g_phase[calibrator.Info.bl2d[calibrator.Info.crossindex, 0]] + g_phase[calibrator.Info.bl2d[calibrator.Info.crossindex, 1]]
+    data[:, :, calibrator.Info.subsetbl[calibrator.Info.crossindex]] = np.exp(vis_phase + gg_phase)[None,None,:] 
     #omni.omniview(data[0,0], calibrator.Info)
 
     timer = omni.Timer()
