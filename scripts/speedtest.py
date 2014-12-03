@@ -6,6 +6,7 @@ import omnical.calibration_omni as omni
 import optparse, sys
 FILENAME = "speedtest.py"
 
+opname = 'timing.txt'
 sides = [4,8,12,16,20]#,24]
 noises = 10.**np.arange(-2, -.5, .5)
 times = np.zeros((len(sides), len(noises), 2))
@@ -30,6 +31,7 @@ for nside, side in enumerate(sides):
     calibrator.computeUBLFit = False
     calibrator.nTime = nt
     calibrator.nFrequency = nf
+    calibrator.trust_period = 10
 
     data = np.zeros((nt, nf, max(calibrator.Info.subsetbl) + 1), dtype='complex64')
     th1, ph1 = .5, .5
@@ -47,4 +49,7 @@ for nside, side in enumerate(sides):
         calibrator.lincal(ndata, np.zeros_like(ndata), verbose=True)
         times[nside, nnoise, 1], _ = timer.tick(noise)
 
-np.savetxt(os.path.dirname(os.path.realpath(__file__)) + '/../results/timing.txt', times.reshape((len(times) * len(times[0]), len(times[0,0]))))
+oppath = os.path.dirname(os.path.realpath(__file__)) + '/../results/' + opname
+while os.path.isfile(oppath):
+    oppath += '_'
+np.savetxt(oppath, times.reshape((len(times) * len(times[0]), len(times[0,0]))))
