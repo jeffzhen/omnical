@@ -1249,7 +1249,6 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                     //stepsize
                 //);
             } else {
-                calpar_v[0] = ((float *) PyArray_GETPTR2(calpar, t, f))[0];
                 if (t % trust_period == 0){//whether to start from logcal calpar or the result of revious lincal result
                     for (unsigned int n = 0; n < calpar_v.size(); n ++){
                         calpar_v[n] = ((float *) PyArray_GETPTR2(calpar, t, f))[n];
