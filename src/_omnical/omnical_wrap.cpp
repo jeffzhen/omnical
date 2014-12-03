@@ -1249,12 +1249,16 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                     //stepsize
                 //);
             } else {
+                calpar_v[0] = ((float *) PyArray_GETPTR2(calpar, t, f))[0];
                 if (t % trust_period == 0){//whether to start from logcal calpar or the result of revious lincal result
                     for (unsigned int n = 0; n < calpar_v.size(); n ++){
                         calpar_v[n] = ((float *) PyArray_GETPTR2(calpar, t, f))[n];
                     }
                 } else {
-                    for (unsigned int n = 0; n < calpar_v.size(); n ++){
+                    calpar_v[0] = ((float *) PyArray_GETPTR2(calpar, t, f))[0];
+                    calpar_v[1] = ((float *) PyArray_GETPTR2(calpar, t, f))[1];
+                    calpar_v[2] = ((float *) PyArray_GETPTR2(calpar, t, f))[2];
+                    for (unsigned int n = 3; n < calpar_v.size(); n ++){
                         calpar_v[n] = ((float *) PyArray_GETPTR2(calpar, t - 1, f))[n];
                     }
                 }
