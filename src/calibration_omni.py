@@ -1908,7 +1908,7 @@ class Timer():
         if msg == self.last_msg:
             self.repeat_msg += 1
             if not mute:
-                print msg + str(self.repeat_msg), "time elapsed: %f min"%t,
+                print msg + '*' + str(self.repeat_msg), "time elapsed: %f min"%t,
         else:
             self.repeat_msg = 0
             self.last_msg = msg
