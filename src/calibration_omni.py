@@ -820,6 +820,7 @@ class RedundantCalibrator:
         self.maxIteration = 50 #max number of iterations in lincal
         self.stepSize = 0.3 #step size for lincal. (0, 1]. < 0.4 recommended.
         self.computeUBLFit = True
+        self.trust_period = 1 #How many time slices does lincal start from logcal result rather than the previous time slice's lincal result. default 1 means always start from logcal. if 10, it means lincal start from logcal results (or g = 1's) every 10 time slices
 
         self.nTime = 0
         self.nFrequency = 0
@@ -907,7 +908,7 @@ class RedundantCalibrator:
         self.nFrequency = len(data[0])
         if self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
             raise Exception("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
-        return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+        return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit), trust_period = self.trust_period)
         ##self.chisq = self.rawCalpar[:, :, 2]
         ##self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
         ##self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
