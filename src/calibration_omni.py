@@ -187,7 +187,8 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
             count += 1
             if verbose:
                 print key,
-    print ""
+    if verbose:
+        print ""
     datachunkarray = array('d',np.concatenate(tuple(datachunk)))
     outfile=open(infopath,'wb')
     datachunkarray.tofile(outfile)
