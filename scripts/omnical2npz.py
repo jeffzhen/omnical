@@ -33,7 +33,7 @@ if __name__ == '__main__':
     NANT = calibrator.Info.nAntenna
     NPRM = 3 + 2 * (calibrator.Info.nAntenna + calibrator.Info.nUBL)
     
-    for omnical_file in sys.argv[1:]:
+    for omnical_file in args:
         print "Processing", omnical_file, "..."
         sys.stdout.flush()
 
