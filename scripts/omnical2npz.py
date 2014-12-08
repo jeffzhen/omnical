@@ -21,13 +21,15 @@ if __name__ == '__main__':
 
     
     NCHAN = opts.nFrequency
-    NANT = opts.nAntenna
-    calibrator = omni.RedundantCalibrator(NANT)
-    print "Reading redundant info", opts.infopath, "..."
+    
+    calibrator = omni.RedundantCalibrator(opts.nAntenna)
+    print "Reading redundant info", opts.infopath, "...",
     sys.stdout.flush()
     calibrator.read_redundantinfo(opts.infopath)
     print "Done."
     sys.stdout.flush()
+
+    NANT = calibrator.Info.nAntenna
     NPRM = 3 + 2 * (calibrator.Info.nAntenna + calibrator.Info.nUBL)
     
     for omnical_file in sys.argv[1:]:
