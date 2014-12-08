@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 import numpy as n
-import sys
+import sys, optparse
+import omnical.calibration_omni as omni
 
 
 if __name__ == '__main__':
@@ -11,7 +12,7 @@ if __name__ == '__main__':
     o = optparse.OptionParser()
 
     o.add_option('-i', '--infopath', action = 'store', default = '/data2/home/hz2ug/omnical/doc/redundantinfo_PSA128_17ba.bin', help = 'redundantinfo file to read')
-    o.add_option('-a', '--nAntenna', action = 'store', type = 'int', default = 64, help = 'Number of antennas.')
+    o.add_option('-a', '--nAntenna', action = 'store', type = 'int', default = 128, help = 'Number of antennas.')
     o.add_option('-f', '--nFrequency', action = 'store', type = 'int', default = 203, help = 'Number of frequency bins.')
     o.add_option('--overwrite', action = 'store_true', help = 'overwrite if file exists')
     opts,args = o.parse_args(sys.argv[1:])

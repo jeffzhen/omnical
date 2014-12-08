@@ -30,7 +30,7 @@ float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA'
 def read_redundantinfo_txt(infopath, verbose = False):
     METHODNAME = "read_redundantinfo_txt"
     if not os.path.isfile(infopath):
-        raise Exception('Error: file path %s does not exist!'%infopath)
+        raise Exception('Error: file %s does not exist!'%infopath)
     timer = time.time()
     with open(infopath) as f:
         rawinfo = np.array([np.array([float(x) for x in line.split()]) for line in f])
@@ -1895,6 +1895,30 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
 
     result[info['subsetant']] = np.exp(1.j*calpar)# * result[info['subsetant']]
     return result
+
+##########################Sub-class#############################
+class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
+    def __init__(self, aa):
+        nTotalAnt = len(aa)
+        omni.RedundantCalibrator.__init__(self, nTotalAnt)
+        self.aa = aa
+        self.antennaLocation = np.zeros((self.nTotalAnt,3))
+        for i in range(len(self.aa.ant_layout)):
+            for j in range(len(self.aa.ant_layout[0])):
+                self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
+        self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
+        self.badAntenna = []
+        self.badUBLpair = []
+        for i in range(nTotalAnt):
+            if i not in self.aa.ant_layout.flatten():
+                self.badAntenna += [i]
+                
+    def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
+        self.antennaLocationTolerance = antennaLocationTolerance
+        self.badAntenna += badAntenna
+        self.badUBLpair += badUBLpair
+        omni.RedundantCalibrator.compute_redundantinfo(self)
+
 
 class Timer():
     def __init__(self):
