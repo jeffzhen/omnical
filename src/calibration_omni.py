@@ -1897,10 +1897,10 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
     return result
 
 ##########################Sub-class#############################
-class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
+class RedundantCalibrator_PAPER(RedundantCalibrator):
     def __init__(self, aa):
         nTotalAnt = len(aa)
-        omni.RedundantCalibrator.__init__(self, nTotalAnt)
+        RedundantCalibrator.__init__(self, nTotalAnt)
         self.aa = aa
         self.antennaLocation = np.zeros((self.nTotalAnt,3))
         for i in range(len(self.aa.ant_layout)):
@@ -1917,7 +1917,7 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
         self.antennaLocationTolerance = antennaLocationTolerance
         self.badAntenna += badAntenna
         self.badUBLpair += badUBLpair
-        omni.RedundantCalibrator.compute_redundantinfo(self)
+        RedundantCalibrator.compute_redundantinfo(self)
 
 
 class Timer():
