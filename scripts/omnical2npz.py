@@ -23,10 +23,16 @@ if __name__ == '__main__':
     NCHAN = opts.nFrequency
     NANT = opts.nAntenna
     calibrator = omni.RedundantCalibrator(NANT)
+    print "Reading redundant info", opts.infopath, "..."
+    sys.stdout.flush()
     calibrator.read_redundantinfo(opts.infopath)
+    print "Done."
+    sys.stdout.flush()
     NPRM = 3 + 2 * (calibrator.Info.nAntenna + calibrator.Info.nUBL)
     
     for omnical_file in sys.argv[1:]:
+        print "Processing", omnical_file, "..."
+        sys.stdout.flush()
         pol = omnical_file.split('.')[-2].split('_')[-1][0]
         d = n.fromfile(omnical_file, dtype=n.float32)
         ntime = d.size / NCHAN / NPRM
@@ -37,5 +43,5 @@ if __name__ == '__main__':
         d_npz['chi2_lin'] = d[:,:,2]
         g = 10**d[:,:,3:3+NANT] * n.exp(- 1.j * d[:,:,3+NANT:3+2*NANT]) # minus to change conjugation convention between omnical and aipy
         for i in xrange(NANT):
-            d_npz['%d,%s' % (i,pol)] = g[...,i]
+            d_npz['%d,%s' % (calibrator.Info.subsetant[i],pol)] = g[...,i]
         n.savez(omnical_file+'.npz', **d_npz)
