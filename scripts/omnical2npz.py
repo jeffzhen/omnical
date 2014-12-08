@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
         if opts.outputpath is None:
             if not (os.access(os.path.dirname(omnical_file), os.W_OK | os.X_OK)):
-                raise IOError("Cannot write to %s."%opts.outputpath)
+                raise IOError("Cannot write to %s."%os.path.dirname(omnical_file))
             else:
                 oppath = omnical_file + '.npz'
         elif not (os.path.isdir(opts.outputpath) and os.access(opts.outputpath, os.W_OK | os.X_OK)):
