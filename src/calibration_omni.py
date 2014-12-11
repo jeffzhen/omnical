@@ -907,7 +907,9 @@ class RedundantCalibrator:
             raise Exception("Data shape error: data and additive in have different shapes.")
         self.nTime = len(data)
         self.nFrequency = len(data[0])
-        if self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
+        if self.rawCalpar is None:
+            self.rawCalpar = np.zeros((self.nTime, self.nFrequency, 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
+        elif self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
             raise Exception("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
         return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit), trust_period = self.trust_period)
         ##self.chisq = self.rawCalpar[:, :, 2]
