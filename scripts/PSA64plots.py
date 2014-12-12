@@ -2,20 +2,28 @@ import numpy as np
 import omnical.calibration_omni as omni
 import matplotlib.pyplot as plt
 import aipy as a
-import glob
+import glob, os
+from scipy import interpolate
 
+D = 6266
+uvfiles = glob.glob('/data4/paper/2012EoR/psa_live/psa%i/*uvcRREcAC'%D)
 
-uvfiles = glob.glob('/data4/paper/2012EoR/psa_live/psa6266/*uvcRREcAC')
-aa = a.cal.get_aa('psa6240_v003', np.linspace(.1,.2,203))
-lsts = []
-
-for uvfile in uvfiles:
-    uv = a.miriad.UV(uvfile)
-    for (uvw,t,bl), d in uv.all():
-        aa.set_jultime(t)
-        lsts.append(aa.sidereal_time())
-
-print lsts
+lst_file = '/data2/home/hz2ug/omnical/results/psa%i_lsts.txt'%D
+if os.path.isfile(lst_file):
+    lsts = np.loadtxt(lst_file)
+else:
+    aa = a.cal.get_aa('psa6240_v003', np.linspace(.1,.2,203))
+    lsts = []
+    tlast = None
+    for uvfile in uvfiles:
+        print "Processing", uvfile
+        uv = a.miriad.UV(uvfile)
+        for (uvw,t,bl), d in uv.all():
+            if t != tlast:
+                tlast = t
+                aa.set_jultime(t)
+                lsts.append(aa.sidereal_time())
+    np.savetxt(lst_file, np.array(lsts))
 
 info=omni.read_redundantinfo('/data2/home/hz2ug/omnical/doc/redundantinfo_PSA64_ba19_37_50.bin')
 
@@ -31,8 +39,11 @@ plt.colorbar()
 plt.show()
 
 f = np.load('/data2/home/hz2ug/omnical/results/tsys_model_jy.npz')
-noise = f['tsys_jy'] **2
-im = plt.imshow(noise)
+noise = np.array(f['tsys_jy'] **2)
+
+noise_model = interpolate.interp2d(np.arange(0, 203), f['lsts'], noise)
+
+im = plt.imshow(noise_model(range(0, 203), lsts))
 im.set_clim(0,1e11)
 plt.colorbar()
 plt.show()
