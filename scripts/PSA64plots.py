@@ -42,8 +42,13 @@ f = np.load('/data2/home/hz2ug/omnical/results/tsys_model_jy.npz')
 noise = np.array(f['tsys_jy'] **2)
 
 noise_model = interpolate.interp2d(np.arange(0, 203), f['lsts'], noise)
+if min(lsts[1:] - lsts[:-1]) >= 0:
+    modeled_noise = noise_model(range(0, 203), lsts)
+else:
+    turn_pt = np.argmin(lsts[1:] - lsts[:-1]) + 1
+    modeled_noise = np.concatenate((noise_model(range(0, 203), lsts[:turn_pt]), noise_model(range(0, 203), lsts[turn_pt:])), axis = 1)
 
-im = plt.imshow(noise_model(range(0, 203), lsts))
+im = plt.imshow(modeled_noise)
 im.set_clim(0,1e11)
 plt.colorbar()
 plt.show()
