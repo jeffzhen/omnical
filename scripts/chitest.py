@@ -12,12 +12,12 @@ noises = [0.0] + (10.**np.arange(-5, 1, .4)).tolist()
 times = np.zeros((len(sides), len(noises), 6))
 trust_period = 1
 step_size = .3
-use_log = False
+use_log = True
 nt = 1000
 nf = 100
 
-thetas = [0]#[.4]#[.1, .4, .7, .8, 1.3, 1.4]
-phis = [0]#[.8]#[.2, .8, 1.9, 2.8, 3.5, 4.5, 5]
+thetas = [.1, .4, .7, .8, 1.3, 1.4]
+phis = [.2, .8, 1.9, 2.8, 3.5, 4.5, 5]
 
 
 for phase_noise in [0, .01, .1, .3]:#0, .01, .1, 
@@ -38,7 +38,7 @@ for phase_noise in [0, .01, .1, .3]:#0, .01, .1,
         calibrator.convergePercent = 1e-6
         calibrator.maxIteration = 2000
         calibrator.stepSize = step_size
-        calibrator.computeUBLFit = False
+        calibrator.computeUBLFit = True
         calibrator.nTime = nt
         calibrator.nFrequency = nf
         calibrator.trust_period = trust_period
@@ -60,7 +60,7 @@ for phase_noise in [0, .01, .1, .3]:#0, .01, .1,
         data = data / np.mean(np.abs(data))
         model = np.copy(data[0,0])
 
-        gdata = data
+        gdata = np.copy(data)
         gdata[:, :, calibrator.Info.subsetbl[calibrator.Info.crossindex]] *= np.exp(gg_amp + 1.j * gg_phase)[None,None,:]
         gdata = gdata / np.mean(np.abs(gdata))
         
@@ -72,7 +72,6 @@ for phase_noise in [0, .01, .1, .3]:#0, .01, .1,
             real_data = np.copy(ndata[0,0])
             #print ndata.shape, ndata.dtype
             timer.tick(noise, mute = True)
-            calibrator.computeUBLFit = True
             if use_log:
                 calibrator.logcal(ndata, np.zeros_like(ndata), verbose=True)
             calibrator.lincal(ndata, np.zeros_like(ndata), verbose=True)

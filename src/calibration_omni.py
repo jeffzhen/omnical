@@ -1635,8 +1635,9 @@ class RedundantCalibrator:
 
 
 
-def omniview(data, info, plotrange = None, title = '', plot_single_ubl = False):
+def omniview(data_in, info, plotrange = None, title = '', plot_single_ubl = False):
     import matplotlib.pyplot as plt
+    data = np.array(data_in)
     try:#in case info is Info class
         info = info.get_info()
     except:
