@@ -3252,7 +3252,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		}
 	}
 
-	float gre, gim, chisq, chisq2;
+	float gre, gim, starting_chisq, chisq, chisq2, delta;
 	int a1, a2;
 	chisq = 0;
 	for (unsigned int b = 0; b < (module->cdata2).size(); b++){
@@ -3262,9 +3262,14 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
 		module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
 		module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
-		chisq += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
+		delta = (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
+		chisq += delta;
+		//if (delta != 0){
+			//cout << delta << " " << module->cdata2[b][0]-1 << " " << module->cdata2[b][1] << " " << module->ubl0[info->bltoubl[b]][0]-1 << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
+		//}
 		//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
 	}
+	starting_chisq = chisq;
 	//cout << "lincal DBG v " << module->cdata1[DBGbl][0] << " " <<  module->cdata1[DBGbl][1] << endl<<flush;
 	//cout << "lincal DBG c0 g0 g0 " << module->ubl0[info->nUBL - 1][0] << " " <<  module->ubl0[info->nUBL -1][1]  << " " << module->g0[DBGg1][0] << " " <<  module->g0[DBGg1][1]  << " " << module->g0[DBGg2][0] << " " <<  module->g0[DBGg2][1] << endl<<flush;
 	//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;
@@ -3397,7 +3402,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		}
 	}else{////if chisq didnt decrease, keep everything untouched
 		calpar->at(0) += 0;
-		calpar->at(2) = calpar->at(1);
+		calpar->at(2) = starting_chisq;
 	}
 	//cout << "lincal DBG v "  << module->cdata1[DBGbl][0] << " " << module->cdata1[DBGbl][1] << endl<<flush;
 	//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;

@@ -30,7 +30,7 @@ float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA'
 def read_redundantinfo_txt(infopath, verbose = False):
     METHODNAME = "read_redundantinfo_txt"
     if not os.path.isfile(infopath):
-        raise Exception('Error: file path %s does not exist!'%infopath)
+        raise Exception('Error: file %s does not exist!'%infopath)
     timer = time.time()
     with open(infopath) as f:
         rawinfo = np.array([np.array([float(x) for x in line.split()]) for line in f])
@@ -842,7 +842,8 @@ class RedundantCalibrator:
                 raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
 
     def read_redundantinfo(self, infopath, verbose = False):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
-        self.Info = RedundantInfo(read_redundantinfo(infopath, verbose = verbose), verbose = verbose)
+        info = read_redundantinfo(infopath, verbose = verbose)
+        self.Info = RedundantInfo(info, verbose = verbose)
 
     def write_redundantinfo(self, infoPath, overwrite = False, verbose = False):
         methodName = '.write_redundantinfo.'
@@ -851,7 +852,7 @@ class RedundantCalibrator:
     def read_arrayinfo(self, arrayinfopath, verbose = False):#array info is the minimum set of information to uniquely describe a redundant array, and is needed to compute redundant info. It includes, in each line, bad antenna indices, bad unique baseline indices, tolerance of error when checking redundancy, antenna locations, and visibility's antenna pairing conventions. Unlike redundant info which is a self-contained dictionary, items in array info each have their own fields in the instance.
         methodName = ".read_arrayinfo."
         if not os.path.isfile(arrayinfopath):
-            raise Exception(self.className + methodName + "Error: Array info file " + arrayinfopath + " doesn't exist!")
+            raise IOError(self.className + methodName + "Error: Array info file " + arrayinfopath + " doesn't exist!")
         with open(arrayinfopath) as f:
             rawinfo = [[float(x) for x in line.split()] for line in f]
         if verbose:
@@ -874,7 +875,7 @@ class RedundantCalibrator:
 
         for a in range(len(self.antennaLocation)):
             if len(rawinfo[a + 3]) != 3:
-                raise Exception(self.className + methodName + "Error: Format error in " + arrayinfopath + ": The antenna locations should start on the 4th line, with 3 numbers in each line!")
+                raise ValueError(self.className + methodName + "Error: Format error in " + arrayinfopath + ": The antenna locations should start on the 4th line, with 3 numbers in each line!")
             else:
                 self.antennaLocation[a] = np.array(rawinfo[a + 3])
 
@@ -902,13 +903,15 @@ class RedundantCalibrator:
 
     def lincal(self, data, additivein, verbose = False):
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
-            raise Exception("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
-            raise Exception("Data shape error: data and additive in have different shapes.")
+            raise ValueError("Data shape error: data and additive in have different shapes.")
         self.nTime = len(data)
         self.nFrequency = len(data[0])
-        if self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
-            raise Exception("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
+        if self.rawCalpar is None:
+            self.rawCalpar = np.zeros((self.nTime, self.nFrequency, 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
+        elif self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
+            raise ValueError("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
         return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit), trust_period = self.trust_period)
         ##self.chisq = self.rawCalpar[:, :, 2]
         ##self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
@@ -917,9 +920,9 @@ class RedundantCalibrator:
 
     def logcal(self, data, additivein, verbose = False):
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
-            raise Exception("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
-            raise Exception("Data shape error: data and additive in have different shapes.")
+            raise ValueError("Data shape error: data and additive in have different shapes.")
         self.nTime = len(data)
         self.nFrequency = len(data[0])
         self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
@@ -927,11 +930,11 @@ class RedundantCalibrator:
 
     def get_calibrated_data(self, data, additivein = None):
         if data.ndim != 3 or data.shape != (self.nTime, self.nFrequency, len(self.totalVisibilityId)):
-            raise Exception("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline (%i, %i, %i)"%(self.nTime, self.nFrequency, len(self.totalVisibilityId)))
+            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline (%i, %i, %i)"%(self.nTime, self.nFrequency, len(self.totalVisibilityId)))
         if additivein!= None and data.shape != additivein.shape:
-            raise Exception("Data shape error: data and additivein have different shapes.")
+            raise ValueError("Data shape error: data and additivein have different shapes.")
         if data.shape[:2] != self.rawCalpar.shape[:2]:
-            raise Exception("Data shape error: data and self.rawCalpar have different first two dimensions.")
+            raise ValueError("Data shape error: data and self.rawCalpar have different first two dimensions.")
 
         calpar = np.ones((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
         calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
@@ -940,7 +943,17 @@ class RedundantCalibrator:
         else:
             return apply_calpar(data - additivein, calpar, self.totalVisibilityId)
 
+    def get_modeled_data(self):
+        if self.rawCalpar is None:
+            raise ValueError("self.rawCalpar doesn't exist. Please calibrate first using logcal() or lincal().")
+        if len(self.totalVisibilityId) <= np.max(self.Info.subsetbl):
+            raise ValueError("self.totalVisibilityId of length %i is shorter than max index in subsetbl %i. Probably you are using an outdated version of redundantinfo."%(len(self.totalVisibilityId), np.max(self.Info.subsetbl)))
+        mdata = np.zeros((self.rawCalpar.shape[0], self.rawCalpar.shape[1], len(self.totalVisibilityId)), dtype='complex64')
+        mdata[..., self.Info.subsetbl[self.Info.crossindex]] = (self.rawCalpar[..., 3 + 2 * (self.Info.nAntenna)::2] + 1.j * self.rawCalpar[..., 4 + 2 * (self.Info.nAntenna)::2])[..., self.Info.bltoubl]
+        mdata[..., self.Info.subsetbl[self.Info.crossindex]] = np.abs(mdata[..., self.Info.subsetbl[self.Info.crossindex]]) * np.exp(self.Info.reversed * 1.j * np.angle(mdata[..., self.Info.subsetbl[self.Info.crossindex]])) * 10.**(self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,0]] + self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,1]]) * np.exp(-1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,0]] + 1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,1]])
+        return mdata
 
+        
     def get_omnichisq(self):
         if self.utctimes is None or self.rawCalpar is None:
             raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
@@ -1622,8 +1635,9 @@ class RedundantCalibrator:
 
 
 
-def omniview(data, info, plotrange = None, title = '', plot_single_ubl = False):
+def omniview(data_in, info, plotrange = None, title = '', plot_single_ubl = False):
     import matplotlib.pyplot as plt
+    data = np.array(data_in)
     try:#in case info is Info class
         info = info.get_info()
     except:
@@ -1895,6 +1909,30 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
 
     result[info['subsetant']] = np.exp(1.j*calpar)# * result[info['subsetant']]
     return result
+
+##########################Sub-class#############################
+class RedundantCalibrator_PAPER(RedundantCalibrator):
+    def __init__(self, aa):
+        nTotalAnt = len(aa)
+        RedundantCalibrator.__init__(self, nTotalAnt)
+        self.aa = aa
+        self.antennaLocation = np.zeros((self.nTotalAnt,3))
+        for i in range(len(self.aa.ant_layout)):
+            for j in range(len(self.aa.ant_layout[0])):
+                self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
+        self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
+        self.badAntenna = []
+        self.badUBLpair = []
+        for i in range(nTotalAnt):
+            if i not in self.aa.ant_layout.flatten():
+                self.badAntenna += [i]
+                
+    def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
+        self.antennaLocationTolerance = antennaLocationTolerance
+        self.badAntenna += badAntenna
+        self.badUBLpair += badUBLpair
+        RedundantCalibrator.compute_redundantinfo(self)
+
 
 class Timer():
     def __init__(self):
