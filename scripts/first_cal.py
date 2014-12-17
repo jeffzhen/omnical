@@ -28,7 +28,7 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
         for i in range(nTotalAnt):
             if i not in self.aa.ant_layout.flatten():
                 self.badAntenna += [i]
-                
+
     def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
         self.antennaLocationTolerance = antennaLocationTolerance
         self.badAntenna += badAntenna
@@ -220,8 +220,10 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 	for ab in ant_bad_meter[key]:
 		if ab > healthbar:
 			nbad += 1
-	print FILENAME + " MSG: %i bad antennas found on %s"%(nbad, key)
-	#print ant_bad_meter[key]
+	print FILENAME + " MSG: %i bad antennas found on %s:"%(nbad, key),
+	for i, ab in enumerate(ant_bad_meter[key]):
+		if ab > healthbar:
+			print calibrators.Info.subsetant[i],
 	sys.stdout.flush()
 
 
