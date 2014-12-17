@@ -223,7 +223,7 @@ for p, key in zip(range(len(data)), wantpols.keys()):
 	print FILENAME + " MSG: %i bad antennas found on %s:"%(nbad, key),
 	for i, ab in enumerate(ant_bad_meter[key]):
 		if ab > healthbar:
-			print calibrators.Info.subsetant[i],
+			print calibrators[key].Info.subsetant[i],
 	sys.stdout.flush()
 
 
