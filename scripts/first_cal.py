@@ -172,6 +172,7 @@ calibrators = {}
 while new_bad_ant != [] and trials < max_try:
 	trials = trials + 1
 	if trials > 1:
+		print "##########################################################################"
 		print FILENAME + " trial #%i: Recalculating redundant info removing new bad antennas..."%trials, new_bad_ant
 		sys.stdout.flush()
 
@@ -203,7 +204,7 @@ while new_bad_ant != [] and trials < max_try:
 
 		###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
 		if need_crude_cal:
-			initant, solution_path, additional_solution_path, degen, _ = omni.find_solution_path(info)
+			initant, solution_path, additional_solution_path, degen, _ = omni.find_solution_path(info, verbose = False)
 			crude_calpar[key] = np.array([omni.raw_calibrate(data[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[key].nFrequency)])
 			data[p] = omni.apply_calpar(data[p], crude_calpar[key], calibrators[key].totalVisibilityId)
 
@@ -322,13 +323,14 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 		#plt.show()
 	if make_plots:
 		nplot = 8
-		for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
-			plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
+		plot_a = range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle)))
+		for i, a in enumerate(plot_a):
+			plt.subplot(1, len(plot_a), i+1)
 			plt.plot(range(fstart, fend), (avg_angle[a]+ np.pi)%(2*np.pi) - np.pi)
 			plt.plot(range(fstart, fend), ((error_matrix + np.identity(len(A))).dot(avg_angle[a]) + np.pi)%(2*np.pi) - np.pi)
 			plt.axis([fstart, fend, -np.pi, np.pi])
 			#plt.axes().set_aspect('equal')
 		plt.show()
-		plt.hist(delay_error[calibrators[pol].Info.subsetant], 20, normed=1)
+		plt.hist(delay_error[calibrators[pol].Info.subsetant], 20)
 		plt.show()
 

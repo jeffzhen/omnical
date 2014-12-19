@@ -1698,18 +1698,37 @@ def lin_depend(v1, v2, tol = 0):#whether v1 and v2 are linearly dependent
         return True
     return la.norm(np.dot(v1, v2)/np.dot(v1, v1) * v1 - v2) <= tol
 
-def find_solution_path(info, rawcal_ubl=[], tol = 0.0, verbose=False):#return (intialantenna, solution_path) for raw calibration. solution path contains a list of [(a0, a1, crossubl), a] = [(ublindex entry), (which ant is solved, 0 or 1)]. When raw calibrating, initialize calpar to have [0] at initial antenna, then simply iterate along the solution_path, use crossubl and a0 or a1 specified by a to solve for the other a1 or a0 and append it to calpar. Afterwards, use mean angle on calpars
+def _f(rawcal_ubl=[], verbose=False):#run this function twice in a row and its christmas
+    if verbose and rawcal_ubl != []:
+        print "Starting ubl:", rawcal_ubl
+    if rawcal_ubl == []:
+        rawcal_ubl += [2,3]
+    if verbose:
+        print "ubl:", rawcal_ubl
+
+def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):#return (intialantenna, solution_path) for raw calibration. solution path contains a list of [(a0, a1, crossubl), a] = [(ublindex entry), (which ant is solved, 0 or 1)]. When raw calibrating, initialize calpar to have [0] at initial antenna, then simply iterate along the solution_path, use crossubl and a0 or a1 specified by a to solve for the other a1 or a0 and append it to calpar. Afterwards, use mean angle on calpars
     ###select 2 ubl for calibration
+    rawcal_ubl = list(input_rawcal_ubl)
+    if verbose and rawcal_ubl != []:
+        print "Starting ubl:", rawcal_ubl
     if rawcal_ubl == []:
         ublcnt_tmp = info['ublcount'].astype('float')
         rawcal_ubl += [np.argmax(ublcnt_tmp)]
+        if verbose:
+            print "Picking %s with redundancy %i as first ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]])
         ublcnt_tmp[rawcal_ubl[-1]] = np.nan
         rawcal_ubl += [np.nanargmax(ublcnt_tmp)]
+        if verbose:
+            print "Picking %s with redundancy %i as second ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]])
         ublcnt_tmp[rawcal_ubl[-1]] = np.nan
         #while np.allclose(info['ubl'][rawcal_ubl[0]]/(la.norm(info['ubl'][rawcal_ubl[0]])/la.norm(info['ubl'][rawcal_ubl[1]])), info['ubl'][rawcal_ubl[1]]) or np.allclose(info['ubl'][rawcal_ubl[0]]/(la.norm(info['ubl'][rawcal_ubl[0]])/la.norm(info['ubl'][rawcal_ubl[1]])), -info['ubl'][rawcal_ubl[1]]):
         while lin_depend(info['ubl'][rawcal_ubl[0]], info['ubl'][rawcal_ubl[1]], tol=tol):
+            if verbose:
+                print info['ubl'][rawcal_ubl[0]], "and", info['ubl'][rawcal_ubl[1]], "are linearly dependent."
             try:
                 rawcal_ubl[1] = np.nanargmax(ublcnt_tmp)
+                if verbose:
+                    print "Picking %s with redundancy %i as second ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]])
             except:
                 raise Exception("Cannot find two unique baselines that are linearly independent!")
             ublcnt_tmp[rawcal_ubl[-1]] = np.nan
