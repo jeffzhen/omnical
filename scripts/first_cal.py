@@ -83,10 +83,11 @@ wantpols = {}
 for p in opts.pol.split(','): wantpols[p] = ap.miriad.str2pol[p]
 #wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo:
 
-print "Reading calfile %s"%opts.cal,
+print "Reading calfile %s..."%opts.cal,
 sys.stdout.flush()
 aa = ap.cal.get_aa(opts.cal, np.array([.15]))
-print "Done"
+print "Done. Antenna layout:"
+print aa.ant_layout
 sys.stdout.flush()
 
 
