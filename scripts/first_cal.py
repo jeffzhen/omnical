@@ -12,28 +12,6 @@ from scipy.stats import nanmedian
 import matplotlib.pyplot as plt
 FILENAME = "first_cal.py"
 
-##########################Sub-class#############################
-class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
-    def __init__(self, aa):
-        nTotalAnt = len(aa)
-        omni.RedundantCalibrator.__init__(self, nTotalAnt)
-        self.aa = aa
-        self.antennaLocation = np.zeros((self.nTotalAnt,3))
-        for i in range(len(self.aa.ant_layout)):
-            for j in range(len(self.aa.ant_layout[0])):
-                self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
-        self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
-        self.badAntenna = []
-        self.badUBLpair = []
-        for i in range(nTotalAnt):
-            if i not in self.aa.ant_layout.flatten():
-                self.badAntenna += [i]
-
-    def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
-        self.antennaLocationTolerance = antennaLocationTolerance
-        self.badAntenna += badAntenna
-        self.badUBLpair += badUBLpair
-        omni.RedundantCalibrator.compute_redundantinfo(self)
 
 
 
@@ -43,21 +21,26 @@ class RedundantCalibrator_PAPER(omni.RedundantCalibrator):
 o = optparse.OptionParser()
 
 ap.scripting.add_standard_options(o, cal=True, pol=True)
-#o.add_option('-t', '--tag', action = 'store', default = 'PSA128', help = 'tag name of this calibration')
 #o.add_option('-d', '--datatag', action = 'store', default = 'PSA128', help = 'tag name of this data set')
-o.add_option('-i', '--infopath', action = 'store', default = 'DOESNTEXIST', help = 'Redundantinfo file to read.')
+#o.add_option('-i', '--infopath', action = 'store', default = 'DOESNTEXIST', help = 'Redundantinfo file to read.')
+o.add_option('--max', action = 'store', type = 'int', default = 5, help = 'Max number of iterations when removing bad antennas.')
 #o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
 #o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 #o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
 o.add_option('--healthbar', action = 'store', type = 'float', default = 2, help = 'Health threshold (0-100) over which an antenna is marked bad. 2 by default.')
 o.add_option('--suppress', action = 'store', type = 'float', default = 1, help = 'Amplitude of the gains for the bad antennas. Larger means more suppressed.')
 o.add_option('-f', '--freq_range', action = 'store', default = '0_0', help = 'Frequency bin number range to use for fitting amp and delay seperated by underscore. 0_0 by default and will process all frequencies.')
-o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'Output folder. Current directory by default.')
+o.add_option('-o', '--outputpath', action = 'store', default = "DONT_WRITE", help = 'Output folder. No output by default.')
+o.add_option('-t', '--info_tag', action = 'store', default = "DEFAULT", help = 'Name tag for output redundantinfo file.')
 #o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 #o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
 #o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
 o.add_option('--plot', action = 'store_true', help = 'Whether to make plots in the end.')
 #o.add_option('--crude', action = 'store_true', help = 'whether to apply crude calibration')
+o.add_option('-e', '--tol', action = 'store', type = 'float', default = 1e-2, help = 'tolerance of antenna location deviation when computing unique baselines.')
+o.add_option('--ba', action = 'store', default = '', help = 'bad antenna number indices seperated by commas')
+o.add_option('--bu', action = 'store', default = '', help = 'bad unique baseline indicated by ant pairs (seperated by .) seperated by commas: 1.2,3.4,10.11')
+
 
 
 opts,args = o.parse_args(sys.argv[1:])
@@ -69,9 +52,25 @@ make_plots = opts.plot
 #dataano = opts.datatag#ano for existing data and lst.dat
 #sourcepath = opts.datapath
 oppath = opts.outputpath
+info_tag = opts.info_tag
 uvfiles = args
 healthbar = opts.healthbar
 bad_ant_suppress = opts.suppress
+max_try = opts.max
+
+try:
+	badAntenna = [int(i) for i in opts.ba.split(',')]
+except:
+	badAntenna = []
+try:
+	if opts.bu != '':
+		badUBLpair = [[int(j) for j in i.split('.')] for i in opts.bu.split(',')]
+	else:
+		badUBLpair = []
+except:
+	badUBLpair = []
+redundancy_tol = opts.tol
+
 [fstart,fend] = [int(x) for x in opts.freq_range.split('_')]
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
@@ -91,9 +90,9 @@ print "Done"
 sys.stdout.flush()
 
 
-infopaths = {}
-for key in wantpols.keys():
-	infopaths[key]= opts.infopath
+#infopaths = {}
+#for key in wantpols.keys():
+	#infopaths[key]= opts.infopath
 
 
 removedegen = True
@@ -167,76 +166,105 @@ for source in southern_points.keys():
 	print "%s altaz from (%f,%f) to (%f,%f)"%(source, southern_points[source]['pos'][0,0], southern_points[source]['pos'][0,1], southern_points[source]['pos'][-1,0], southern_points[source]['pos'][-1,1])
 sys.stdout.flush()
 ####create redundant calibrators################
-#calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
+new_bad_ant = ["Just to get while loop started"]
+trials = 0
 calibrators = {}
-ant_bad_meter = {}
-crude_calpar = {}
-for p, key in zip(range(len(data)), wantpols.keys()):
+while new_bad_ant != [] and trials < max_try:
+	trials = trials + 1
+	if trials > 1:
+		print FILENAME + " trial #%i: Recalculating redundant info removing new bad antennas..."%trials, new_bad_ant
+		sys.stdout.flush()
 
-	calibrators[key] = RedundantCalibrator_PAPER(aa)
-	calibrators[key].read_redundantinfo(infopaths[key], verbose=False)
-	info = calibrators[key].Info.get_info()
-	calibrators[key].nTime = len(timing)
-	calibrators[key].nFrequency = nfreq
 
-	###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
-	if need_crude_cal:
-		initant, solution_path, additional_solution_path, degen, _ = omni.find_solution_path(info)
-		crude_calpar[key] = np.array([omni.raw_calibrate(data[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[key].nFrequency)])
-		data[p] = omni.apply_calpar(data[p], crude_calpar[key], calibrators[key].totalVisibilityId)
+	ant_bad_meter = {}
+	crude_calpar = {}
+	if trials > 1:
+		#figure out old and new bad antennas
+		badAntenna = list(np.sort(badAntenna + new_bad_ant))
+		print 'Current bad Antennas:', badAntenna
+		print 'Bad unique baselines:', badUBLpair
 
-	calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
-	####calibrate################
-	calibrators[key].removeDegeneracy = removedegen
-	calibrators[key].convergePercent = converge_percent
-	calibrators[key].maxIteration = max_iter
-	calibrators[key].stepSize = step_size
+	for p, key in zip(range(len(data)), wantpols.keys()):
+		if trials == 1:
 
-	################first round of calibration	#########################
-	print FILENAME + " MSG: starting calibration on %s. nTime = %i, nFrequency = %i ..."%(key, calibrators[key].nTime, calibrators[key].nFrequency),
+			calibrators[key] = omni.RedundantCalibrator_PAPER(aa)
+			calibrators[key].nTime = len(timing)
+			calibrators[key].nFrequency = nfreq
+			calibrators[key].removeDegeneracy = removedegen
+			calibrators[key].convergePercent = converge_percent
+			calibrators[key].maxIteration = max_iter
+			calibrators[key].stepSize = step_size
+
+
+		timer = time.time()
+		calibrators[key].compute_redundantinfo(badAntenna = badAntenna, badUBLpair = badUBLpair, antennaLocationTolerance = redundancy_tol)
+		print "Redundant info on %s computed in %f minutes."%(key, (time.time() - timer)/60.)
+		info = calibrators[key].Info.get_info()
+
+		###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
+		if need_crude_cal:
+			initant, solution_path, additional_solution_path, degen, _ = omni.find_solution_path(info)
+			crude_calpar[key] = np.array([omni.raw_calibrate(data[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[key].nFrequency)])
+			data[p] = omni.apply_calpar(data[p], crude_calpar[key], calibrators[key].totalVisibilityId)
+
+		calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
+		####calibrate################
+
+		################first round of calibration	#########################
+		print FILENAME + " MSG: starting calibration on %s. nTime = %i, nFrequency = %i ..."%(key, calibrators[key].nTime, calibrators[key].nFrequency),
+		sys.stdout.flush()
+		timer = time.time()
+		additivein = np.zeros_like(data[p])
+		calibrators[key].logcal(data[p], additivein, verbose=True)
+		additiveout = calibrators[key].lincal(data[p], additivein, verbose=True)
+		print "Done. %fmin"%(float(time.time()-timer)/60.)
+		sys.stdout.flush()
+
+		################try another generacy removal that enforce 3 antenna to have 0 phase just as crude_cal
+		A = np.zeros((calibrators[key].Info.nAntenna, 3))
+		masker = np.zeros((calibrators[key].Info.nAntenna, calibrators[key].Info.nAntenna))
+		for a in [initant, degen[0], degen[1]]:
+			A[a] = [calibrators[key].Info.antloc[a][0], calibrators[key].Info.antloc[a][1] , 1.]
+			masker[a,a] = 1.
+		matrix = np.identity(calibrators[key].Info.nAntenna) - (np.array(info['antloc'])*[1,1,0]+[0,0,1]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()).dot(masker))
+
+		calibrators[key].rawCalpar[:, :, (3 + calibrators[key].Info.nAntenna):(3 + 2 * calibrators[key].Info.nAntenna)] = matrix.dot(calibrators[key].rawCalpar[:, :, (3 + calibrators[key].Info.nAntenna):(3 + 2 * calibrators[key].Info.nAntenna)].transpose(0,2,1)).transpose(1,2,0)
+
+
+		#######################diagnose###############################
+		ant_bad_meter[key], _ = calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, verbose = False)
+		nbad = 0
+		for ab in ant_bad_meter[key]:
+			if ab > healthbar:
+				nbad += 1
+		print FILENAME + " MSG: %i bad antennas found on %s:"%(nbad, key),
+		for i, ab in enumerate(ant_bad_meter[key]):
+			if ab > healthbar:
+				print calibrators[key].Info.subsetant[i],
+		if nbad > 0:
+			print ""
+		sys.stdout.flush()
+
+
+	new_bad_ant = []
+	for a in range(calibrators[wantpols.keys()[0]].Info.nAntenna):
+		for key in wantpols.keys():
+			if ant_bad_meter[key][a] > healthbar:
+				new_bad_ant.append(calibrators[wantpols.keys()[0]].Info.subsetant[a])
+				break
+
+if oppath != "DONT_WRITE/":
+	if info_tag == "DEFAULT":
+		op_info_path = oppath + 'redundantinfo_first_cal_' + time.strftime("%Y_%m_%d_%H_%M_%S") + ".bin"
+	else:
+		op_info_path = oppath + 'redundantinfo_first_cal_' + info_tag + ".bin"
+	print FILENAME + " MSG: Writing redundant info to %s"%op_info_path,
 	sys.stdout.flush()
-	timer = time.time()
-	additivein = np.zeros_like(data[p])
-	calibrators[key].logcal(data[p], additivein, verbose=True)
-	additiveout = calibrators[key].lincal(data[p], additivein, verbose=True)
-	print "Done. %fmin"%(float(time.time()-timer)/60.)
-	sys.stdout.flush()
-
-	################try another generacy removal that enforce 3 antenna to have 0 phase just as crude_cal
-	A = np.zeros((calibrators[key].Info.nAntenna, 3))
-	masker = np.zeros((calibrators[key].Info.nAntenna, calibrators[key].Info.nAntenna))
-	for a in [initant, degen[0], degen[1]]:
-		A[a] = [calibrators[key].Info.antloc[a][0], calibrators[key].Info.antloc[a][1] , 1.]
-		masker[a,a] = 1.
-	matrix = np.identity(calibrators[key].Info.nAntenna) - (np.array(info['antloc'])*[1,1,0]+[0,0,1]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()).dot(masker))
-
-	calibrators[key].rawCalpar[:, :, (3 + calibrators[key].Info.nAntenna):(3 + 2 * calibrators[key].Info.nAntenna)] = matrix.dot(calibrators[key].rawCalpar[:, :, (3 + calibrators[key].Info.nAntenna):(3 + 2 * calibrators[key].Info.nAntenna)].transpose(0,2,1)).transpose(1,2,0)
-
-
-
-	#######################diagnose###############################
-	ant_bad_meter[key], _ = calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, verbose = False)
-	nbad = 0
-	for ab in ant_bad_meter[key]:
-		if ab > healthbar:
-			nbad += 1
-	print FILENAME + " MSG: %i bad antennas found on %s:"%(nbad, key),
-	for i, ab in enumerate(ant_bad_meter[key]):
-		if ab > healthbar:
-			print calibrators[key].Info.subsetant[i],
-	sys.stdout.flush()
-
-
-new_bad_ant = []
-for a in range(calibrators[wantpols.keys()[0]].Info.nAntenna):
-	for key in wantpols.keys():
-		if ant_bad_meter[key][a] > healthbar:
-			new_bad_ant.append(calibrators[wantpols.keys()[0]].Info.subsetant[a])
-			break
-if new_bad_ant != []:
-	print FILENAME + " MSG: Recalculating redundant info removing badantennas..."
-	sys.stdout.flush()
+	calibrators[wantpols.keys()[0]].write_redundantinfo(infoPath = op_info_path, verbose = False)
 	print "Done."
+	sys.stdout.flush()
+else:
+	print FILENAME + " MSG: Not outputting redundantinfo by default."
 	sys.stdout.flush()
 
 if fend == 0:
