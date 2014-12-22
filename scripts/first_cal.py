@@ -135,7 +135,7 @@ sys.stdout.flush()
 ###start reading miriads################
 print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed"
 sys.stdout.flush()
-data, t, timing, lst = omni.importuvs(uvfiles, np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), wantpols, timingTolerance=100)#, nTotalAntenna = len(aa))
+rawdata, t, timing, lst = omni.importuvs(uvfiles, np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), wantpols, timingTolerance=100)#, nTotalAntenna = len(aa))
 print FILENAME + " MSG:",  len(t), "slices read."
 sys.stdout.flush()
 
@@ -170,6 +170,7 @@ sys.stdout.flush()
 new_bad_ant = ["Just to get while loop started"]
 trials = 0
 calibrators = {}
+data = {}
 while new_bad_ant != [] and trials < max_try:
 	trials = trials + 1
 	if trials > 1:
@@ -186,7 +187,7 @@ while new_bad_ant != [] and trials < max_try:
 		print 'Current bad Antennas:', badAntenna
 		print 'Bad unique baselines:', badUBLpair
 
-	for p, key in zip(range(len(data)), wantpols.keys()):
+	for p, key in enumerate(wantpols.keys()):
 		if trials == 1:
 
 			calibrators[key] = omni.RedundantCalibrator_PAPER(aa)
@@ -206,9 +207,10 @@ while new_bad_ant != [] and trials < max_try:
 		###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
 		if need_crude_cal:
 			initant, solution_path, additional_solution_path, degen, _ = omni.find_solution_path(info, verbose = False)
-			crude_calpar[key] = np.array([omni.raw_calibrate(data[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[key].nFrequency)])
-			data[p] = omni.apply_calpar(data[p], crude_calpar[key], calibrators[key].totalVisibilityId)
-
+			crude_calpar[key] = np.array([omni.raw_calibrate(rawdata[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[key].nFrequency)])
+			data[p] = omni.apply_calpar(rawdata[p], crude_calpar[key], calibrators[key].totalVisibilityId)
+		else:
+			data[p] = rawdata[p]
 		calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
 		####calibrate################
 
