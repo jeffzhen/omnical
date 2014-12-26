@@ -3,8 +3,22 @@ import random
 import numpy as np
 import aipy as ap
 import numpy.linalg as la
-import commands, os, time, math, ephem
+import commands, os, time, math, ephem, thread
 import omnical.calibration_omni as omni
+
+#def _f(a):
+
+	#time.sleep(a)
+	#print "wake"
+	#return a
+
+#timer = omni.Timer()
+#for i in range(10):
+	#print i
+	#thread.start_new_thread(_f, (10,))
+#timer.tick()
+#time.sleep(10)
+#exit()
 
 ano = 'test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 uvfiles = [os.path.dirname(os.path.realpath(__file__)) + '/test.uv']
@@ -91,5 +105,5 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 	calibrator.computeUBLFit = False
 
 	timer = omni.Timer()
-	calibrator.logcal(data, np.zeros_like(data), nthread = None, verbose=True)
+	calibrator.logcal(data, np.zeros_like(data), nthread = 1, verbose=True)
 	timer.tick()
