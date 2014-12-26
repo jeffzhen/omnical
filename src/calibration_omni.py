@@ -933,7 +933,7 @@ class RedundantCalibrator:
             return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
         else:
             return self._logcal_multithread(data, additivein, nthread, verbose = verbose)
-        
+
     def _logcal_multithread(self, data, additivein, nthread, verbose = False):
         #if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
             #raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
@@ -944,12 +944,17 @@ class RedundantCalibrator:
         #self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
 
         output = np.zeros_like(data)
-        
+        rawCalpar = {}
+        kwarg = {"removedegen": int(self.removeDegeneracy), "uselogcal": 1, "maxiter": int(self.maxIteration), "conv": float(self.convergePercent), "stepsize": float(self.stepSize), "computeUBLFit": int(self.computeUBLFit), "trust_period": self.trust_period}
+
         for i in range(nthread):
-            rawCalpar = self.rawCalpar[:, i::nthread]
-            kwarg = {"removedegen": int(self.removeDegeneracy), "uselogcal": 1, "maxiter": int(self.maxIteration), "conv": float(self.convergePercent), "stepsize": float(self.stepSize), "computeUBLFit": int(self.computeUBLFit), "trust_period": self.trust_period}
-            output[:, i::nthread] = thread.start_new_thread(_O.redcal, (data[:, i::nthread, self.Info.subsetbl], rawCalpar, self.Info, additivein[:, i::nthread, self.Info.subsetbl]), kwarg)
-            self.rawCalpar[:, i::nthread] = rawCalpar
+            rawCalpar[i] = self.rawCalpar[:, i::nthread]
+        for i in range(nthread):
+            print "Starting thread #%i"%i
+            sys.stdout.flush()
+            thread.start_new_thread(_O.redcal, (data[:, i::nthread, self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, i::nthread, self.Info.subsetbl]), kwarg)
+        for i in range(nthread):
+            self.rawCalpar[:, i::nthread] = rawCalpar[i]
         return output
 
     def get_calibrated_data(self, data, additivein = None):
