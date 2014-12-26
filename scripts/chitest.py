@@ -12,7 +12,7 @@ noises = [0.0] + (10.**np.arange(-5, 1, .4)).tolist()
 times = np.zeros((len(sides), len(noises), 6))
 trust_period = 1
 step_size = .3
-use_log = True
+use_log = False
 nt = 1000
 nf = 100
 

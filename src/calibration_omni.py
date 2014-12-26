@@ -1,5 +1,5 @@
 import datetime
-import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime, shutil, resource
+import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime, shutil, resource, thread, multiprocessing
 import time
 from time import ctime
 import aipy as ap
@@ -918,7 +918,7 @@ class RedundantCalibrator:
         ##self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
         ##self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
 
-    def logcal(self, data, additivein, verbose = False):
+    def logcal(self, data, additivein, nthread = None, verbose = False):
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
             raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
@@ -926,7 +926,31 @@ class RedundantCalibrator:
         self.nTime = len(data)
         self.nFrequency = len(data[0])
         self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
-        return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+
+        if nthread is None:
+            nthread = multiprocessing.cpu_count() - 1
+        if nthread < 2:
+            return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
+        else:
+            return self._logcal_multithread(data, additivein, nthread, verbose = verbose)
+        
+    def _logcal_multithread(self, data, additivein, nthread, verbose = False):
+        #if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
+            #raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+        #if data.shape != additivein.shape:
+            #raise ValueError("Data shape error: data and additive in have different shapes.")
+        #self.nTime = len(data)
+        #self.nFrequency = len(data[0])
+        #self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
+
+        output = np.zeros_like(data)
+        
+        for i in range(nthread):
+            rawCalpar = self.rawCalpar[:, i::nthread]
+            kwarg = {"removedegen": int(self.removeDegeneracy), "uselogcal": 1, "maxiter": int(self.maxIteration), "conv": float(self.convergePercent), "stepsize": float(self.stepSize), "computeUBLFit": int(self.computeUBLFit), "trust_period": self.trust_period}
+            output[:, i::nthread] = thread.start_new_thread(_O.redcal, (data[:, i::nthread, self.Info.subsetbl], rawCalpar, self.Info, additivein[:, i::nthread, self.Info.subsetbl]), kwarg)
+            self.rawCalpar[:, i::nthread] = rawCalpar
+        return output
 
     def get_calibrated_data(self, data, additivein = None):
         if data.ndim != 3 or data.shape != (self.nTime, self.nFrequency, len(self.totalVisibilityId)):
