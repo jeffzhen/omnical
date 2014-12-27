@@ -3,21 +3,40 @@ import random
 import numpy as np
 import aipy as ap
 import numpy.linalg as la
-import commands, os, time, math, ephem, thread
+import commands, os, time, math, ephem, multiprocessing, sys, copy
 import omnical.calibration_omni as omni
 
-#def _f(a):
+#def _f(m, m0, info, m1):
 
-	#time.sleep(a)
-	#print "wake"
-	#return a
+	#time.sleep(info.nAntenna - 30)
+	#m2 = np.copy(m)
+	#m3 = 2*m2 + m2**2
+	#print _O.phase(info.nAntenna,1)
+	#_O.redcal(m, m0, info, m1)
+	#return m3
 
 #timer = omni.Timer()
-#for i in range(10):
-	#print i
-	#thread.start_new_thread(_f, (10,))
+#ts={}
+#matrix = np.zeros((2000,200,600), dtype='complex64')
+#calpar = np.zeros((2000,200,600), dtype='float32')
+#nthread = 10
+
+#calibrator = omni.RedundantCalibrator(32)
+#calibrator.compute_redundantinfo(arrayinfoPath = os.path.dirname(os.path.realpath(__file__)) + '/../doc/arrayinfo_apprx_PAPER32_badUBLpair.txt')
+
+#for i in range(nthread):
+	#info = omni.RedundantInfo(calibrator.Info.get_info())
+	#ts[i] = multiprocessing.Process(target = _f, args = (matrix[:, i::nthread, calibrator.Info.subsetbl], calpar[:, i::nthread, :3 + 2*(calibrator.Info.nAntenna + calibrator.Info.nUBL)], info, matrix[:, i::nthread, calibrator.Info.subsetbl]))
+	##ts[i] = threading.Thread(target = _O.redcal, args = (matrix[:, i::nthread, calibrator.Info.subsetbl], calpar[:, i::nthread, :3 + 2*(calibrator.Info.nAntenna + calibrator.Info.nUBL)], calibrator.Info, matrix[:, i::nthread, calibrator.Info.subsetbl]))
+#for i in range(nthread):
+	#print "starting", i
+	#ts[i].start()
+#for i in range(nthread):
+	#print "collecting", i
+	#ts[i].join()
+
 #timer.tick()
-#time.sleep(10)
+
 #exit()
 
 ano = 'test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
@@ -94,7 +113,7 @@ if needrawcal:
 ####calibrate################
 ##print FILENAME + " MSG: starting calibration."
 for p, calibrator in zip(range(len(wantpols)), calibrators):
-	data = np.concatenate(list([data[p] for i in range(5)]), axis = 0)
+	data = np.concatenate(list([data[p] for i in range(10)]), axis = 0)
 	calibrator.removeDegeneracy = removedegen
 	calibrator.removeAdditive = removeadditive
 	calibrator.keepData = keep_binary_data
@@ -105,5 +124,5 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 	calibrator.computeUBLFit = False
 
 	timer = omni.Timer()
-	calibrator.logcal(data, np.zeros_like(data), nthread = 1, verbose=True)
+	calibrator.logcal(data, np.zeros_like(data), nthread = 10, verbose=True)
 	timer.tick()

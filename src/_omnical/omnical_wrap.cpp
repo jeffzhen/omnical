@@ -1300,6 +1300,9 @@ PyObject* phase_wrap(PyObject *self, PyObject *args){
     if (!PyArg_ParseTuple(args, "ff", &a, &b))
         return NULL;
     float result = phase(a, b);
+    //for (int i = 0; i < 1000000000; i ++){
+        //result = phase(a, b);
+    //}
     //cout << a << endl; cout.flush();
     return Py_BuildValue("f", result);
 }

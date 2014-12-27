@@ -1,5 +1,5 @@
 import datetime
-import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime, shutil, resource, threading, multiprocessing
+import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime, shutil, resource
 import time
 from time import ctime
 import aipy as ap
@@ -950,16 +950,16 @@ class RedundantCalibrator:
 
         for i in range(nthread):
             rawCalpar[i] = self.rawCalpar[:, i::nthread]
-            threads[i] = threading.Thread(target = _O.redcal, args = (data[:, i::nthread, self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, i::nthread, self.Info.subsetbl]), kwargs=kwarg)
+            threads[i] = multiprocessing.Process(target = _O.redcal, args = (data[:, i::nthread, self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, i::nthread, self.Info.subsetbl]), kwargs=kwarg)
         for i in range(nthread):
             print "Starting thread #%i"%i
             sys.stdout.flush()
             threads[i].start()
-            
+
         for i in range(nthread):
             threads[i].join()
             self.rawCalpar[:, i::nthread] = rawCalpar[i]
-            
+
         return output
 
     def get_calibrated_data(self, data, additivein = None):
