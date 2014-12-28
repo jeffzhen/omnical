@@ -22,7 +22,7 @@ julDelta = 2415020.# =julian date - pyephem's Observer date
 
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
-
+cal_name = {0: "Lincal", 1: "Logcal"}
 
 int_infokeys = ['nAntenna','nUBL','nBaseline']
 intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
@@ -980,8 +980,8 @@ class RedundantCalibrator:
                 fchunk[i] = (i * (chunk+1), min((1 + i) * (chunk+1), self.nFrequency),)
             else:
                 fchunk[i] = (fchunk[i-1][1], min(fchunk[i-1][1] + chunk, self.nFrequency),)
-            if verbose:
-                print fchunk[i],
+            #if verbose:
+                #print fchunk[i],
             rawCalpar[i] = mp.RawArray('f', self.nTime * (fchunk[i][1] - fchunk[i][0]) * (self.rawCalpar.shape[2]))
             np_rawCalpar[i] = np.frombuffer(rawCalpar[i], dtype='float32')
             np_rawCalpar[i].shape = (self.rawCalpar.shape[0], fchunk[i][1]-fchunk[i][0], self.rawCalpar.shape[2])
@@ -994,17 +994,20 @@ class RedundantCalibrator:
             threads[i] = mp.Process(target = _redcal, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
             #threads[i] = threading.Thread(target = _O.redcal2, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
         if verbose:
-            print ""
+            print "Starting %s Process"%cal_name[uselogcal],
         for i in range(nthread):
             if verbose:
-                print "Starting Process #%i"%i
+                print "#%i"%i,
                 sys.stdout.flush()
             threads[i].start()
-
+        if verbose:
+            print "Finished Process",
         for i in range(nthread):
             threads[i].join()
             if verbose:
-                print "Finished Process #%i"%i
+                print "#%i"%i,
+        if verbose:
+            print ""
         self.rawCalpar = np.concatenate([np_rawCalpar[i] for i in range(nthread)],axis=1)
         return np.concatenate([np_additiveouts[i] for i in range(nthread)],axis=1)
 
