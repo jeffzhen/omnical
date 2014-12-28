@@ -1,6 +1,6 @@
 import datetime
-import socket, multiprocessing, math, random, traceback, ephem, string, commands, datetime, shutil, resource
-import time
+import socket, math, random, traceback, ephem, string, commands, datetime, shutil, resource, threading, time
+import multiprocessing as mp
 from time import ctime
 import aipy as ap
 import struct
@@ -792,6 +792,21 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
                 raise Exception("Error retrieving %s item."%key)
         return info
 
+def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit = 1, trust_period = 1):#####same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container
+
+    np_rawCalpar = np.ctypeslib.as_array(rawCalpar)
+    np_rawCalpar.shape=(data.shape[0], data.shape[1], len(rawCalpar) / data.shape[0] / data.shape[1])
+    #print np_rawCalpar.dtype, np_rawCalpar.shape
+
+    np_additive_out = np.frombuffer(additive_out, dtype='complex64')
+    np_additive_out.shape = data.shape
+    _O.redcal2(data, np_rawCalpar, Info, additivein, np_additive_out, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
+
+    #np_additive_out = _O.redcal(data, np_rawCalpar, Info, additivein, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
+    #additive_out[:len(additive_out)/2] = np.real(np_additive_out.flatten())
+    #additive_out[len(additive_out)/2:] = np.imag(np_additive_out.flatten())
+
+
 
 class RedundantCalibrator:
 #This class is the main tool for performing redundant calibration on data sets. For a given redundant configuration, say 32 antennas with 3 bad antennas, the user should create one instance of Redundant calibrator and reuse it for all data collected from that array. In general, upon creating an instance, the user need to create the info field of the instance by either computing it or reading it from a text file. readyForCpp(verbose = True) should be a very helpful function to provide information on what information is missing for running the calibration.
@@ -901,7 +916,7 @@ class RedundantCalibrator:
             print "Bad UBL indices:", self.badUBLpair
 
 
-    def lincal(self, data, additivein, verbose = False):
+    def lincal(self, data, additivein, nthread = None, verbose = False):
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
             raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
@@ -912,8 +927,12 @@ class RedundantCalibrator:
             self.rawCalpar = np.zeros((self.nTime, self.nFrequency, 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
         elif self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
             raise ValueError("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
-        return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit), trust_period = self.trust_period)
-        ##self.chisq = self.rawCalpar[:, :, 2]
+        if nthread is None:
+            nthread = nthread = min(mp.cpu_count() - 1, self.nFrequency)
+        if nthread < 2:
+            return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit), trust_period = self.trust_period)
+        else:
+            return self._redcal_multithread(data, additivein, 0, nthread, verbose = verbose)        ##self.chisq = self.rawCalpar[:, :, 2]
         ##self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
         ##self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
         ##self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
@@ -928,13 +947,13 @@ class RedundantCalibrator:
         self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
 
         if nthread is None:
-            nthread = multiprocessing.cpu_count() - 1
+            nthread = min(mp.cpu_count() - 1, self.nFrequency)
         if nthread < 2:
             return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
         else:
-            return self._logcal_multithread(data, additivein, nthread, verbose = verbose)
+            return self._redcal_multithread(data, additivein, 1, nthread, verbose = verbose)
 
-    def _logcal_multithread(self, data, additivein, nthread, verbose = False):
+    def _redcal_multithread(self, data, additivein, uselogcal, nthread, verbose = False):
         #if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
             #raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         #if data.shape != additivein.shape:
@@ -942,25 +961,43 @@ class RedundantCalibrator:
         #self.nTime = len(data)
         #self.nFrequency = len(data[0])
         #self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
-
-        output = np.zeros_like(data)
+        nthread = min(nthread, self.nFrequency)
+        additiveouts = {}
+        np_additiveouts = {}
+        #additiveout = np.zeros_like(data[:, :, self.Info.subsetbl])
         rawCalpar = {}
+        np_rawCalpar = {}
         threads = {}
-        kwarg = {"removedegen": int(self.removeDegeneracy), "uselogcal": 1, "maxiter": int(self.maxIteration), "conv": float(self.convergePercent), "stepsize": float(self.stepSize), "computeUBLFit": int(self.computeUBLFit), "trust_period": self.trust_period}
+        fchunk = {}
+        chunk = int(np.ceil(self.nFrequency / float(nthread)))
+        kwarg = {"removedegen": int(self.removeDegeneracy), "uselogcal": uselogcal, "maxiter": int(self.maxIteration), "conv": float(self.convergePercent), "stepsize": float(self.stepSize), "computeUBLFit": int(self.computeUBLFit), "trust_period": self.trust_period}
 
         for i in range(nthread):
-            rawCalpar[i] = self.rawCalpar[:, i::nthread]
-            threads[i] = multiprocessing.Process(target = _O.redcal, args = (data[:, i::nthread, self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, i::nthread, self.Info.subsetbl]), kwargs=kwarg)
+            fchunk[i] = (i * chunk, min((1 + i) * chunk, self.nFrequency),)
+
+            rawCalpar[i] = mp.RawArray('f', self.nTime * (fchunk[i][1] - fchunk[i][0]) * (self.rawCalpar.shape[2]))
+            np_rawCalpar[i] = np.frombuffer(rawCalpar[i], dtype='float32')
+            np_rawCalpar[i].shape = (self.rawCalpar.shape[0], fchunk[i][1]-fchunk[i][0], self.rawCalpar.shape[2])
+            np_rawCalpar[i][:] = self.rawCalpar[:, fchunk[i][0]:fchunk[i][1]]
+
+            additiveouts[i] = mp.RawArray('f', self.nTime * (fchunk[i][1] - fchunk[i][0]) * len(self.Info.subsetbl) * 2)#factor of 2 for re/im
+            np_additiveouts[i] = np.frombuffer(additiveouts[i], dtype='complex64')
+            np_additiveouts[i].shape = (data.shape[0], fchunk[i][1]-fchunk[i][0], len(self.Info.subsetbl))
+
+            threads[i] = mp.Process(target = _redcal, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
+            #threads[i] = threading.Thread(target = _O.redcal2, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
         for i in range(nthread):
-            print "Starting thread #%i"%i
-            sys.stdout.flush()
+            if verbose:
+                print "Starting Process #%i"%i
+                sys.stdout.flush()
             threads[i].start()
 
         for i in range(nthread):
             threads[i].join()
-            self.rawCalpar[:, i::nthread] = rawCalpar[i]
-
-        return output
+            if verbose:
+                print "Finished Process #%i"%i
+        self.rawCalpar = np.concatenate([np_rawCalpar[i] for i in range(nthread)],axis=1)
+        return np.concatenate([np_additiveouts[i] for i in range(nthread)],axis=1)
 
     def get_calibrated_data(self, data, additivein = None):
         if data.ndim != 3 or data.shape != (self.nTime, self.nFrequency, len(self.totalVisibilityId)):

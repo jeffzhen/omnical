@@ -252,8 +252,8 @@ class TestUV(unittest.TestCase):
             calibrator.computeUBLFit = False
 
 
-            calibrator.logcal(data[p], np.zeros_like(data[p]), verbose=True)
-            calibrator.lincal(data[p], np.zeros_like(data[p]), verbose=True)
+            calibrator.logcal(data[p], np.zeros_like(data[p]), verbose=False)
+            additiveout = calibrator.lincal(data[p], np.zeros_like(data[p]), verbose=False)
 
             calibrator.utctimes = timing
             calibrator.get_calibrated_data(data[p])
@@ -268,6 +268,8 @@ class TestUV(unittest.TestCase):
         omni.write_redundantinfo(calibrators[-1].Info.get_info(), os.path.dirname(os.path.realpath(__file__)) + '/results/new_info.bin', overwrite = True)
         newresult = calibrators[-1].rawCalpar[:,:,:]
         np.testing.assert_almost_equal(correctresult[:,:,1:3][nanmask], newresult[:,:,1:3][nanmask], decimal = 5)
+        np.testing.assert_almost_equal(np.sum(np.abs(data[-1] - calibrators[-1].get_modeled_data())[:,:,calibrators[-1].Info.subsetbl[calibrators[-1].Info.crossindex]]**2, axis=2)[nanmask], newresult[:,:,2][nanmask], decimal = 5)
+        np.testing.assert_almost_equal(np.sum(np.abs(additiveout)[:,:,calibrators[-1].Info.crossindex]**2, axis=2)[nanmask], newresult[:,:,2][nanmask], decimal = 5)
         np.testing.assert_almost_equal(correctresult[:,:,3:67][nanmask], newresult[:,:,3:67][nanmask], decimal = 5)
         np.testing.assert_almost_equal(np.sort(np.abs(correctresult[:,:,67:][nanmask])), np.sort(np.abs(newresult[:,:,67:][nanmask])), decimal = 5)
 
