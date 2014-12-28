@@ -794,7 +794,7 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
 
 def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit = 1, trust_period = 1):#####same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container
 
-    np_rawCalpar = np.ctypeslib.as_array(rawCalpar)
+    np_rawCalpar = np.frombuffer(rawCalpar, dtype='float32')
     np_rawCalpar.shape=(data.shape[0], data.shape[1], len(rawCalpar) / data.shape[0] / data.shape[1])
     #print np_rawCalpar.dtype, np_rawCalpar.shape
 
