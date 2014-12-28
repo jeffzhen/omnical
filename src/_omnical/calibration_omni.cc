@@ -3330,7 +3330,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		}
 
 
-		////Update g and ubl
+		////Update g and ubl, do not update single-bl bls since they are not reversible. Will reverse this step later is chisq increased
 		//float fraction;
 		for (unsigned int a = 0; a < module->g3.size(); a++){
 			module->g0[a][0] = stepsize2 * module->g0[a][0] + stepsize * module->g3[a][0];
@@ -3341,14 +3341,43 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			if ((info->ublcount)[u] > 1){
 				module->ubl0[u][0] = stepsize2 * module->ubl0[u][0] + stepsize * module->ubl3[u][0];
 				module->ubl0[u][1] = stepsize2 * module->ubl0[u][1] + stepsize * module->ubl3[u][1];
-			} else{
-				//make sure there's no error on unique baselines with only 1 baseline
-				////cbl = info->ublindex[u][0][2];
-				////module->ubl2dgrp1[u][0][0] = module->cdata1[cbl][0];
-				////module->ubl2dgrp1[u][0][1] = module->cdata1[cbl][1] * info->reversed[cbl];;
-				////module->ubl2dgrp2[u][0][0] = module->g0[info->ublindex[u][0][0]][0] * module->g0[info->ublindex[u][0][1]][0] + module->g0[info->ublindex[u][0][0]][1] * module->g0[info->ublindex[u][0][1]][1];
-				////module->ubl2dgrp2[u][0][1] = (module->g0[info->ublindex[u][0][0]][0] * module->g0[info->ublindex[u][0][1]][1] - module->g0[info->ublindex[u][0][0]][1] * module->g0[info->ublindex[u][0][1]][0]) * info->reversed[cbl];
-				////module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
+			}
+			//else{
+				////make sure there's no error on unique baselines with only 1 baseline
+				//for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
+					//cbl = info->ublindex[u][i][2];
+					//module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
+					//module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+					//module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
+					//module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+				//}
+
+				//module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
+				//module->ubl0[u][0] = module->ubl3[u][0];
+				//module->ubl0[u][1] = module->ubl3[u][1];
+			//}
+		}
+
+		//compute chisq and decide convergence
+		chisq2 = 0;
+		for (unsigned int b = 0; b < (module->cdata2).size(); b++){
+			if ((info->ublcount)[info->bltoubl[b]] > 1){//automatically use 0 for single-bl ubls, their actaul values are not updated yet
+				a1 = info->bl2d[info->crossindex[b]][0];
+				a2 = info->bl2d[info->crossindex[b]][1];
+				gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
+				gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
+				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
+				module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+				chisq2 += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
+				//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
+			}
+		}
+		componentchange = (chisq - chisq2) / chisq;
+
+		if (componentchange > 0){//if improved, keep g0 and ubl0 updates, and update single-bl ubls and chisq
+			chisq = chisq2;
+			for (unsigned int u = 0; u < module->ubl3.size(); u++){
+			//make sure there's no error on unique baselines with only 1 baseline
 				for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 					cbl = info->ublindex[u][i][2];
 					module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
@@ -3361,31 +3390,25 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 				module->ubl0[u][0] = module->ubl3[u][0];
 				module->ubl0[u][1] = module->ubl3[u][1];
 			}
-		}
+		} else {//reverse g0 and ubl0 changes
+			iter--;
+			for (unsigned int a = 0; a < module->g3.size(); a++){
+				module->g0[a][0] = (module->g0[a][0] - stepsize * module->g3[a][0]) / stepsize2;
+				module->g0[a][1] = (module->g0[a][1] - stepsize * module->g3[a][1]) / stepsize2;
 
-		//compute chisq and decide convergence
-		chisq2 = 0;
-		for (unsigned int b = 0; b < (module->cdata2).size(); b++){
-			a1 = info->bl2d[info->crossindex[b]][0];
-			a2 = info->bl2d[info->crossindex[b]][1];
-			gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
-			gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
-			module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
-			module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
-			chisq2 += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
-			//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
+			}
+			for (unsigned int u = 0; u < module->ubl3.size(); u++){
+				if ((info->ublcount)[u] > 1){
+					module->ubl0[u][0] = (module->ubl0[u][0] - stepsize * module->ubl3[u][0]) / stepsize2;
+					module->ubl0[u][1] = (module->ubl0[u][1] - stepsize * module->ubl3[u][1]) / stepsize2;
+				}
+			}
 		}
-		componentchange = (chisq - chisq2) / chisq;
-		if (componentchange > 0){
-			chisq = chisq2;
-		}
-		//cout << "lincal DBG c0 g0 g0 " << module->ubl0[info->nUBL - 1][0] << " " <<  module->ubl0[info->nUBL -1][1]  << " " << module->g0[DBGg1][0] << " " <<  module->g0[DBGg1][1]  << " " << module->g0[DBGg2][0] << " " <<  module->g0[DBGg2][1] << endl<<flush;
-		//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;
 	}
 
 
 	////update calpar and additive term
-	if( componentchange> 0){
+	if(componentchange > 0 or iter > 1){
 		for (unsigned int a = 0; a < module->g0.size(); a++){
 			calpar->at(3 + a) = log10(amp(&(module->g0[a])));
 			calpar->at(3 + info->nAntenna + a) = phase(&(module->g0[a]));

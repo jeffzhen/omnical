@@ -5,7 +5,7 @@ import aipy as ap
 import numpy.linalg as la
 import commands, os, time, math, ephem, multiprocessing, sys, copy
 import omnical.calibration_omni as omni
-
+import matplotlib.pyplot as plt
 #def _f(m, m0, info, m1, ID, q):
 
 	#time.sleep(info.nAntenna - 30)
@@ -119,7 +119,7 @@ if needrawcal:
 ####calibrate################
 ##print FILENAME + " MSG: starting calibration."
 for p, calibrator in zip(range(len(wantpols)), calibrators):
-	data = np.concatenate(list([data[p] for i in range(4)]), axis = 0)
+	data = np.concatenate([data[p] for i in range(1)], axis = 0)
 	calibrator.removeDegeneracy = removedegen
 	calibrator.removeAdditive = removeadditive
 	calibrator.keepData = keep_binary_data
@@ -129,9 +129,14 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 	calibrator.stepSize = step_size
 	calibrator.computeUBLFit = False
 	#print data[0,120:132,0]
-	timer = omni.Timer()
-	nthread = 12
-	calibrator.logcal(data, np.zeros_like(data), nthread = nthread, verbose=False)
-	#timer.tick()
-	calibrator.lincal(data, np.zeros_like(data), nthread = nthread, verbose=False)
-	timer.tick()
+	times = []
+	for nthread in range(1, 26):
+		timer = omni.Timer()
+		calibrator.logcal(data, np.zeros_like(data), nthread = nthread, verbose=False)
+		#timer.tick()
+		calibrator.lincal(data, np.zeros_like(data), nthread = nthread, verbose=False)
+		times += [list((nthread,) + timer.tick(nthread))]
+times = np.array(times)
+plt.plot(times[:, 1])
+plt.plot(times[1, 1] * 2/np.array(range(1,26)))
+plt.show()

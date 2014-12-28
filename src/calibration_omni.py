@@ -969,12 +969,19 @@ class RedundantCalibrator:
         np_rawCalpar = {}
         threads = {}
         fchunk = {}
-        chunk = int(np.ceil(self.nFrequency / float(nthread)))
+        chunk = int(self.nFrequency) / int(nthread)
+        excess = int(self.nFrequency) % int(nthread)
         kwarg = {"removedegen": int(self.removeDegeneracy), "uselogcal": uselogcal, "maxiter": int(self.maxIteration), "conv": float(self.convergePercent), "stepsize": float(self.stepSize), "computeUBLFit": int(self.computeUBLFit), "trust_period": self.trust_period}
 
         for i in range(nthread):
-            fchunk[i] = (i * chunk, min((1 + i) * chunk, self.nFrequency),)
-
+            if excess == 0:
+                fchunk[i] = (i * chunk, min((1 + i) * chunk, self.nFrequency),)
+            elif i < excess:
+                fchunk[i] = (i * (chunk+1), min((1 + i) * (chunk+1), self.nFrequency),)
+            else:
+                fchunk[i] = (fchunk[i-1][1], min(fchunk[i-1][1] + chunk, self.nFrequency),)
+            if verbose:
+                print fchunk[i],
             rawCalpar[i] = mp.RawArray('f', self.nTime * (fchunk[i][1] - fchunk[i][0]) * (self.rawCalpar.shape[2]))
             np_rawCalpar[i] = np.frombuffer(rawCalpar[i], dtype='float32')
             np_rawCalpar[i].shape = (self.rawCalpar.shape[0], fchunk[i][1]-fchunk[i][0], self.rawCalpar.shape[2])
@@ -986,6 +993,8 @@ class RedundantCalibrator:
 
             threads[i] = mp.Process(target = _redcal, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
             #threads[i] = threading.Thread(target = _O.redcal2, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
+        if verbose:
+            print ""
         for i in range(nthread):
             if verbose:
                 print "Starting Process #%i"%i
