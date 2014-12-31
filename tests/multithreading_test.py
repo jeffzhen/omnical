@@ -136,6 +136,10 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 		#timer.tick()
 		calibrator.lincal(data, np.zeros_like(data), nthread = nthread, verbose=False)
 		times += [list((nthread,) + timer.tick(nthread))]
+		if nthread == 1:
+			correct_calpar = np.copy(calibrator.rawCalpar)
+		else:
+			np.testing.assert_array_equal(correct_calpar, calibrator.rawCalpar)
 times = np.array(times)
 plt.plot(times[:, 1])
 plt.plot(times[1, 1] * 2/np.array(range(1,26)))

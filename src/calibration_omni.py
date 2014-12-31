@@ -856,6 +856,21 @@ class RedundantCalibrator:
             else:
                 raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
 
+    def __repr__(self,):
+        return self.__str__()
+
+    def __str__(self,):
+        if self.Info is None:
+            return "<Uninitialized %i antenna RedundantCalibrator with no RedundantInfo.>"%self.nAntenna
+        else:
+            return "<RedundantCalibrator for an %i antenna array: %i good baselines including %i good antennas and %i unique baselines.>"%(self.nTotalAnt, len(self.Info.crossindex), self.Info.nAntenna, self.Info.nUBL)
+
+    def __getattr__(self, name):
+        try:
+            return self.Info.__getattribute__(name)
+        except:
+            raise AttributeError("RedundantCalibrator has no attribute named %s"%name)
+
     def read_redundantinfo(self, infopath, verbose = False):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
         info = read_redundantinfo(infopath, verbose = verbose)
         self.Info = RedundantInfo(info, verbose = verbose)
