@@ -130,7 +130,8 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 	calibrator.computeUBLFit = False
 	#print data[0,120:132,0]
 	times = []
-	for nthread in range(1, 26):
+	nthreads = range(1, 26) + range(30,60,10)
+	for nthread in nthreads:
 		timer = omni.Timer()
 		calibrator.logcal(data, np.zeros_like(data), nthread = nthread, verbose=False)
 		#timer.tick()
@@ -141,6 +142,6 @@ for p, calibrator in zip(range(len(wantpols)), calibrators):
 		else:
 			np.testing.assert_array_equal(correct_calpar, calibrator.rawCalpar)
 times = np.array(times)
-plt.plot(times[:, 1])
-plt.plot(times[1, 1] * 2/np.array(range(1,26)))
+plt.plot(nthreads, times[:, 1])
+plt.plot(nthreads, times[1, 1] * 2/np.array(nthreads))
 plt.show()
