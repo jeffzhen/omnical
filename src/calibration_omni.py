@@ -931,7 +931,7 @@ class RedundantCalibrator:
             print "Bad UBL indices:", self.badUBLpair
 
 
-    def lincal(self, data, additivein, nthread = None, verbose = False):
+    def lincal(self, data, additivein, nthread = None, verbose = False):#for best performance, try setting nthread to larger than number of cores.
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
             raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
@@ -1010,6 +1010,7 @@ class RedundantCalibrator:
             #threads[i] = threading.Thread(target = _O.redcal2, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
         if verbose:
             print "Starting %s Process"%cal_name[uselogcal],
+            sys.stdout.flush()
         for i in range(nthread):
             if verbose:
                 print "#%i"%i,
@@ -1023,6 +1024,7 @@ class RedundantCalibrator:
                 print "#%i"%i,
         if verbose:
             print ""
+            sys.stdout.flush()
         self.rawCalpar = np.concatenate([np_rawCalpar[i] for i in range(nthread)],axis=1)
         return np.concatenate([np_additiveouts[i] for i in range(nthread)],axis=1)
 
