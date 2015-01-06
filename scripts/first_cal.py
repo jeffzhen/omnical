@@ -96,7 +96,7 @@ sys.stdout.flush()
 	#infopaths[key]= opts.infopath
 
 
-removedegen = True
+removedegen = False #there's a special degenaracy removal anyways
 removeadditive = False
 removeadditiveperiod = -1
 
@@ -211,8 +211,11 @@ while new_bad_ant != [] and trials < max_try:
 			data[p] = omni.apply_calpar(rawdata[p], crude_calpar[key], calibrators[key].totalVisibilityId)
 		else:
 			data[p] = rawdata[p]
-		calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
-		####calibrate################
+		#calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
+
+		################################
+		########calibrate################
+		################################
 
 		################first round of calibration	#########################
 		print FILENAME + " MSG: starting calibration on %s. nTime = %i, nFrequency = %i ..."%(key, calibrators[key].nTime, calibrators[key].nFrequency),
@@ -224,7 +227,10 @@ while new_bad_ant != [] and trials < max_try:
 		print "Done. %fmin"%(float(time.time()-timer)/60.)
 		sys.stdout.flush()
 
-		################try another generacy removal that enforce 3 antenna to have 0 phase just as crude_cal
+		#################degeneracy removal on 3 antennas [initant, degen[0], degen[1]]######################################
+		print FILENAME + " MSG: Performing additional degeneracy removal on %s"%key,
+		sys.stdout.flush()
+		timer = time.time()
 		A = np.zeros((calibrators[key].Info.nAntenna, 3))
 		masker = np.zeros((calibrators[key].Info.nAntenna, calibrators[key].Info.nAntenna))
 		for a in [initant, degen[0], degen[1]]:
@@ -233,7 +239,8 @@ while new_bad_ant != [] and trials < max_try:
 		matrix = np.identity(calibrators[key].Info.nAntenna) - (np.array(info['antloc'])*[1,1,0]+[0,0,1]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()).dot(masker))
 
 		calibrators[key].rawCalpar[:, :, (3 + calibrators[key].Info.nAntenna):(3 + 2 * calibrators[key].Info.nAntenna)] = matrix.dot(calibrators[key].rawCalpar[:, :, (3 + calibrators[key].Info.nAntenna):(3 + 2 * calibrators[key].Info.nAntenna)].transpose(0,2,1)).transpose(1,2,0)
-
+		print "Done. %fmin"%(float(time.time()-timer)/60.)
+		sys.stdout.flush()
 
 		#######################diagnose###############################
 		ant_bad_meter[key], _ = calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, verbose = False)
@@ -339,7 +346,7 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 		plt.hist(delay_error[calibrators[pol].Info.subsetant], 20)
 		plt.show()
 
-print "Bad antennas found: ",
+print "%i Bad antennas found: "%len(badAntenna),
 bad_str = ""
 for bant in badAntenna:
 	bad_str += (str(int(bant)) + ",")
