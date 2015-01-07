@@ -96,7 +96,7 @@ sys.stdout.flush()
 	#infopaths[key]= opts.infopath
 
 
-removedegen = False #there's a special degenaracy removal anyways
+removedegen = True #this is only for amplitude, because for phase there's a special degenaracy removal anyways
 removeadditive = False
 removeadditiveperiod = -1
 
