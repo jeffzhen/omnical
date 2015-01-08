@@ -315,7 +315,7 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
 	delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
 
-	avg_angle = np.angle((linearcalpar[pol] * crude_calpar[key][:, calibrators[pol].Info.subsetant])[fstart:fend].transpose())#2D nant x freq
+	avg_angle = np.angle((linearcalpar[pol] * crude_calpar[key][:, calibrators[pol].Info.subsetant])[fstart:fend].transpose()).astype('float32')#2D nant x freq
 	nanfreq = np.isnan(np.mean(avg_angle, axis = 0))
 	##first get intersection for f=0
 	A = np.ones((fend-fstart, 2),dtype='float32')
@@ -324,7 +324,6 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	matrix_f0 = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[1]
 
 
-	print avg_angle
 	#avg_angle -= avg_angle[0]
 
 	for a in range(len(avg_angle)):
