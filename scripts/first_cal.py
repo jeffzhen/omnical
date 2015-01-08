@@ -268,7 +268,7 @@ while new_bad_ant != [] and trials < max_try:
 linearcalpar = {}
 for pol in wantpols.keys():
 	linearcalpar[pol] = 10.**(calibrators[pol].rawCalpar[:,:,3:3+calibrators[pol].Info.nAntenna]) * np.exp(1j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna])
-	linearcalpar[pol] = np.nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * np.nanmedian(np.imag(linearcalpar[pol]), axis = 0)
+	linearcalpar[pol] = nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * nanmedian(np.imag(linearcalpar[pol]), axis = 0)
 
 if oppath != "DONT_WRITE/":
 	if info_tag == "DEFAULT":
@@ -299,7 +299,7 @@ if fend == 0:
 ####amplitude
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
-	amp[calibrators[pol].Info.subsetant] = np.abs(np.nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * np.nanmedian(np.imag(linearcalpar[pol]), axis = 0))
+	amp[calibrators[pol].Info.subsetant] = np.abs(nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * nanmedian(np.imag(linearcalpar[pol]), axis = 0))
 	print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
 	print '{'
 	for a1, a2 in zip(range(len(amp)), amp):
