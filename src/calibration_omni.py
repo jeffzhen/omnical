@@ -20,7 +20,7 @@ with warnings.catch_warnings():
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
 
-infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi','totalVisibilityId']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
 cal_name = {0: "Lincal", 1: "Logcal"}
 
@@ -206,9 +206,11 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
     if (overwrite) and os.path.isfile(infopath):
         os.remove(infopath)
     
-    binaryinfokeysnew = binaryinfokeys
-    if info['nAntenna'] > 128:
+    binaryinfokeysnew = binaryinfokeys[:]
+    threshold = 128
+    if info['nAntenna'] > threshold:
         binaryinfokeysnew.extend(['AtAi','BtBi'])
+    binaryinfokeysnew.extend(['totalVisibilityId'])
     marker = 9999999
     datachunk = [0 for i in range(len(binaryinfokeysnew)+1)]
     count = 0
@@ -217,7 +219,7 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
     if verbose:
                 print "appending", 
     for key in binaryinfokeysnew:
-        if key in ['antloc', 'ubl','degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']:  #'antloc',
+        if key in ['antloc', 'ubl','degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','totalVisibilityId']:  #'antloc',
             add = np.append(np.array(info[key]).flatten(),[marker])
             datachunk[count] = add
             count += 1
@@ -230,7 +232,7 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
             if verbose:
                 print key,
         elif key in ['A','B']:
-            if info['nAntenna'] > 128:
+            if info['nAntenna'] > threshold:
                 row = info[key].nonzero()[0]           #row index of non zero entries
                 column = info[key].nonzero()[1]        #column index of non zero entries
                 nonzero = np.transpose(np.array([row,column]))       #a list of non zero entries
@@ -351,13 +353,12 @@ def read_redundantinfo(infopath, verbose = False):
     if not os.path.isfile(infopath):
         raise Exception('Error: file path %s does not exist!'%infopath)
     with open(infopath) as f:
-        farray=array('d')
+        farray = array('d')
         farray.fromstring(f.read())
         datachunk = np.array(farray)
         marker = 9999999
-        markerindex=np.where(datachunk == marker)[0]
-        rawinfo=np.array([np.array(datachunk[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
-
+        markerindex = np.where(datachunk == marker)[0]
+        rawinfo = np.array([np.array(datachunk[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
     if verbose:
         print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
 
@@ -410,7 +411,8 @@ def read_redundantinfo(infopath, verbose = False):
     #matrices
     info['degenM'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'], info['nAntenna']))
     infocount += 1
-    if info['nAntenna'] > 128:   
+    threshold = 128
+    if info['nAntenna'] > threshold:   
         sparse_entries = rawinfo[infocount].reshape((len(rawinfo[infocount])/3,3))
         row = sparse_entries[:,0]
         column = sparse_entries[:,1]
@@ -419,7 +421,7 @@ def read_redundantinfo(infopath, verbose = False):
     else:
         info['A'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #A matrix for logcal amplitude
     infocount += 1
-    if info['nAntenna'] > 128:
+    if info['nAntenna'] > threshold:
         sparse_entries = rawinfo[infocount].reshape((len(rawinfo[infocount])/3,3))
         row = sparse_entries[:,0]
         column = sparse_entries[:,1]
@@ -428,17 +430,20 @@ def read_redundantinfo(infopath, verbose = False):
     else:
         info['B'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #B matrix for logcal phase
     infocount += 1
-    if info['nAntenna'] > 128:
+    if info['nAntenna'] > threshold:
         info['AtAi'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'],info['nAntenna'] + info['nUBL']))
         infocount += 1
         info['BtBi'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'],info['nAntenna'] + info['nUBL']))
         infocount += 1
+    if len(rawinfo) > infocount:     #make sure the code is compatible the old files (saved without totalVisibilityId)
+        info['totalVisibilityId'] = rawinfo[infocount].reshape(-1,2).astype(int)
+    
     ##The sparse matrices are treated a little differently because they are not rectangular
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore",category=DeprecationWarning)
         info['At'] = info['A'].transpose()
         info['Bt'] = info['B'].transpose()
-        if info['nAntenna'] <= 128:
+        if info['nAntenna'] <= threshold:
             info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
             info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
         info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
