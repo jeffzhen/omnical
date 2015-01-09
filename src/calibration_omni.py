@@ -1132,7 +1132,7 @@ class RedundantCalibrator:
         bad_count = np.zeros((3,self.Info.nAntenna), dtype='int')
         bad_ubl_count = np.zeros(self.Info.nUBL, dtype='int')
         median_level = nanmedian(nanmedian(self.rawCalpar[:,:,3:3+self.Info.nAntenna], axis= 0), axis= 1)
-        bad_count[0] = np.array([(np.abs(self.rawCalpar[:,:,3+a] - median_level) >= .5).sum() for a in range(self.Info.nAntenna)])**2
+        bad_count[0] = np.array([(np.abs(self.rawCalpar[:,:,3+a] - median_level) >= .15).sum() for a in range(self.Info.nAntenna)])**2
 
         if data is not None and data.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1

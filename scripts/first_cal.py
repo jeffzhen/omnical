@@ -10,6 +10,7 @@ import scipy.signal as ss
 import scipy.linalg as la
 from scipy.stats import nanmedian
 import matplotlib.pyplot as plt
+import cPickle as pickle
 FILENAME = "first_cal.py"
 
 
@@ -92,8 +93,8 @@ sys.stdout.flush()
 
 
 #infopaths = {}
-#for key in wantpols.keys():
-	#infopaths[key]= opts.infopath
+#for pol in wantpols.keys():
+	#infopaths[pol]= opts.infopath
 
 
 removedegen = True #this is only for amplitude, because for phase there's a special degenaracy removal anyways
@@ -187,96 +188,99 @@ while new_bad_ant != [] and trials < max_try:
 		print 'Current bad Antennas:', badAntenna
 		print 'Bad unique baselines:', badUBLpair
 
-	for p, key in enumerate(wantpols.keys()):
+	for p, pol in enumerate(wantpols.keys()):
 		if trials == 1:
 
-			calibrators[key] = omni.RedundantCalibrator_PAPER(aa)
-			calibrators[key].nTime = len(timing)
-			calibrators[key].nFrequency = nfreq
-			calibrators[key].removeDegeneracy = removedegen
-			calibrators[key].convergePercent = converge_percent
-			calibrators[key].maxIteration = max_iter
-			calibrators[key].stepSize = step_size
+			calibrators[pol] = omni.RedundantCalibrator_PAPER(aa)
+			calibrators[pol].nTime = len(timing)
+			calibrators[pol].nFrequency = nfreq
+			calibrators[pol].removeDegeneracy = removedegen
+			calibrators[pol].convergePercent = converge_percent
+			calibrators[pol].maxIteration = max_iter
+			calibrators[pol].stepSize = step_size
 
 
 		timer = time.time()
-		calibrators[key].compute_redundantinfo(badAntenna = badAntenna, badUBLpair = badUBLpair, antennaLocationTolerance = redundancy_tol)
-		print "Redundant info on %s computed in %f minutes."%(key, (time.time() - timer)/60.)
-		info = calibrators[key].Info.get_info()
+		calibrators[pol].compute_redundantinfo(badAntenna = badAntenna, badUBLpair = badUBLpair, antennaLocationTolerance = redundancy_tol)
+		print "Redundant info on %s computed in %f minutes."%(pol, (time.time() - timer)/60.)
+		info = calibrators[pol].Info.get_info()
 
 		###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
 		if need_crude_cal:
 			initant, solution_path, additional_solution_path, degen, _ = omni.find_solution_path(info, verbose = False)
-			crude_calpar[key] = np.array([omni.raw_calibrate(rawdata[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[key].nFrequency)])
-			data[p] = omni.apply_calpar(rawdata[p], crude_calpar[key], calibrators[key].totalVisibilityId)
+			crude_calpar[pol] = np.array([omni.raw_calibrate(rawdata[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[pol].nFrequency)])
+			data[p] = omni.apply_calpar(rawdata[p], crude_calpar[pol], calibrators[pol].totalVisibilityId)
 		else:
 			data[p] = rawdata[p]
-		#calibrators[key].rawCalpar = np.zeros((calibrators[key].nTime, calibrators[key].nFrequency, 3 + 2 * (calibrators[key].Info.nAntenna + calibrators[key].Info.nUBL)),dtype='float32')
+		#calibrators[pol].rawCalpar = np.zeros((calibrators[pol].nTime, calibrators[pol].nFrequency, 3 + 2 * (calibrators[pol].Info.nAntenna + calibrators[pol].Info.nUBL)),dtype='float32')
 
 		################################
 		########calibrate################
 		################################
 
 		################first round of calibration	#########################
-		print FILENAME + " MSG: starting calibration on %s. nTime = %i, nFrequency = %i ..."%(key, calibrators[key].nTime, calibrators[key].nFrequency),
+		print FILENAME + " MSG: starting calibration on %s. nTime = %i, nFrequency = %i ..."%(pol, calibrators[pol].nTime, calibrators[pol].nFrequency),
 		sys.stdout.flush()
 		timer = time.time()
 		additivein = np.zeros_like(data[p])
-		calibrators[key].logcal(data[p], additivein, verbose=True)
-		additiveout = calibrators[key].lincal(data[p], additivein, verbose=True)
+		calibrators[pol].logcal(data[p], additivein, verbose=True)
+		additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
 		print "Done. %fmin"%(float(time.time()-timer)/60.)
 		sys.stdout.flush()
 
 		#################degeneracy removal on 3 antennas [initant, degen[0], degen[1]]######################################
-		print FILENAME + " MSG: Performing additional degeneracy removal on %s"%key,
+		print FILENAME + " MSG: Performing additional degeneracy removal on %s"%pol,
 		sys.stdout.flush()
 		timer = time.time()
-		A = np.zeros((calibrators[key].Info.nAntenna, 3))
-		masker = np.zeros((calibrators[key].Info.nAntenna, calibrators[key].Info.nAntenna))
+		A = np.zeros((calibrators[pol].Info.nAntenna, 3))
+		masker = np.zeros((calibrators[pol].Info.nAntenna, calibrators[pol].Info.nAntenna))
 		for a in [initant, degen[0], degen[1]]:
-			A[a] = [calibrators[key].Info.antloc[a][0], calibrators[key].Info.antloc[a][1] , 1.]
+			A[a] = [calibrators[pol].Info.antloc[a][0], calibrators[pol].Info.antloc[a][1] , 1.]
 			masker[a,a] = 1.
-		matrix = np.identity(calibrators[key].Info.nAntenna) - (np.array(info['antloc'])*[1,1,0]+[0,0,1]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()).dot(masker))
+		matrix = np.identity(calibrators[pol].Info.nAntenna) - (np.array(info['antloc'])*[1,1,0]+[0,0,1]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()).dot(masker))
 
-		calibrators[key].rawCalpar[:, :, (3 + calibrators[key].Info.nAntenna):(3 + 2 * calibrators[key].Info.nAntenna)] = matrix.dot(calibrators[key].rawCalpar[:, :, (3 + calibrators[key].Info.nAntenna):(3 + 2 * calibrators[key].Info.nAntenna)].transpose(0,2,1)).transpose(1,2,0)
+		calibrators[pol].rawCalpar[:, :, (3 + calibrators[pol].Info.nAntenna):(3 + 2 * calibrators[pol].Info.nAntenna)] = matrix.dot(calibrators[pol].rawCalpar[:, :, (3 + calibrators[pol].Info.nAntenna):(3 + 2 * calibrators[pol].Info.nAntenna)].transpose(0,2,1)).transpose(1,2,0)
 		print "Done. %fmin"%(float(time.time()-timer)/60.)
 		sys.stdout.flush()
 
 		#######################diagnose###############################
-		ant_bad_meter[key], _ = calibrators[key].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, verbose = False)
+		ant_bad_meter[pol], _ = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, verbose = False)
 		nbad = 0
-		for ab in ant_bad_meter[key]:
+		for ab in ant_bad_meter[pol]:
 			if ab > healthbar:
 				nbad += 1
-		print FILENAME + " MSG: %i bad antennas found on %s:"%(nbad, key),
-		for i, ab in enumerate(ant_bad_meter[key]):
-			if ab > healthbar:
-				print calibrators[key].Info.subsetant[i],
 		if nbad > 0:
+			print FILENAME + " MSG: %i bad antennas found on %s:"%(nbad, pol),
+			for i, ab in enumerate(ant_bad_meter[pol]):
+				if ab > healthbar:
+					print calibrators[pol].Info.subsetant[i],
 			print ""
+		else:
+			print FILENAME + " MSG: %i bad antennas found on %s"%(nbad, pol)
 		sys.stdout.flush()
 
 
 	new_bad_ant = []
 	for a in range(calibrators[wantpols.keys()[0]].Info.nAntenna):
-		for key in wantpols.keys():
-			if ant_bad_meter[key][a] > healthbar:
+		for pol in wantpols.keys():
+			if ant_bad_meter[pol][a] > healthbar:
 				new_bad_ant.append(calibrators[wantpols.keys()[0]].Info.subsetant[a])
 				break
 
 
-linearcalpar = {}
+linearcalpar = {}#combine lincal results averaged over time and the initial crude_calpar results
 for pol in wantpols.keys():
 	linearcalpar[pol] = 10.**(calibrators[pol].rawCalpar[:,:,3:3+calibrators[pol].Info.nAntenna]) * np.exp(1j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna])
 	linearcalpar[pol] = nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * nanmedian(np.imag(linearcalpar[pol]), axis = 0)
+	linearcalpar[pol] = linearcalpar[pol] * crude_calpar[pol][:, calibrators[pol].Info.subsetant]
 
 if oppath != "DONT_WRITE/":
 	if info_tag == "DEFAULT":
 		op_info_path = oppath + 'redundantinfo_first_cal_' + time.strftime("%Y_%m_%d_%H_%M_%S") + ".bin"
-		op_calpar_path = oppath + 'calpar_first_cal_' + time.strftime("%Y_%m_%d_%H_%M_%S") + ".bin"
+		op_calpar_path = oppath + 'calpar_first_cal_' + time.strftime("%Y_%m_%d_%H_%M_%S") + ".p"
 	else:
 		op_info_path = oppath + 'redundantinfo_first_cal_' + info_tag + ".bin"
-		op_calpar_path = oppath + 'calpar_first_cal_' + info_tag + ".bin"
+		op_calpar_path = oppath + 'calpar_first_cal_' + info_tag + ".p"
 
 	print FILENAME + " MSG: Writing redundant info to %s"%op_info_path,
 	sys.stdout.flush()
@@ -284,12 +288,18 @@ if oppath != "DONT_WRITE/":
 	print "Done."
 	sys.stdout.flush()
 
-	for pol in wantpols.keys():
-		print FILENAME + " MSG: Writing %s raw calpar to %s"%(pol, op_calpar_path.replace('.bin', pol+'.bin')),
-		sys.stdout.flush()
-		linearcalpar[pol].astype('float32').tofile(op_calpar_path.replace('.bin', pol+'.bin'))
-		print "Done."
-		sys.stdout.flush()
+	#for pol in wantpols.keys():
+		#print FILENAME + " MSG: Writing %s raw calpar to %s"%(pol, op_calpar_path.replace('.bin', pol+'.bin')),
+		#sys.stdout.flush()
+		#linearcalpar[pol].astype('float32').tofile(op_calpar_path.replace('.bin', pol+'.bin'))
+		#print "Done."
+		#sys.stdout.flush()
+	linearcalpar_out = {}#include all antennas, not just good ones
+	for pol in linearcalpar.keys():
+		linearcalpar_out[pol] = np.ones((linearcalpar[pol].shape[0], calibrators[pol].nTotalAnt), dtype='complex64')
+		linearcalpar_out[pol][:, calibrators[pol].subsetant] = linearcalpar[pol]
+	with open(op_calpar_path, 'wb') as outfile:
+		pickle.dump(linearcalpar_out, outfile, protocol=pickle.HIGHEST_PROTOCOL)
 else:
 	print FILENAME + " MSG: Not outputting redundantinfo or rawcalpar by default."
 	sys.stdout.flush()
@@ -299,7 +309,7 @@ if fend == 0:
 ####amplitude
 for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
-	amp[calibrators[pol].Info.subsetant] = np.abs(nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * nanmedian(np.imag(linearcalpar[pol]), axis = 0))
+	amp[calibrators[pol].Info.subsetant] = nanmedian(np.abs(linearcalpar[pol]), axis = 0)
 	print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
 	print '{'
 	for a1, a2 in zip(range(len(amp)), amp):
@@ -315,7 +325,7 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
 	delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
 
-	avg_angle = np.angle((linearcalpar[pol] * crude_calpar[key][:, calibrators[pol].Info.subsetant])[fstart:fend].transpose()).astype('float32')#2D nant x freq
+	avg_angle = np.angle(linearcalpar[pol][fstart:fend].transpose()).astype('float32')#2D nant x freq
 	nanfreq = np.isnan(np.mean(avg_angle, axis = 0))
 	##first get intersection for f=0
 	A = np.ones((fend-fstart, 2),dtype='float32')
@@ -336,8 +346,8 @@ for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 	A = A[~nanfreq].reshape((np.sum(~nanfreq), 1))
 	matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))
 	error_matrix = A.dot(la.pinv(A.transpose().dot(A)).dot(A.transpose())) - np.identity(len(A))
-	delay[calibrators[pol].Info.subsetant] = [matrix.dot(x[~nanfreq])/ (2 * np.pi)  for x in avg_angle]
-	delay_error[calibrators[pol].Info.subsetant] = [la.norm((error_matrix.dot(x[~nanfreq])+np.pi)%(2*np.pi)-np.pi)/ (len(A))**.5 for x in avg_angle]
+	delay[calibrators[pol].Info.subsetant] = [matrix.dot(x[~nanfreq])[0] / (2 * np.pi)  for x in avg_angle]
+	delay_error[calibrators[pol].Info.subsetant] = [la.norm((error_matrix.dot(x[~nanfreq]) + np.pi) % (2*np.pi) - np.pi) / (len(A))**.5 for x in avg_angle]
 	print FILENAME + " MSG: delay on %s in nanoseconds:"%pol
 	print '{'
 	for a1, a2 in zip(range(len(delay)), delay):
