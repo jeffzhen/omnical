@@ -1192,7 +1192,7 @@ class RedundantCalibrator:
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
             return txt
 
-    def flag(self, twindow = 5, fwindow = 5, thresh = .01):#return true if good False if bad
+    def flag(self, twindow = 5, fwindow = 5, thresh = .20):#return true if good False if bad
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
 
@@ -1201,14 +1201,15 @@ class RedundantCalibrator:
 
 
 
-        nan_flag = np.isnan(chisq)
+        nan_flag = np.isnan(chisq)|np.isinf(chisq)
         chisq[nan_flag] = 1e6 * median_level
 
-        filtered_tdir = sfil.minimum_filter(nanmedian(chisq, axis = 1), size = twindow, mode='reflect')
-        filtered_fdir = sfil.minimum_filter(nanmedian(chisq, axis = 0), size = fwindow, mode='reflect')
+        filtered_tdir = sfil.minimum_filter(np.median(chisq, axis = 1), size = twindow, mode='reflect')
+        filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
 
-        smoothed_chisq = np.outer(filtered_tdir, filtered_fdir) / median_level
-        spike_flag = (chisq - smoothed_chisq) > smoothed_chisq * thresh
+        smoothed_chisq = np.outer(filtered_tdir, filtered_fdir)
+        smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
+        spike_flag = (chisq - smoothed_chisq) >= smoothed_chisq * thresh
 
         return ~(nan_flag|spike_flag)
 
