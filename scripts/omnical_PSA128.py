@@ -193,6 +193,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
 
     ###apply, if needed, raw calibration################
     if needrawcal:
+        original_data = np.copy(data[p])
         data[p] = omni.apply_calpar(data[p], crude_calpar[pol], calibrators[pol].totalVisibilityId)
 
     ####calibrate################
@@ -206,7 +207,14 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     sys.stdout.flush()
     timer = time.time()
     additivein = np.zeros_like(data[p])
+
     calibrators[pol].logcal(data[p], additivein, verbose=True)
+
+    if needrawcal:#restore original data after logcal
+        calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
+        calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] + np.angle(crude_calpar[pol][:, calibrators[pol].subsetant])
+        data[p] = np.copy(original_data)
+
     additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
     #######################remove additive###############################
     if removeadditive:
