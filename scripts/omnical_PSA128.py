@@ -236,7 +236,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
             additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
 
     #####################flag bad data according to chisq#########################
-    flags[pol] = calibrators[pol].flag(nsigma = flag_thresh, twindow=flagt, fwindow=flagf)
+    flags[pol] = calibrators[pol].flag(nsigma = flag_thresh, twindow=flagt, fwindow=flagf)#True if bad and flagged
 
     print "Done. %fmin"%(float(time.time()-timer)/60.)
     sys.stdout.flush()
@@ -267,7 +267,7 @@ if create_new_uvs:
     infos = {}
     for pol in wantpols.keys():
         infos[pol] = omni.read_redundantinfo(infopaths[pol])
-    omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), overwrite = overwrite_uvs)
+    omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), flags = flags, overwrite = overwrite_uvs)
     print "Done"
     sys.stdout.flush()
 if make_plots:
@@ -275,14 +275,14 @@ if make_plots:
     for p,pol in zip(range(len(wantpols)), wantpols.keys()):
         plt.subplot(2, len(wantpols), 2 * p + 1)
         plot_data = (calibrators[pol].rawCalpar[:,:,2]/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5
-        plt.imshow(plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,:,2][flags[wantpols.keys()[0]]])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
+        plt.imshow(plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,:,2][~flags[wantpols.keys()[0]]])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
         plt.title('RMS fitting error per baseline')
         plt.colorbar()
 
         plt.subplot(2, len(wantpols), 2 * p + 2)
         flag_plot_data = np.copy(plot_data)
-        flag_plot_data[~flags[pol]] = 0
-        plt.imshow(flag_plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,:,2][flags[wantpols.keys()[0]]])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
+        flag_plot_data[flags[pol]] = 0
+        plt.imshow(flag_plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,:,2][~flags[wantpols.keys()[0]]])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
         plt.title('flagged RMS fitting error per baseline')
         plt.colorbar()
     plt.show()

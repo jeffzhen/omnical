@@ -170,7 +170,7 @@ class TestUV(unittest.TestCase):
         ######################################################################
         ano = 'test'##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
         uvfiles = [os.path.dirname(os.path.realpath(__file__)) + '/test.uv']
-        wantpols = {'xx':-5}#, 'yy':-6}
+        wantpols = {'xx':-5, 'yy':-6}
 
         #infopaths = {'xx':os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt', 'yy':os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt'}
         arrayinfos = {'xx':os.path.dirname(os.path.realpath(__file__)) + '/../doc/arrayinfo_apprx_PAPER32_badUBLpair.txt', 'yy':os.path.dirname(os.path.realpath(__file__)) + '/../doc/arrayinfo_apprx_PAPER32_badUBLpair.txt'}
@@ -212,20 +212,21 @@ class TestUV(unittest.TestCase):
 
         ####create redundant calibrators################
         #calibrators = [omni.RedundantCalibrator(nant, info = infopaths[key]) for key in wantpols.keys()]
-        calibrators = [omni.RedundantCalibrator(nant) for key in wantpols.keys()]
-        for calibrator, key in zip(calibrators, wantpols.keys()):
-            calibrator.compute_redundantinfo(arrayinfoPath = arrayinfos[key])
+        calibrators = {}
+        for key in wantpols.keys():
+            calibrators[key] = omni.RedundantCalibrator(nant)
+            calibrators[key].compute_redundantinfo(arrayinfoPath = arrayinfos[key])
             #calibrator.write_redundantinfo(infoPath = './redundantinfo_test_' + key + '.txt', overwrite = True)
         ###start reading miriads################
         ##print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
-        data, t, timing, lst = omni.importuvs(uvfiles, calibrators[0].totalVisibilityId, wantpols, nTotalAntenna = 32,timingTolerance = 2*math.pi, init_mem = 5.e7)
+        data, t, timing, lst = omni.importuvs(uvfiles, calibrators[wantpols.keys()[0]].totalVisibilityId, wantpols, nTotalAntenna = 32,timingTolerance = 2*math.pi, init_mem = 5.e7)
         ##print FILENAME + " MSG:",  len(t), "slices read."
 
         ###raw calibration################
         if needrawcal:
-            for p, key in zip(range(len(wantpols)), wantpols.keys()):
+            for p, key in enumerate(wantpols.keys()):
                 rawcalpar = np.fromfile(rawpaths[key], dtype="complex64").reshape(nfreq, nant)
-                data[p] = omni.apply_calpar(data[p], rawcalpar, calibrators[p].totalVisibilityId)
+                data[p] = omni.apply_calpar(data[p], rawcalpar, calibrators[key].totalVisibilityId)
 
         #####Save various files read################
         ###np.savetxt('miriadextract_' + ano + "_sunpos.dat", sunpos[:len(t)], fmt='%8.5f')
@@ -241,35 +242,35 @@ class TestUV(unittest.TestCase):
 
         ####calibrate################
         ##print FILENAME + " MSG: starting calibration."
-        for p, calibrator in zip(range(len(wantpols)), calibrators):
-            calibrator.removeDegeneracy = removedegen
-            calibrator.removeAdditive = removeadditive
-            calibrator.keepData = keep_binary_data
-            calibrator.keepCalpar = keep_binary_calpar
-            calibrator.convergePercent = converge_percent
-            calibrator.maxIteration = max_iter
-            calibrator.stepSize = step_size
-            calibrator.computeUBLFit = False
+        for p, key in enumerate(wantpols.keys()):
+            calibrators[key].removeDegeneracy = removedegen
+            calibrators[key].removeAdditive = removeadditive
+            calibrators[key].keepData = keep_binary_data
+            calibrators[key].keepCalpar = keep_binary_calpar
+            calibrators[key].convergePercent = converge_percent
+            calibrators[key].maxIteration = max_iter
+            calibrators[key].stepSize = step_size
+            calibrators[key].computeUBLFit = False
 
 
-            calibrator.logcal(data[p], np.zeros_like(data[p]), verbose=False)
-            additiveout = calibrator.lincal(data[p], np.zeros_like(data[p]), verbose=False)
+            calibrators[key].logcal(data[p], np.zeros_like(data[p]), verbose=False)
+            additiveout = calibrators[key].lincal(data[p], np.zeros_like(data[p]), verbose=False)
 
-            calibrator.utctimes = timing
-            calibrator.get_calibrated_data(data[p])
-            calibrator.get_omnichisq()
-            calibrator.get_omnigain()
-            calibrator.get_omnifit()
+            calibrators[key].utctimes = timing
+            calibrators[key].get_calibrated_data(data[p])
+            calibrators[key].get_omnichisq()
+            calibrators[key].get_omnigain()
+            calibrators[key].get_omnifit()
 
         #########Test results############
         correctresult = np.fromfile(os.path.dirname(os.path.realpath(__file__)) + '/test.omnical', dtype = 'float32').reshape(14,203,165)[:,:,:]
         nanmask = ~np.isnan(np.sum(correctresult,axis=2))#mask the last dimension because when data contains some 0 and some -0, C++ code return various phasecalibration parameters on different systems, when all other numbers are nan. I do the summation to avoid it failing the euqality check when the input is trivially 0s.
-        calibrators[-1].rawCalpar.tofile(os.path.dirname(os.path.realpath(__file__)) + '/results/new_result.omnical')
-        omni.write_redundantinfo(calibrators[-1].Info.get_info(), os.path.dirname(os.path.realpath(__file__)) + '/results/new_info.bin', overwrite = True)
-        newresult = calibrators[-1].rawCalpar[:,:,:]
+        calibrators['xx'].rawCalpar.tofile(os.path.dirname(os.path.realpath(__file__)) + '/results/new_result.omnical')
+        omni.write_redundantinfo(calibrators['xx'].Info.get_info(), os.path.dirname(os.path.realpath(__file__)) + '/results/new_info.bin', overwrite = True)
+        newresult = calibrators['xx'].rawCalpar[:,:,:]
         np.testing.assert_almost_equal(correctresult[:,:,1:3][nanmask], newresult[:,:,1:3][nanmask], decimal = 5)
-        np.testing.assert_almost_equal(np.sum(np.abs(data[-1] - calibrators[-1].get_modeled_data())[:,:,calibrators[-1].Info.subsetbl[calibrators[-1].Info.crossindex]]**2, axis=2)[nanmask], newresult[:,:,2][nanmask], decimal = 5)
-        np.testing.assert_almost_equal(np.sum(np.abs(additiveout)[:,:,calibrators[-1].Info.crossindex]**2, axis=2)[nanmask], newresult[:,:,2][nanmask], decimal = 5)
+        np.testing.assert_almost_equal(np.sum(np.abs(data[wantpols.keys().index('xx')] - calibrators['xx'].get_modeled_data())[:,:,calibrators['xx'].Info.subsetbl[calibrators['xx'].Info.crossindex]]**2, axis=2)[nanmask], newresult[:,:,2][nanmask], decimal = 5)
+        np.testing.assert_almost_equal(np.sum(np.abs(additiveout)[:,:,calibrators['xx'].Info.crossindex]**2, axis=2)[nanmask], newresult[:,:,2][nanmask], decimal = 5)
         np.testing.assert_almost_equal(correctresult[:,:,3:67][nanmask], newresult[:,:,3:67][nanmask], decimal = 5)
         np.testing.assert_almost_equal(np.sort(np.abs(correctresult[:,:,67:][nanmask])), np.sort(np.abs(newresult[:,:,67:][nanmask])), decimal = 5)
 

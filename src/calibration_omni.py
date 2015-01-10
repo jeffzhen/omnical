@@ -315,7 +315,7 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
         bl1dmatrix[a1, a2] = bl + 1
         bl1dmatrix[a2, a1] = - (bl + 1)
     ####prepare processing
-    deftime = int(init_mem / 8. / nfreq / len(totalVisibilityId))#use 4GB of memory by default.
+    deftime = int(init_mem / 8. / nfreq / len(wantpols)/ len(totalVisibilityId))#use 4GB of memory by default.
     if verbose:
         print "Declaring initial array shape (%i, %i, %i, %i)..."%(deftime, len(wantpols), len(totalVisibilityId), nfreq),
     sys.stdout.flush()
@@ -338,29 +338,77 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
         if len(timing) > 0:
             print FILENAME + METHODNAME + "MSG:",  timing[-1]#uv.nchan
         #print FILENAME + " MSG:",  uv['nants']
-        currentpol = 0
-        for preamble, rawd in uv.all():
-            if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
-                t += [preamble[1]]
-                sa.date = preamble[1] - julDelta
-                #sun.compute(sa)
-                timing += [sa.date.__str__()]
-                if abs((uv['lst'] - float(sa.sidereal_time()) + math.pi)%(2*math.pi) - math.pi) >= timingTolerance:
-                    raise Exception("Error: uv['lst'] is %f radians whereas time computed by ephem is %f radians, the difference is larger than tolerance of %f."%(uv['lst'], float(sa.sidereal_time()), timingTolerance))
-                else:
-                    lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
-                if len(t) > len(data):
-                    print FILENAME + METHODNAME + " MSG:",  "expanding number of time slices from", len(data), "to", len(data) + deftime
-                    data = np.concatenate((data, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')))
-                    #sunpos = np.concatenate((sunpos, np.zeros((deftime, 2))))
-                    #sunpos[len(t) - 1] = np.asarray([[sun.alt, sun.az]])
-            for p, pol in zip(range(len(wantpols)), wantpols.keys()):
-                if wantpols[pol] == uv['pol']:#//todo: use select()
+
+        for p, pol in enumerate(wantpols.keys()):
+            uv.rewind()
+            uv.select('clear', 0, 0)
+            uv.select('polarization', wantpols[pol], 0, include=True)
+            pol_exist = False
+            current_t = None
+            if p == 0:#need time extracting shananigans
+                for preamble, rawd in uv.all():
+                    pol_exist = True
+
+                    if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
+                        t += [preamble[1]]
+                        sa.date = preamble[1] - julDelta
+                        #sun.compute(sa)
+                        timing += [sa.date.__str__()]
+                        if abs((uv['lst'] - float(sa.sidereal_time()) + math.pi)%(2*math.pi) - math.pi) >= timingTolerance:
+                            raise Exception("Error: uv['lst'] is %f radians whereas time computed by ephem is %f radians, the difference is larger than tolerance of %f."%(uv['lst'], float(sa.sidereal_time()), timingTolerance))
+                        else:
+                            lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
+                        if len(t) > len(data):
+                            print FILENAME + METHODNAME + " MSG:",  "expanding number of time slices from", len(data), "to", len(data) + deftime
+                            data = np.concatenate((data, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')))
+                            #sunpos = np.concatenate((sunpos, np.zeros((deftime, 2))))
+                            #sunpos[len(t) - 1] = np.asarray([[sun.alt, sun.az]])
+                    current_t = len(t) - 1
+
                     a1, a2 = preamble[2]
                     bl = bl1dmatrix[a1, a2]#bl is 1 indexed with minus meaning conjugate
                     datapulled = True
                     #print info[p]['subsetbl'][info[p]['crossindex'][bl]],
-                    data[len(t) - 1, p, abs(bl) - 1] = (np.real(rawd.data) + 1.j * np.sign(bl) * np.imag(rawd.data)).astype('complex64')
+                    data[current_t, p, abs(bl) - 1] = (np.real(rawd.data) + 1.j * np.sign(bl) * np.imag(rawd.data)).astype('complex64')
+            else:
+                for preamble, rawd in uv.all():
+                    pol_exist = True
+                    if current_t is None or t[current_t] != preamble[1]:
+                        try:
+                            current_t = t.index(preamble[1])
+                        except ValueError:
+                            raise ValueError("Julian date %f for %s does not exist in %s for file %s."%(preamble[1], pol, wantpols.keys()[0], uvfile))
+
+                    a1, a2 = preamble[2]
+                    bl = bl1dmatrix[a1, a2]#bl is 1 indexed with minus meaning conjugate
+                    datapulled = True
+                    #print info[p]['subsetbl'][info[p]['crossindex'][bl]],
+                    data[current_t, p, abs(bl) - 1] = (np.real(rawd.data) + 1.j * np.sign(bl) * np.imag(rawd.data)).astype('complex64')
+            if not pol_exist:
+                raise IOError("Polarization %s does not exist in uv file %s."%(pol, uvfile))
+        #currentpol = 0
+        #for preamble, rawd in uv.all():
+            #if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
+                #t += [preamble[1]]
+                #sa.date = preamble[1] - julDelta
+                ##sun.compute(sa)
+                #timing += [sa.date.__str__()]
+                #if abs((uv['lst'] - float(sa.sidereal_time()) + math.pi)%(2*math.pi) - math.pi) >= timingTolerance:
+                    #raise Exception("Error: uv['lst'] is %f radians whereas time computed by ephem is %f radians, the difference is larger than tolerance of %f."%(uv['lst'], float(sa.sidereal_time()), timingTolerance))
+                #else:
+                    #lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
+                #if len(t) > len(data):
+                    #print FILENAME + METHODNAME + " MSG:",  "expanding number of time slices from", len(data), "to", len(data) + deftime
+                    #data = np.concatenate((data, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')))
+                    ##sunpos = np.concatenate((sunpos, np.zeros((deftime, 2))))
+                    ##sunpos[len(t) - 1] = np.asarray([[sun.alt, sun.az]])
+            #for p, pol in zip(range(len(wantpols)), wantpols.keys()):
+                #if wantpols[pol] == uv['pol']:#//todo: use select()
+                    #a1, a2 = preamble[2]
+                    #bl = bl1dmatrix[a1, a2]#bl is 1 indexed with minus meaning conjugate
+                    #datapulled = True
+                    ##print info[p]['subsetbl'][info[p]['crossindex'][bl]],
+                    #data[len(t) - 1, p, abs(bl) - 1] = (np.real(rawd.data) + 1.j * np.sign(bl) * np.imag(rawd.data)).astype('complex64')
         del(uv)
         if not datapulled:
             print FILENAME + METHODNAME + " MSG:",  "FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting."
@@ -381,10 +429,16 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
     else:
         raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
-def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols, oppath, ano, adds=None, nTotalAntenna = None, overwrite = False, comment = '', verbose = False):
+def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols, oppath, ano, adds=None, flags=None, nTotalAntenna = None, overwrite = False, comment = '', verbose = False):
     METHODNAME = "*apply_omnigain_uvs*"
     ttotal = len(omnigains[wantpols.keys()[0]])
     ftotal = omnigains[wantpols.keys()[0]][0,0,3]
+    if flags is None:
+        flags = np.zeros((ttotal, ftotal), dtype=bool)
+    else:
+        for pol in wantpols.keys():
+            if flags[pol].shape != (ttotal, ftotal):
+                raise TypeError("flags file on %s shape %s does not agree with omnigains shape %s"%(pol, flags.shape, (ttotal, ftotal)))
     if adds is None:
         adds = {}
         for key in wantpols.keys():
@@ -469,7 +523,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
                         additive = 0
                         flag[:] = True
                     #print data.shape, additive.shape, calpars[pol][len(t) - 1, a1].shape
-                    uvo.write(preamble, (data-additive)/calpars[pol][len(t) - 1, a1].conjugate()/calpars[pol][len(t) - 1, a2], flag)
+                    uvo.write(preamble, (data-additive)/calpars[pol][len(t) - 1, a1].conjugate()/calpars[pol][len(t) - 1, a2], flag|flags[pol][len(t) - 1])
                     polwanted = True
                     break
             if not polwanted:
@@ -1192,7 +1246,7 @@ class RedundantCalibrator:
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
             return txt
 
-    def flag(self, twindow = 5, fwindow = 5, nsigma = 4):#return true if good False if bad
+    def flag(self, twindow = 5, fwindow = 5, nsigma = 4):#return true if flagged False if good and unflagged
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
 
@@ -1211,7 +1265,7 @@ class RedundantCalibrator:
         smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
         spike_flag = (chisq - smoothed_chisq) >= smoothed_chisq * thresh
 
-        return ~(nan_flag|spike_flag)
+        return (nan_flag|spike_flag)
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
         if arrayinfoPath is not None and os.path.isfile(arrayinfoPath):
