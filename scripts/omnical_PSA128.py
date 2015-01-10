@@ -183,6 +183,7 @@ sys.stdout.flush()
 calibrators = {}
 omnigains = {}
 adds = {}
+flags = {}
 for p, pol in zip(range(len(data)), wantpols.keys()):
 
     calibrators[pol] = omni.RedundantCalibrator_PAPER(aa)
@@ -227,6 +228,9 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
             calibrators[pol].computeUBLFit = False
             additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
 
+    #####################flag bad data according to chisq#########################
+    flags[pol] = calibrators[pol].flag()
+
     print "Done. %fmin"%(float(time.time()-timer)/60.)
     sys.stdout.flush()
     #######################save results###############################
@@ -262,9 +266,16 @@ if create_new_uvs:
 if make_plots:
     import matplotlib.pyplot as plt
     for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-        plt.subplot(1,len(wantpols),p+1)
+        plt.subplot(2, len(wantpols), 2 * p + 1)
         plot_data = (calibrators[pol].rawCalpar[:,:,2]/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5
-        plt.imshow(plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,30:-30:5,2])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
-    plt.title('RMS fitting error per baseline')
-    plt.colorbar()
+        plt.imshow(plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,:,2][flags[wantpols.keys()[0]]])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
+        plt.title('RMS fitting error per baseline')
+        plt.colorbar()
+
+        plt.subplot(2, len(wantpols), 2 * p + 2)
+        flag_plot_data = np.copy(plot_data)
+        flag_plot_data[~flags[pol]] = 0
+        plt.imshow(flag_plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,:,2][flags[wantpols.keys()[0]]])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
+        plt.title('flagged RMS fitting error per baseline')
+        plt.colorbar()
     plt.show()

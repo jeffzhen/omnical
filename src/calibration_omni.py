@@ -15,6 +15,7 @@ with warnings.catch_warnings():
     import scipy as sp
     import scipy.sparse as sps
     import scipy.linalg as la
+    import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
 FILENAME = "calibration_omni.py"
@@ -1190,6 +1191,26 @@ class RedundantCalibrator:
                     if bad_ubl_count[a] > ubl_healthbar and (self.Info.ublcount[a] > 5 or (warn_low_redun)):
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
             return txt
+
+    def flag(self, twindow = 5, fwindow = 5, thresh = .05):#return true if good False if bad
+        if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
+            raise Exception("flag cannot be run before lincal.")
+
+        chisq = self.rawCalpar[:,:,2]
+        median_level = nanmedian(nanmedian(chisq))
+
+
+
+        nan_flag = np.isnan(chisq)
+        chisq[nan_flag] = 1e6 * median_level
+
+        filtered_tdir = sfil.minimum_filter(nanmedian(chisq, axis = 1), size = twindow, mode='reflect')
+        filtered_fdir = sfil.minimum_filter(nanmedian(chisq, axis = 0), size = fwindow, mode='reflect')
+
+        smoothed_chisq = np.outer(filtered_tdir, filtered_fdir) / median_level
+        spike_flag = (chisq - smoothed_chisq) > smoothed_chisq * thresh
+
+        return ~(nan_flag|spike_flag)
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
         if arrayinfoPath is not None and os.path.isfile(arrayinfoPath):
