@@ -1192,14 +1192,14 @@ class RedundantCalibrator:
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
             return txt
 
-    def flag(self, twindow = 5, fwindow = 5, thresh = .20):#return true if good False if bad
+    def flag(self, twindow = 5, fwindow = 5, nsigma = 4):#return true if good False if bad
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
 
         chisq = self.rawCalpar[:,:,2]
         median_level = nanmedian(nanmedian(chisq))
 
-
+        thresh = nsigma * (2. / (len(self.subsetbl) - self.nAntenna - self.nUBL))**.5 # relative sigma is sqrt(2/k)
 
         nan_flag = np.isnan(chisq)|np.isinf(chisq)
         chisq[nan_flag] = 1e6 * median_level
