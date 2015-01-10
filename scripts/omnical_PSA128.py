@@ -221,6 +221,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
         calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
         calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] + np.angle(crude_calpar[pol][:, calibrators[pol].subsetant])
         data[p] = np.copy(original_data)
+        del original_data
 
     additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
     #######################remove additive###############################
