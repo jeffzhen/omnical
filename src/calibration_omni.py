@@ -1192,7 +1192,7 @@ class RedundantCalibrator:
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
             return txt
 
-    def flag(self, twindow = 5, fwindow = 5, thresh = .05):#return true if good False if bad
+    def flag(self, twindow = 5, fwindow = 5, thresh = .02):#return true if good False if bad
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
 
