@@ -217,11 +217,12 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
 
     calibrators[pol].logcal(data[p], additivein, verbose=True)
 
-    if needrawcal:#restore original data after logcal
+    if needrawcal:#restore original data's amplitude after logcal. dont restore phase because it may cause problem in degeneracy removal
         calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
-        calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] + np.angle(crude_calpar[pol][:, calibrators[pol].subsetant])
-        data[p] = np.copy(original_data)
-        del original_data
+        #calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] + np.angle(crude_calpar[pol][:, calibrators[pol].subsetant])
+        #data[p] = np.copy(original_data)
+        data[p] = omni.apply_calpar(data[p], 1/np.abs(crude_calpar[pol]), calibrators[pol].totalVisibilityId)
+        #del original_data
 
     additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
     #######################remove additive###############################
@@ -234,6 +235,14 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
                 additivein[:,f] = ss.convolve(additivein[:,f], np.ones(removeadditiveperiod * 2 + 1)[:, None], mode='same')/weight[:, None]
             calibrators[pol].computeUBLFit = False
             additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
+
+    if needrawcal:#restore original data's amplitude after logcal. dont restore phase because it may cause problem in degeneracy removal
+        #calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
+        calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] + np.angle(crude_calpar[pol][:, calibrators[pol].subsetant])
+        #data[p] = np.copy(original_data)
+        data[p] = omni.apply_calpar(data[p], np.exp(-1j * np.angle(crude_calpar[pol])), calibrators[pol].totalVisibilityId)
+        additivein = omni.apply_calpar(additivein, np.exp(-1j * np.angle(crude_calpar[pol])), calibrators[pol].totalVisibilityId)
+        #del original_data
 
     #####################flag bad data according to chisq#########################
     flags[pol] = calibrators[pol].flag(nsigma = flag_thresh, twindow=flagt, fwindow=flagf)#True if bad and flagged
