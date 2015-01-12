@@ -227,7 +227,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
     #######################remove additive###############################
     if removeadditive:
-        nadditiveloop = 1
+        nadditiveloop = 3
         for i in range(nadditiveloop):
             additivein[:,:,calibrators[pol].Info.subsetbl] = additivein[:,:,calibrators[pol].Info.subsetbl] + additiveout
             weight = ss.convolve(np.ones(additivein.shape[0]), np.ones(removeadditiveperiod * 2 + 1), mode='same')
