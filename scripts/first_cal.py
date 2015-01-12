@@ -36,6 +36,7 @@ o.add_option('-t', '--info_tag', action = 'store', default = "DEFAULT", help = '
 #o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 #o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
 #o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
+o.add_option('--ampdelay', action = 'store_true', help = 'whether to fit for amplitude and delay for Calfile usage.')
 o.add_option('--plot', action = 'store_true', help = 'Whether to make plots in the end.')
 #o.add_option('--crude', action = 'store_true', help = 'whether to apply crude calibration')
 o.add_option('-e', '--tol', action = 'store', type = 'float', default = 1e-2, help = 'tolerance of antenna location deviation when computing unique baselines.')
@@ -49,6 +50,7 @@ opts,args = o.parse_args(sys.argv[1:])
 #create_new_uvs = opts.newuv
 #overwrite_uvs = opts.overwrite
 make_plots = opts.plot
+compute_ampdelay = opts.ampdelay
 #ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 #dataano = opts.datatag#ano for existing data and lst.dat
 #sourcepath = opts.datapath
@@ -304,77 +306,79 @@ else:
 	print FILENAME + " MSG: Not outputting redundantinfo or rawcalpar by default."
 	sys.stdout.flush()
 
-if fend == 0:
-	fend = nfreq
-####amplitude
-for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-	amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
-	amp[calibrators[pol].Info.subsetant] = nanmedian(np.abs(linearcalpar[pol]), axis = 0)
-	print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
-	print '{'
-	for a1, a2 in zip(range(len(amp)), amp):
-		print "%i: %f, "%(a1,a2)
-	print '}'
-	sys.stdout.flush()
+if compute_ampdelay:
+
+	if fend == 0:
+		fend = nfreq
+	####amplitude
+	for p,pol in zip(range(len(wantpols)), wantpols.keys()):
+		amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
+		amp[calibrators[pol].Info.subsetant] = nanmedian(np.abs(linearcalpar[pol]), axis = 0)
+		print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
+		print '{'
+		for a1, a2 in zip(range(len(amp)), amp):
+			print "%i: %f, "%(a1,a2)
+		print '}'
+		sys.stdout.flush()
 
 
 
-####delay
-for p,pol in zip(range(len(wantpols)), wantpols.keys()):
+	####delay
+	for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 
-	delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
-	delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
+		delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
+		delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
 
-	avg_angle = np.angle(linearcalpar[pol][fstart:fend].transpose()).astype('float32')#2D nant x freq
-	nanfreq = np.isnan(np.mean(avg_angle, axis = 0))
-	##first get intersection for f=0
-	A = np.ones((fend-fstart, 2),dtype='float32')
-	A[:, 0] = np.arange(fstart, fend) * dfreq + startfreq
-	A = A[~nanfreq]
-	matrix_f0 = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[1]
+		avg_angle = np.angle(linearcalpar[pol][fstart:fend].transpose()).astype('float32')#2D nant x freq
+		nanfreq = np.isnan(np.mean(avg_angle, axis = 0))
+		##first get intersection for f=0
+		A = np.ones((fend-fstart, 2),dtype='float32')
+		A[:, 0] = np.arange(fstart, fend) * dfreq + startfreq
+		A = A[~nanfreq]
+		matrix_f0 = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[1]
 
 
-	#avg_angle -= avg_angle[0]
+		#avg_angle -= avg_angle[0]
 
-	for a in range(len(avg_angle)):
-		avg_angle[a][~nanfreq] = _O.unwrap_phase(avg_angle[a][~nanfreq])
-	intersect = np.array([np.round(matrix_f0.dot(x[~nanfreq])/(2.*np.pi)) * (2.*np.pi) for x in avg_angle])#find closest multiple of 2pi for the intersect
-	avg_angle -= intersect[:,None]
+		for a in range(len(avg_angle)):
+			avg_angle[a][~nanfreq] = _O.unwrap_phase(avg_angle[a][~nanfreq])
+		intersect = np.array([np.round(matrix_f0.dot(x[~nanfreq])/(2.*np.pi)) * (2.*np.pi) for x in avg_angle])#find closest multiple of 2pi for the intersect
+		avg_angle -= intersect[:,None]
 
-	##now fit
-	A = np.arange(fstart, fend) * dfreq + startfreq
-	A = A[~nanfreq].reshape((np.sum(~nanfreq), 1))
-	matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))
-	error_matrix = A.dot(la.pinv(A.transpose().dot(A)).dot(A.transpose())) - np.identity(len(A))
-	delay[calibrators[pol].Info.subsetant] = [matrix.dot(x[~nanfreq])[0] / (2 * np.pi)  for x in avg_angle]
-	delay_error[calibrators[pol].Info.subsetant] = [la.norm((error_matrix.dot(x[~nanfreq]) + np.pi) % (2*np.pi) - np.pi) / (len(A))**.5 for x in avg_angle]
-	print FILENAME + " MSG: delay on %s in nanoseconds:"%pol
-	print '{'
-	for a1, a2 in zip(range(len(delay)), delay):
-		print "%i: %f, "%(a1,a2)
-	print '}'
-	sys.stdout.flush()
-	#if make_plots:
-		#nplot = 8
-		#for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
-			#plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
-			#plt.plot(A[:,0], avg_angle[a])
-			#plt.plot(A[:,0], (error_matrix + np.identity(len(A))).dot(avg_angle[a]))
-			##plt.axis([A[0,0], A[-1,0], -np.pi, np.pi])
-			##plt.axes().set_aspect('equal')
-		#plt.show()
-	if make_plots:
-		nplot = 8
-		plot_a = range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle)))
-		for i, a in enumerate(plot_a):
-			plt.subplot(1, len(plot_a), i+1)
-			plt.plot(np.arange(fstart, fend)[~nanfreq], (avg_angle[a][~nanfreq]+ np.pi)%(2*np.pi) - np.pi)
-			plt.plot(np.arange(fstart, fend)[~nanfreq], ((error_matrix + np.identity(len(A))).dot(avg_angle[a][~nanfreq]) + np.pi)%(2*np.pi) - np.pi)
-			plt.axis([fstart, fend, -np.pi, np.pi])
-			#plt.axes().set_aspect('equal')
-		plt.show()
-		plt.hist(delay_error[calibrators[pol].Info.subsetant], 20)
-		plt.show()
+		##now fit
+		A = np.arange(fstart, fend) * dfreq + startfreq
+		A = A[~nanfreq].reshape((np.sum(~nanfreq), 1))
+		matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))
+		error_matrix = A.dot(la.pinv(A.transpose().dot(A)).dot(A.transpose())) - np.identity(len(A))
+		delay[calibrators[pol].Info.subsetant] = [matrix.dot(x[~nanfreq])[0] / (2 * np.pi)  for x in avg_angle]
+		delay_error[calibrators[pol].Info.subsetant] = [la.norm((error_matrix.dot(x[~nanfreq]) + np.pi) % (2*np.pi) - np.pi) / (len(A))**.5 for x in avg_angle]
+		print FILENAME + " MSG: delay on %s in nanoseconds:"%pol
+		print '{'
+		for a1, a2 in zip(range(len(delay)), delay):
+			print "%i: %f, "%(a1,a2)
+		print '}'
+		sys.stdout.flush()
+		#if make_plots:
+			#nplot = 8
+			#for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
+				#plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
+				#plt.plot(A[:,0], avg_angle[a])
+				#plt.plot(A[:,0], (error_matrix + np.identity(len(A))).dot(avg_angle[a]))
+				##plt.axis([A[0,0], A[-1,0], -np.pi, np.pi])
+				##plt.axes().set_aspect('equal')
+			#plt.show()
+		if make_plots:
+			nplot = 8
+			plot_a = range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle)))
+			for i, a in enumerate(plot_a):
+				plt.subplot(1, len(plot_a), i+1)
+				plt.plot(np.arange(fstart, fend)[~nanfreq], (avg_angle[a][~nanfreq]+ np.pi)%(2*np.pi) - np.pi)
+				plt.plot(np.arange(fstart, fend)[~nanfreq], ((error_matrix + np.identity(len(A))).dot(avg_angle[a][~nanfreq]) + np.pi)%(2*np.pi) - np.pi)
+				plt.axis([fstart, fend, -np.pi, np.pi])
+				#plt.axes().set_aspect('equal')
+			plt.show()
+			plt.hist(delay_error[calibrators[pol].Info.subsetant], 20)
+			plt.show()
 
 print "%i Bad antennas found: "%len(badAntenna),
 bad_str = ""
