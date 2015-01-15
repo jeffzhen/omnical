@@ -1184,11 +1184,12 @@ class RedundantCalibrator:
         errstate = np.geterr()
         np.seterr(invalid = 'ignore')
         checks = 1
+        timer = Timer()
         bad_count = np.zeros((3,self.Info.nAntenna), dtype='int')
         bad_ubl_count = np.zeros(self.Info.nUBL, dtype='int')
         median_level = nanmedian(nanmedian(self.rawCalpar[:,:,3:3+self.Info.nAntenna], axis= 0), axis= 1)
         bad_count[0] = np.array([(np.abs(self.rawCalpar[:,:,3+a] - median_level) >= .15).sum() for a in range(self.Info.nAntenna)])**2
-
+        timer.tick(1)
         if data is not None and data.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
             subsetbl = self.Info.subsetbl
@@ -1196,9 +1197,10 @@ class RedundantCalibrator:
             ncross = len(self.Info.crossindex)
             bl1dmatrix = self.Info.bl1dmatrix
             ant_level = np.array([np.median(np.abs(data[:, :, [subsetbl[crossindex[bl]] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
+            timer.tick(2)
             median_level = np.median(ant_level, axis = 0)
             bad_count[1] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
-
+        timer.tick(2)
         if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
             subsetbl = self.Info.subsetbl
@@ -1206,14 +1208,16 @@ class RedundantCalibrator:
             ncross = len(self.Info.crossindex)
             bl1dmatrix = self.Info.bl1dmatrix
             ant_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
+            timer.tick(3)
             median_level = np.median(ant_level, axis = 0)
             bad_count[2] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
-
+            timer.tick(3)
             ublindex = [np.array(index).astype('int')[:,2] for index in self.Info.ublindex]
             ubl_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in ublindex[u]]]), axis = 2) for u in range(self.Info.nUBL)])
             median_level = np.median(ubl_level, axis = 0)
             bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .667).sum() for u in range(self.Info.nUBL)])**2
             #print median_level
+        timer.tick(3)
         np.seterr(invalid = errstate['invalid'])
         bad_count = (np.mean(bad_count,axis=0)/float(self.nTime * self.nFrequency)**2 * 100).astype('int')
         bad_ubl_count = (bad_ubl_count/float(self.nTime * self.nFrequency)**2 * 100).astype('int')
@@ -2116,11 +2120,17 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
             for j in range(len(self.aa.ant_layout[0])):
                 self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
         self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
+        self._goodAntenna = self.aa.ant_layout.flatten()
         self.badAntenna = []
         self.badUBLpair = []
         for i in range(nTotalAnt):
-            if i not in self.aa.ant_layout.flatten():
-                self.badAntenna += [i]
+            if i not in self._goodAntenna:
+                self.badAntenna.append(i)
+
+        #fit for idealized antloc
+        A = self.antennaLocation + [0,0,1]
+        self.antennaLocation = A.dot(la.inv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna])))
+
 
     def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
         self.antennaLocationTolerance = antennaLocationTolerance
