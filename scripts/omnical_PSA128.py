@@ -6,6 +6,7 @@ import commands, os, time, math, ephem, optparse, sys
 import omnical.calibration_omni as omni
 import cPickle as pickle
 import scipy.signal as ss
+import scipy.ndimage.filters as sfil
 FILENAME = "omnical_PSA128.py"
 
 
@@ -40,8 +41,8 @@ overwrite_uvs = opts.overwrite
 make_plots = opts.plot
 ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 dataano = opts.datatag#ano for existing data and lst.dat
-sourcepath = opts.datapath
-oppath = opts.outputpath
+sourcepath = os.path.expanduser(opts.datapath)
+oppath = os.path.expanduser(opts.outputpath)
 uvfiles = args
 flag_thresh = opts.flagsigma
 flagt = opts.flagt
@@ -229,10 +230,12 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     if removeadditive:
         nadditiveloop = 1
         for i in range(nadditiveloop):
+            #subtimer = omni.Timer()
             additivein[:,:,calibrators[pol].Info.subsetbl] = additivein[:,:,calibrators[pol].Info.subsetbl] + additiveout
             weight = ss.convolve(np.ones(additivein.shape[0]), np.ones(removeadditiveperiod * 2 + 1), mode='same')
-            for f in range(additivein.shape[1]):#doing for loop to save memory usage at the expense of negligible time
-                additivein[:,f] = ss.convolve(additivein[:,f], np.ones(removeadditiveperiod * 2 + 1)[:, None], mode='same')/weight[:, None]
+            #for f in range(additivein.shape[1]):#doing for loop to save memory usage at the expense of negligible time
+                #additivein[:,f] = ss.convolve(additivein[:,f], np.ones(removeadditiveperiod * 2 + 1)[:, None], mode='same')/weight[:, None]
+            additivein = ((sfil.convolve1d(np.real(additivein), np.ones(removeadditiveperiod * 2 + 1), mode='constant') + 1j * sfil.convolve1d(np.imag(additivein), np.ones(removeadditiveperiod * 2 + 1), mode='constant'))/weight[:, None, None]).astype('complex64')
             calibrators[pol].computeUBLFit = False
             additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
 

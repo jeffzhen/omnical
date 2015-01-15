@@ -35,7 +35,7 @@ o.add_option('-o', '--outputpath', action = 'store', default = "DONT_WRITE", hel
 o.add_option('-t', '--info_tag', action = 'store', default = "DEFAULT", help = 'Name tag for output redundantinfo file.')
 #o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 #o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
-#o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
+o.add_option('--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
 o.add_option('--ampdelay', action = 'store_true', help = 'whether to fit for amplitude and delay for Calfile usage.')
 o.add_option('--plot', action = 'store_true', help = 'Whether to make plots in the end.')
 #o.add_option('--crude', action = 'store_true', help = 'whether to apply crude calibration')
@@ -48,13 +48,13 @@ o.add_option('--bu', action = 'store', default = '', help = 'bad unique baseline
 opts,args = o.parse_args(sys.argv[1:])
 #skip = opts.skip
 #create_new_uvs = opts.newuv
-#overwrite_uvs = opts.overwrite
+overwrite = opts.overwrite
 make_plots = opts.plot
 compute_ampdelay = opts.ampdelay
 #ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 #dataano = opts.datatag#ano for existing data and lst.dat
 #sourcepath = opts.datapath
-oppath = opts.outputpath
+oppath = os.path.expanduser(opts.outputpath)
 info_tag = opts.info_tag
 uvfiles = args
 healthbar = opts.healthbar
@@ -183,23 +183,24 @@ while new_bad_ant != [] and trials < max_try:
 
 
 	ant_bad_meter = {}
+	ubl_bad_meter = {}
 	crude_calpar = {}
 	if trials > 1:
 		#figure out old and new bad antennas
 		badAntenna = list(np.sort(badAntenna + new_bad_ant))
-		print 'Current bad Antennas:', badAntenna
-		print 'Bad unique baselines:', badUBLpair
+		print 'Current bad Antennas (%i):'%len(badAntenna), badAntenna
+		print 'Bad unique baselines (%i):'%len(badUBLpair), badUBLpair
 
 	for p, pol in enumerate(wantpols.keys()):
-		if trials == 1:
 
-			calibrators[pol] = omni.RedundantCalibrator_PAPER(aa)
-			calibrators[pol].nTime = len(timing)
-			calibrators[pol].nFrequency = nfreq
-			calibrators[pol].removeDegeneracy = removedegen
-			calibrators[pol].convergePercent = converge_percent
-			calibrators[pol].maxIteration = max_iter
-			calibrators[pol].stepSize = step_size
+
+		calibrators[pol] = omni.RedundantCalibrator_PAPER(aa)
+		calibrators[pol].nTime = len(timing)
+		calibrators[pol].nFrequency = nfreq
+		calibrators[pol].removeDegeneracy = removedegen
+		calibrators[pol].convergePercent = converge_percent
+		calibrators[pol].maxIteration = max_iter
+		calibrators[pol].stepSize = step_size
 
 
 		timer = time.time()
@@ -246,7 +247,7 @@ while new_bad_ant != [] and trials < max_try:
 		sys.stdout.flush()
 
 		#######################diagnose###############################
-		ant_bad_meter[pol], _ = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, verbose = False)
+		ant_bad_meter[pol], ubl_bad_meter[pol] = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, verbose = False)
 		nbad = 0
 		for ab in ant_bad_meter[pol]:
 			if ab > healthbar:
@@ -269,6 +270,13 @@ while new_bad_ant != [] and trials < max_try:
 				new_bad_ant.append(calibrators[wantpols.keys()[0]].Info.subsetant[a])
 				break
 
+print "Identified possible bad baselines (not automatically excluded):"
+for u in range(calibrators[wantpols.keys()[0]].nUBL):#assuming calibrators on all pols are the same ubl config
+	for p, pol in enumerate(wantpols.keys()):
+		c = calibrators[pol]
+		if ubl_bad_meter[pol][u] > 1:
+			print c.ubl[u], ubl_bad_meter[pol][u], "%i.%i"%(c.subsetant[c.ublindex[u][0][0]], c.subsetant[c.ublindex[u][0][1]])
+			break
 
 linearcalpar = {}#combine lincal results averaged over time and the initial crude_calpar results
 for pol in wantpols.keys():
@@ -286,7 +294,7 @@ if oppath != "DONT_WRITE/":
 
 	print FILENAME + " MSG: Writing redundant info to %s"%op_info_path,
 	sys.stdout.flush()
-	calibrators[wantpols.keys()[0]].write_redundantinfo(infoPath = op_info_path, verbose = False)
+	calibrators[wantpols.keys()[0]].write_redundantinfo(infoPath = op_info_path, verbose = False, overwrite = overwrite)
 	print "Done."
 	sys.stdout.flush()
 
@@ -306,10 +314,12 @@ else:
 	print FILENAME + " MSG: Not outputting redundantinfo or rawcalpar by default."
 	sys.stdout.flush()
 
-if compute_ampdelay:
 
-	if fend == 0:
-		fend = nfreq
+if fend == 0:
+	fend = nfreq
+
+
+if compute_ampdelay:
 	####amplitude
 	for p,pol in zip(range(len(wantpols)), wantpols.keys()):
 		amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
@@ -379,6 +389,20 @@ if compute_ampdelay:
 			plt.show()
 			plt.hist(delay_error[calibrators[pol].Info.subsetant], 20)
 			plt.show()
+
+elif make_plots:
+
+	for p,pol in zip(range(len(wantpols)), wantpols.keys()):
+		nplot = 8
+		avg_angle = np.angle(linearcalpar[pol][fstart:fend].transpose()).astype('float32')#2D nant x freq
+		nanfreq = np.isnan(np.mean(avg_angle, axis = 0))
+		plot_a = range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle)))
+		for i, a in enumerate(plot_a):
+			plt.subplot(1, len(plot_a), i+1)
+			plt.plot(np.arange(fstart, fend)[~nanfreq], (avg_angle[a][~nanfreq]+ np.pi)%(2*np.pi) - np.pi)
+			plt.axis([fstart, fend, -np.pi, np.pi])
+			#plt.axes().set_aspect('equal')
+		plt.show()
 
 print "%i Bad antennas found: "%len(badAntenna),
 bad_str = ""
