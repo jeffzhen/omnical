@@ -1189,7 +1189,7 @@ class RedundantCalibrator:
         bad_ubl_count = np.zeros(self.Info.nUBL, dtype='int')
         median_level = nanmedian(nanmedian(self.rawCalpar[:,:,3:3+self.Info.nAntenna], axis= 0), axis= 1)
         bad_count[0] = np.array([(np.abs(self.rawCalpar[:,:,3+a] - median_level) >= .15).sum() for a in range(self.Info.nAntenna)])**2
-        timer.tick(1)
+        #timer.tick(1)
         if data is not None and data.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
             subsetbl = self.Info.subsetbl
@@ -1197,10 +1197,10 @@ class RedundantCalibrator:
             ncross = len(self.Info.crossindex)
             bl1dmatrix = self.Info.bl1dmatrix
             ant_level = np.array([np.median(np.abs(data[:, :, [subsetbl[crossindex[bl]] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
-            timer.tick(2)
+            #timer.tick(2)
             median_level = np.median(ant_level, axis = 0)
             bad_count[1] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
-        timer.tick(2)
+        #timer.tick(2)
         if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
             subsetbl = self.Info.subsetbl
@@ -1208,16 +1208,16 @@ class RedundantCalibrator:
             ncross = len(self.Info.crossindex)
             bl1dmatrix = self.Info.bl1dmatrix
             ant_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
-            timer.tick(3)
+            #timer.tick(3)
             median_level = np.median(ant_level, axis = 0)
             bad_count[2] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
-            timer.tick(3)
+            #timer.tick(3)
             ublindex = [np.array(index).astype('int')[:,2] for index in self.Info.ublindex]
             ubl_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in ublindex[u]]]), axis = 2) for u in range(self.Info.nUBL)])
             median_level = np.median(ubl_level, axis = 0)
             bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .667).sum() for u in range(self.Info.nUBL)])**2
             #print median_level
-        timer.tick(3)
+        #timer.tick(3)
         np.seterr(invalid = errstate['invalid'])
         bad_count = (np.mean(bad_count,axis=0)/float(self.nTime * self.nFrequency)**2 * 100).astype('int')
         bad_ubl_count = (bad_ubl_count/float(self.nTime * self.nFrequency)**2 * 100).astype('int')
@@ -1278,6 +1278,15 @@ class RedundantCalibrator:
             raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
         if verbose:
             timer = Timer()
+
+        #antennalocation quality check: make sure there's no crazy constant added to antlocs
+        bad_ant_mask = np.array([a in self.badAntenna for a in range(len(self.antennaLocation))]).astype('bool')
+        array_center = la.norm(np.mean(self.antennaLocation[~bad_ant_mask], axis = 0))
+        array_std = la.norm(np.std(self.antennaLocation[~bad_ant_mask], axis = 0))
+        #print array_center, array_std
+        if array_std / array_center < 1e-3:
+            raise TypeError("Average antenna location is %s whereas the typical variation among locations is %s, which is too small and will cause many problems. Please remove the large overall offset from antenna locations."%(np.mean(self.antennaLocation[~bad_ant_mask], axis = 0), np.std(self.antennaLocation[~bad_ant_mask], axis = 0)))
+
         #nAntenna and subsetant : get rid of the bad antennas
         nant=len(self.antennaLocation)
         #subsetant=[i for i in range(nant) if i not in self.badAntenna]
@@ -1520,8 +1529,8 @@ class RedundantCalibrator:
             d.append(np.append(ubl[i],0))
         d=np.array(d)
 
-        m1=-a.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
-        m2=d.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
+        m1=-a.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
+        m2=d.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
         degenM = np.append(m1,m2,axis=0)
         #####################################################################################
         #A: A matrix for logcal amplitude
@@ -2121,15 +2130,16 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
                 self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
         self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
         self._goodAntenna = self.aa.ant_layout.flatten()
+        self._goodAntenna.sort()
         self.badAntenna = []
         self.badUBLpair = []
         for i in range(nTotalAnt):
             if i not in self._goodAntenna:
                 self.badAntenna.append(i)
 
-        #fit for idealized antloc
-        A = self.antennaLocation + [0,0,1]
-        self.antennaLocation = A.dot(la.inv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna])))
+        ###fit for idealized antloc
+        A = self.antennaLocation[self._goodAntenna] + [0,0,1]
+        self.antennaLocation[self._goodAntenna] = self.antennaLocation[self._goodAntenna].dot(la.inv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna])))##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
 
 
     def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
@@ -2323,8 +2333,8 @@ def remove_one_antenna(Info,badant):
         d.append(np.append(ubl[i],0))
     d=np.array(d)
 
-    m1=-a.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
-    m2=d.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
+    m1=-a.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
+    m2=d.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
     degenM = np.append(m1,m2,axis=0)
     #####################################################################################
     #A: A matrix for logcal amplitude

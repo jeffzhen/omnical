@@ -275,7 +275,7 @@ for u in range(calibrators[wantpols.keys()[0]].nUBL):#assuming calibrators on al
 	for p, pol in enumerate(wantpols.keys()):
 		c = calibrators[pol]
 		if ubl_bad_meter[pol][u] > 1:
-			print c.ubl[u], ubl_bad_meter[pol][u], "%i.%i"%(c.subsetant[c.ublindex[u][0][0]], c.subsetant[c.ublindex[u][0][1]])
+			print c.ubl[u], ubl_bad_meter[pol][u], "%i.%i"%(c.subsetant[int(c.ublindex[u][0][0])], c.subsetant[int(c.ublindex[u][0][1])])
 			break
 
 linearcalpar = {}#combine lincal results averaged over time and the initial crude_calpar results
