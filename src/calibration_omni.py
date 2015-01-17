@@ -1254,6 +1254,8 @@ class RedundantCalibrator:
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
 
+
+        #chisq flag: spike_flag
         chisq = self.rawCalpar[:,:,2]
         median_level = nanmedian(nanmedian(chisq))
 
@@ -1266,10 +1268,33 @@ class RedundantCalibrator:
         filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
 
         smoothed_chisq = np.outer(filtered_tdir, filtered_fdir)
-        smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore",category=RuntimeWarning)
+            smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
         spike_flag = (chisq - smoothed_chisq) >= smoothed_chisq * thresh
 
-        return (nan_flag|spike_flag)
+
+        #baseline fit flag
+        nubl = 10
+        short_ubl_index = np.argsort(np.linalg.norm(self.ubl, axis=1))[:min(nubl, self.nUBL)]
+        shortest_ubl_vis = self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index] + 1.j * self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index+1]
+        change_rate = np.median(np.abs(shortest_ubl_vis[:-1] - shortest_ubl_vis[1:]), axis = 2)
+        nan_mask2 = np.isnan(change_rate)|np.isinf(change_rate)
+        change_rate[nan_mask2] = 0
+
+        filtered_tdir = sfil.minimum_filter(np.median(change_rate, axis = 1), size = twindow, mode='reflect')
+        filtered_fdir = sfil.minimum_filter(np.median(change_rate, axis = 0), size = fwindow, mode='reflect')
+
+        smoothed_change_rate = np.outer(filtered_tdir, filtered_fdir)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore",category=RuntimeWarning)
+            smoothed_change_rate = smoothed_change_rate * np.median(change_rate[~nan_mask2] / smoothed_change_rate[~nan_mask2])
+
+        ubl_flag_short = (change_rate > 2 * smoothed_change_rate) | nan_mask2
+        ubl_flag = np.zeros_like(spike_flag)
+        ubl_flag[:-1] = ubl_flag_short
+        ubl_flag[1:] = ubl_flag[1:] | ubl_flag_short
+        return (nan_flag|spike_flag|ubl_flag)
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
         if arrayinfoPath is not None and os.path.isfile(arrayinfoPath):

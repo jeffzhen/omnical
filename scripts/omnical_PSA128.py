@@ -31,12 +31,14 @@ o.add_option('--healthbar', action = 'store', default = '2', help = 'health thre
 o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
 o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
+o.add_option('--newuvf', action = 'store_true', help = 'whether to create new uv files with new flagging computed')
 o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
 o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
 
 opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
-create_new_uvs = opts.newuv
+create_new_uvs = opts.newuv or opts.newuvf
+need_new_flag = opts.newuvf
 overwrite_uvs = opts.overwrite
 make_plots = opts.plot
 ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
@@ -279,7 +281,10 @@ if create_new_uvs:
     infos = {}
     for pol in wantpols.keys():
         infos[pol] = omni.read_redundantinfo(infopaths[pol])
-    omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), flags = flags, overwrite = overwrite_uvs)
+    if need_new_flag:
+        omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), flags = flags, overwrite = overwrite_uvs)
+    else:
+        omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), overwrite = overwrite_uvs)
     print "Done"
     sys.stdout.flush()
 if make_plots:
