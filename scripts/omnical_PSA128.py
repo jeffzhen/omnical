@@ -241,7 +241,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
             calibrators[pol].computeUBLFit = False
             additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
 
-    if needrawcal:#restore original data's amplitude after logcal. dont restore phase because it may cause problem in degeneracy removal
+    if needrawcal:#restore original data's phase
         #calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
         calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] + np.angle(crude_calpar[pol][:, calibrators[pol].subsetant])
         #data[p] = np.copy(original_data)
@@ -290,16 +290,25 @@ if create_new_uvs:
 if make_plots:
     import matplotlib.pyplot as plt
     for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-        plt.subplot(2, len(wantpols), 2 * p + 1)
+        plt.subplot(3, len(wantpols), 3 * p + 1)
         plot_data = (calibrators[pol].rawCalpar[:,:,2]/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5
         plt.imshow(plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,:,2][~flags[wantpols.keys()[0]]])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
         plt.title('RMS fitting error per baseline')
         plt.colorbar()
 
-        plt.subplot(2, len(wantpols), 2 * p + 2)
+        plt.subplot(3, len(wantpols), 3 * p + 2)
         flag_plot_data = np.copy(plot_data)
         flag_plot_data[flags[pol]] = 0
         plt.imshow(flag_plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,:,2][~flags[wantpols.keys()[0]]])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
         plt.title('flagged RMS fitting error per baseline')
+        plt.colorbar()
+
+        plt.subplot(3, len(wantpols), 3 * p + 3)
+        shortest_ubli = np.argsort(np.linalg.norm(calibrators[pol].ubl, axis = 1))[0]
+        shortest_vis = np.angle(calibrators[pol].rawCalpar[:,:,3+2*calibrators[pol].nAntenna+2*shortest_ubli] + 1.j * (calibrators[pol].rawCalpar[:,:,3+2*calibrators[pol].nAntenna+2*shortest_ubli+1]))
+        if need_new_flag:
+            shortest_vis[flags[pol]] = np.nan
+        plt.imshow(shortest_vis, interpolation='nearest')
+        plt.title('phase of visibility fit on %s baseline'%(calibrators[pol].ubl[shortest_ubli]))
         plt.colorbar()
     plt.show()

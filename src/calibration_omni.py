@@ -432,9 +432,11 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
 def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols, oppath, ano, adds=None, flags=None, nTotalAntenna = None, overwrite = False, comment = '', verbose = False):
     METHODNAME = "*apply_omnigain_uvs*"
     ttotal = len(omnigains[wantpols.keys()[0]])
-    ftotal = omnigains[wantpols.keys()[0]][0,0,3]
+    ftotal = int(omnigains[wantpols.keys()[0]][0,0,3])
     if flags is None:
-        flags = np.zeros((ttotal, ftotal), dtype=bool)
+        flags = {}
+        for pol in wantpols.keys():
+            flags[pol] = np.zeros((ttotal, ftotal), dtype=bool)
     else:
         for pol in wantpols.keys():
             if flags[pol].shape != (ttotal, ftotal):
@@ -2106,8 +2108,9 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):#ret
         print "Degeneracy: a1 = %i, a2 = %i"%(info['subsetant'][a1], info['subsetant'][a2])
     return initialant, solution_path, additional_solution_path, degeneracy_remove, (unsolved_ant == [])
 
-def meanAngle(a):
-    return np.angle(np.mean(np.exp(1.j*np.array(a))))
+def meanAngle(a, weights = None):
+    return np.angle(np.average(np.exp(1.j*np.array(a)), weights = weights))
+
 def medianAngle(a):
     return np.angle(np.median(np.cos(np.array(a))) + 1.j * np.median(np.sin(np.array(a))))
 
@@ -2149,11 +2152,11 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
         nTotalAnt = len(aa)
         RedundantCalibrator.__init__(self, nTotalAnt)
         self.aa = aa
-        self.antennaLocation = np.zeros((self.nTotalAnt,3))
+        self.antennaLocationAtom = np.zeros((self.nTotalAnt,3))
         for i in range(len(self.aa.ant_layout)):
             for j in range(len(self.aa.ant_layout[0])):
-                self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
-        self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
+                self.antennaLocationAtom[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
+        self.preciseAntennaLocation = .299792458 * np.array([ant.pos for ant in self.aa])
         self._goodAntenna = self.aa.ant_layout.flatten()
         self._goodAntenna.sort()
         self.badAntenna = []
@@ -2163,8 +2166,9 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
                 self.badAntenna.append(i)
 
         ###fit for idealized antloc
-        A = self.antennaLocation[self._goodAntenna] + [0,0,1]
-        self.antennaLocation[self._goodAntenna] = self.antennaLocation[self._goodAntenna].dot(la.inv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna])))##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
+        A = np.array([list[a] + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
+        self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
+        self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.inv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
 
 
     def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):

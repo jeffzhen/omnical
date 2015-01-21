@@ -12,7 +12,8 @@ from scipy.stats import nanmedian
 import matplotlib.pyplot as plt
 import cPickle as pickle
 FILENAME = "first_cal.py"
-
+PI = np.pi
+TPI = 2 * np.pi
 
 
 
@@ -36,7 +37,8 @@ o.add_option('-t', '--info_tag', action = 'store', default = "DEFAULT", help = '
 #o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 #o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
 o.add_option('--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
-o.add_option('--ampdelay', action = 'store_true', help = 'whether to fit for amplitude and delay for Calfile usage.')
+o.add_option('--ampdelay', action = 'store_true', help = 'whether to print out amplitude and delay for Calfile usage.')
+#o.add_option('--smooth', action = 'store_true', help = 'whether to smooth the calibration results over frequency.')
 o.add_option('--plot', action = 'store_true', help = 'Whether to make plots in the end.')
 #o.add_option('--crude', action = 'store_true', help = 'whether to apply crude calibration')
 o.add_option('-e', '--tol', action = 'store', type = 'float', default = 1e-2, help = 'tolerance of antenna location deviation when computing unique baselines.')
@@ -50,7 +52,8 @@ opts,args = o.parse_args(sys.argv[1:])
 #create_new_uvs = opts.newuv
 overwrite = opts.overwrite
 make_plots = opts.plot
-compute_ampdelay = opts.ampdelay
+print_ampdelay = opts.ampdelay
+#smooth = opts.smooth
 #ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
 #dataano = opts.datatag#ano for existing data and lst.dat
 #sourcepath = opts.datapath
@@ -121,6 +124,10 @@ print "Getting some basic info from %s"%uvfiles[0],
 sys.stdout.flush()
 uv=ap.miriad.UV(uvfiles[0])
 nfreq = uv.nchan;
+if fend == 0:
+	fstart = int(nfreq) / 4
+	fend = 3 * int(nfreq) / 4
+
 nant = uv['nants']
 sa = ephem.Observer()
 sa.lon = uv['longitu']
@@ -282,7 +289,127 @@ linearcalpar = {}#combine lincal results averaged over time and the initial crud
 for pol in wantpols.keys():
 	linearcalpar[pol] = 10.**(calibrators[pol].rawCalpar[:,:,3:3+calibrators[pol].Info.nAntenna]) * np.exp(1j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna])
 	linearcalpar[pol] = nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * nanmedian(np.imag(linearcalpar[pol]), axis = 0)
+	linearcalpar[pol][np.isnan(linearcalpar[pol])] = 1
 	linearcalpar[pol] = linearcalpar[pol] * crude_calpar[pol][:, calibrators[pol].Info.subsetant]
+
+	#try smoothing out this calpar so it doesnt introduce much frequency structure
+
+	freq_flag = (np.sum(calibrators[pol].flag(), axis = 0) > .2 * calibrators[pol].nTime)|np.isnan(np.sum(linearcalpar[pol], axis=1))
+	A = np.array([list(a) + [1] for a in calibrators[pol].antloc])
+	AAA = A.dot(np.linalg.pinv(A.transpose().dot(A)).dot(A.transpose()))
+	#if smooth:
+		#calpar = linearcalpar[pol][~freq_flag]
+		#for i in range(15):
+			#for f in range(len(calpar) - 1):
+				#calpar[f+1] = np.exp(1.j*(np.angle(calpar[f+1]) - AAA.dot((np.angle(calpar[f+1]) - np.angle(calpar[f]) + PI)%TPI-PI)))
+			#linearcalpar[pol][~freq_flag] = calpar
+			#for f in np.array(range(calibrators[pol].nFrequency))[freq_flag]-1:
+				#linearcalpar[pol][f+1] = np.exp(1.j*(np.angle(linearcalpar[pol][f+1]) - AAA.dot((np.angle(linearcalpar[pol][f+1]) - np.angle(linearcalpar[pol][f]) + PI)%TPI-PI)))
+
+
+	####amplitude: a single amplitude over all frequency is only useful for calfile and not really accurate
+	if print_ampdelay:
+		amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
+		amp[calibrators[pol].Info.subsetant] = nanmedian(np.abs(linearcalpar[pol]), axis = 0)
+		print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
+		print '{'
+		for a1, a2 in zip(range(len(amp)), amp):
+			print "%i: %f, "%(a1,a2)
+		print '}'
+		sys.stdout.flush()
+
+	####delay
+	delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
+	delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
+
+	sub_freq_flag = freq_flag[fstart:fend]
+	avg_angle = np.angle(linearcalpar[pol][fstart:fend].transpose()).astype('float32')#2D nant x freq
+	for a in range(len(avg_angle)):
+		avg_angle[a][~sub_freq_flag] = _O.unwrap_phase(avg_angle[a][~sub_freq_flag])
+
+
+	##I am allowing a phase offset per antenna. iterating on degeneracy removal does not seem to help
+	A = np.ones((fend-fstart, 2),dtype='float32')
+	A[:, 0] = np.arange(fstart, fend) * dfreq + startfreq
+	A = A[~sub_freq_flag]
+	#####matrix_f0 = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[1]
+	#####offsets = np.array([matrix_f0.dot(x[~sub_freq_flag]) for x in avg_angle])
+
+	#####intersect = np.round(offsets/(2.*PI)) * (2.*PI) #find closest multiple of 2pi for the intersect
+	#####overall_angle = 0#omni.meanAngle(offsets, weights = 1/(intersect+1))
+	#####avg_angle = avg_angle - intersect[:,None] - overall_angle
+
+	#######now fit
+	#####A = np.arange(fstart, fend) * dfreq + startfreq
+	#####A = A[~sub_freq_flag].reshape((np.sum(~sub_freq_flag), 1))
+	matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))
+
+	solution = matrix.dot(avg_angle[:, ~sub_freq_flag].transpose())
+	delay[calibrators[pol].Info.subsetant] = solution[0] / TPI
+
+	##use delay fit to further correct rephasing degeneracies in linearcalpar
+	avg_angle_error = np.angle(linearcalpar[pol]) - np.outer(np.arange(nfreq) * dfreq + startfreq, solution[0]) - solution[1]
+	avg_angle_error = (avg_angle_error + PI)%TPI - PI
+	fit_degen = avg_angle_error.dot(AAA.transpose())
+	fit_degen[np.isnan(fit_degen)] = 0
+	linearcalpar[pol] = linearcalpar[pol] / np.exp(1.j*fit_degen)
+	avg_angle_error = (avg_angle_error - fit_degen + PI)%TPI - PI
+	delay_error[calibrators[pol].Info.subsetant] = np.linalg.norm(avg_angle_error[fstart:fend][~sub_freq_flag,:], axis = 0) / (np.sum(~sub_freq_flag))**.5
+
+
+	#########compute fitting error
+	########A = np.arange(fstart, fend) * dfreq + startfreq
+	########A = A[~sub_freq_flag].reshape((np.sum(~sub_freq_flag), 1))
+	########matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))
+	########error_matrix = A.dot(la.pinv(A.transpose().dot(A)).dot(A.transpose())) - np.identity(len(A))
+	########delay_error[calibrators[pol].Info.subsetant] = [la.norm((error_matrix.dot(x[~sub_freq_flag]) + PI) % TPI - PI) / (len(A))**.5 for x in avg_angle]
+
+
+
+	#print stuff for calfile
+	if print_ampdelay:
+		print FILENAME + " MSG: delay on %s in nanoseconds:"%pol
+		print '{'
+		for a1, a2 in zip(range(len(delay)), delay):
+			print "%i: %f, "%(a1,a2)
+		print '}'
+		sys.stdout.flush()
+		#if make_plots:
+			#nplot = 8
+			#for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
+				#plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
+				#plt.plot(A[:,0], avg_angle[a])
+				#plt.plot(A[:,0], (error_matrix + np.identity(len(A))).dot(avg_angle[a]))
+				##plt.axis([A[0,0], A[-1,0], -PI, PI])
+				##plt.axes().set_aspect('equal')
+			#plt.show()
+	if make_plots:
+		nplot = 8
+		plot_a = range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle)))
+		for i, a in enumerate(plot_a):
+			plt.subplot(1, len(plot_a), i+1)
+			plt.plot(np.arange(nfreq), (np.angle(linearcalpar[pol][:, a]) + PI)%TPI - PI)
+			plt.plot(np.arange(nfreq), ((np.arange(nfreq)*dfreq + startfreq) * solution[0, a] + solution[1, a] + PI)%TPI - PI)
+			plt.axis([0, nfreq, -PI, PI])
+			#plt.axes().set_aspect('equal')
+		plt.show()
+		plt.hist(delay_error[calibrators[pol].Info.subsetant], 20)
+		plt.show()
+
+#elif make_plots:
+
+	#for p,pol in zip(range(len(wantpols)), wantpols.keys()):
+		#nplot = 8
+		#avg_angle = np.angle(linearcalpar[pol][fstart:fend].transpose()).astype('float32')#2D nant x freq
+		##nanfreq = np.isnan(np.mean(avg_angle, axis = 0))
+		#plot_a = range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle)))
+		#for i, a in enumerate(plot_a):
+			#plt.subplot(1, len(plot_a), i+1)
+			#plt.plot(np.arange(fstart, fend)[~sub_freq_flag], (avg_angle[a][~sub_freq_flag]+ PI)%TPI - PI)
+			#plt.axis([fstart, fend, -PI, PI])
+			##plt.axes().set_aspect('equal')
+		#plt.show()
+
 
 if oppath != "DONT_WRITE/":
 	if info_tag == "DEFAULT":
@@ -308,101 +435,17 @@ if oppath != "DONT_WRITE/":
 	for pol in linearcalpar.keys():
 		linearcalpar_out[pol] = np.ones((linearcalpar[pol].shape[0], calibrators[pol].nTotalAnt), dtype='complex64')
 		linearcalpar_out[pol][:, calibrators[pol].subsetant] = linearcalpar[pol]
+		linearcalpar_out[pol][np.isnan(linearcalpar_out[pol])] = 1
 	with open(op_calpar_path, 'wb') as outfile:
+
 		pickle.dump(linearcalpar_out, outfile, protocol=pickle.HIGHEST_PROTOCOL)
 else:
 	print FILENAME + " MSG: Not outputting redundantinfo or rawcalpar by default."
 	sys.stdout.flush()
 
 
-if fend == 0:
-	fend = nfreq
 
 
-if compute_ampdelay:
-	####amplitude
-	for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-		amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
-		amp[calibrators[pol].Info.subsetant] = nanmedian(np.abs(linearcalpar[pol]), axis = 0)
-		print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
-		print '{'
-		for a1, a2 in zip(range(len(amp)), amp):
-			print "%i: %f, "%(a1,a2)
-		print '}'
-		sys.stdout.flush()
-
-
-
-	####delay
-	for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-
-		delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
-		delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
-
-		avg_angle = np.angle(linearcalpar[pol][fstart:fend].transpose()).astype('float32')#2D nant x freq
-		nanfreq = np.isnan(np.mean(avg_angle, axis = 0))
-		##first get intersection for f=0
-		A = np.ones((fend-fstart, 2),dtype='float32')
-		A[:, 0] = np.arange(fstart, fend) * dfreq + startfreq
-		A = A[~nanfreq]
-		matrix_f0 = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[1]
-
-
-		#avg_angle -= avg_angle[0]
-
-		for a in range(len(avg_angle)):
-			avg_angle[a][~nanfreq] = _O.unwrap_phase(avg_angle[a][~nanfreq])
-		intersect = np.array([np.round(matrix_f0.dot(x[~nanfreq])/(2.*np.pi)) * (2.*np.pi) for x in avg_angle])#find closest multiple of 2pi for the intersect
-		avg_angle -= intersect[:,None]
-
-		##now fit
-		A = np.arange(fstart, fend) * dfreq + startfreq
-		A = A[~nanfreq].reshape((np.sum(~nanfreq), 1))
-		matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))
-		error_matrix = A.dot(la.pinv(A.transpose().dot(A)).dot(A.transpose())) - np.identity(len(A))
-		delay[calibrators[pol].Info.subsetant] = [matrix.dot(x[~nanfreq])[0] / (2 * np.pi)  for x in avg_angle]
-		delay_error[calibrators[pol].Info.subsetant] = [la.norm((error_matrix.dot(x[~nanfreq]) + np.pi) % (2*np.pi) - np.pi) / (len(A))**.5 for x in avg_angle]
-		print FILENAME + " MSG: delay on %s in nanoseconds:"%pol
-		print '{'
-		for a1, a2 in zip(range(len(delay)), delay):
-			print "%i: %f, "%(a1,a2)
-		print '}'
-		sys.stdout.flush()
-		#if make_plots:
-			#nplot = 8
-			#for a in range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle))):
-				#plt.subplot(1, min(nplot,len(avg_angle)), (a/( len(avg_angle)/min(nplot,len(avg_angle)))))
-				#plt.plot(A[:,0], avg_angle[a])
-				#plt.plot(A[:,0], (error_matrix + np.identity(len(A))).dot(avg_angle[a]))
-				##plt.axis([A[0,0], A[-1,0], -np.pi, np.pi])
-				##plt.axes().set_aspect('equal')
-			#plt.show()
-		if make_plots:
-			nplot = 8
-			plot_a = range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle)))
-			for i, a in enumerate(plot_a):
-				plt.subplot(1, len(plot_a), i+1)
-				plt.plot(np.arange(fstart, fend)[~nanfreq], (avg_angle[a][~nanfreq]+ np.pi)%(2*np.pi) - np.pi)
-				plt.plot(np.arange(fstart, fend)[~nanfreq], ((error_matrix + np.identity(len(A))).dot(avg_angle[a][~nanfreq]) + np.pi)%(2*np.pi) - np.pi)
-				plt.axis([fstart, fend, -np.pi, np.pi])
-				#plt.axes().set_aspect('equal')
-			plt.show()
-			plt.hist(delay_error[calibrators[pol].Info.subsetant], 20)
-			plt.show()
-
-elif make_plots:
-
-	for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-		nplot = 8
-		avg_angle = np.angle(linearcalpar[pol][fstart:fend].transpose()).astype('float32')#2D nant x freq
-		nanfreq = np.isnan(np.mean(avg_angle, axis = 0))
-		plot_a = range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle)))
-		for i, a in enumerate(plot_a):
-			plt.subplot(1, len(plot_a), i+1)
-			plt.plot(np.arange(fstart, fend)[~nanfreq], (avg_angle[a][~nanfreq]+ np.pi)%(2*np.pi) - np.pi)
-			plt.axis([fstart, fend, -np.pi, np.pi])
-			#plt.axes().set_aspect('equal')
-		plt.show()
 
 print "%i Bad antennas found: "%len(badAntenna),
 bad_str = ""
