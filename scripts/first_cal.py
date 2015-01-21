@@ -217,7 +217,7 @@ while new_bad_ant != [] and trials < max_try:
 
 		###prepare rawCalpar for each calibrator and consider, if needed, raw calibration################
 		if need_crude_cal:
-			initant, solution_path, additional_solution_path, degen, _ = omni.find_solution_path(info, verbose = False)
+			initant, solution_path, additional_solution_path, degen, _ = omni.find_solution_path(info, tol = calibrators[pol].antennaLocationTolerance, verbose = False)
 			crude_calpar[pol] = np.array([omni.raw_calibrate(rawdata[p, 0, f], info, initant, solution_path, additional_solution_path, degen) for f in range(calibrators[pol].nFrequency)])
 			data[p] = omni.apply_calpar(rawdata[p], crude_calpar[pol], calibrators[pol].totalVisibilityId)
 		else:
@@ -242,12 +242,12 @@ while new_bad_ant != [] and trials < max_try:
 		print FILENAME + " MSG: Performing additional degeneracy removal on %s"%pol,
 		sys.stdout.flush()
 		timer = time.time()
-		A = np.zeros((calibrators[pol].Info.nAntenna, 3))
+		A = np.zeros((calibrators[pol].Info.nAntenna, 4))
 		masker = np.zeros((calibrators[pol].Info.nAntenna, calibrators[pol].Info.nAntenna))
 		for a in [initant, degen[0], degen[1]]:
-			A[a] = [calibrators[pol].Info.antloc[a][0], calibrators[pol].Info.antloc[a][1] , 1.]
+			A[a] = list(calibrators[pol].Info.antloc[a]) + [1.]
 			masker[a,a] = 1.
-		matrix = np.identity(calibrators[pol].Info.nAntenna) - (np.array(info['antloc'])*[1,1,0]+[0,0,1]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()).dot(masker))
+		matrix = np.identity(calibrators[pol].Info.nAntenna) - np.array([list(vec) + [1.] for vec in info['antloc']]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()).dot(masker))
 
 		calibrators[pol].rawCalpar[:, :, (3 + calibrators[pol].Info.nAntenna):(3 + 2 * calibrators[pol].Info.nAntenna)] = matrix.dot(calibrators[pol].rawCalpar[:, :, (3 + calibrators[pol].Info.nAntenna):(3 + 2 * calibrators[pol].Info.nAntenna)].transpose(0,2,1)).transpose(1,2,0)
 		print "Done. %fmin"%(float(time.time()-timer)/60.)
@@ -385,12 +385,12 @@ for pol in wantpols.keys():
 			#plt.show()
 	if make_plots:
 		nplot = 8
-		plot_a = np.argsort(delay_error[calibrators[pol].Info.subsetant])[range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle)))]#[range(nplot/2)+range(-nplot/2,0)]
+		plot_a = np.argsort(delay_error[calibrators[pol].Info.subsetant])[range(0, len(avg_angle) - 1, len(avg_angle)/min(nplot,len(avg_angle))) + [-1]]#[range(nplot/2)+range(-nplot/2,0)]
 		for i, a in enumerate(plot_a):
 			plt.subplot(1, len(plot_a), i+1)
 			plt.plot(np.arange(nfreq), (np.angle(linearcalpar[pol][:, a]) + PI)%TPI - PI)
 			plt.plot(np.arange(nfreq), ((np.arange(nfreq)*dfreq + startfreq) * solution[0, a] + solution[1, a] + PI)%TPI - PI)
-			plt.title("Ant#%i"%calibrators[pol].subsetant[a])
+			plt.title("Ant#%i %.1f"%(calibrators[pol].subsetant[a], delay_error[calibrators[pol].Info.subsetant[a]]))
 			plt.axis([0, nfreq, -PI, PI])
 			#plt.axes().set_aspect('equal')
 		plt.show()
