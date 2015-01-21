@@ -18,6 +18,8 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
+__version__ = '2.4.2'
+
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
 
@@ -918,7 +920,7 @@ class RedundantCalibrator:
 
     def __str__(self,):
         if self.Info is None:
-            return "<Uninitialized %i antenna RedundantCalibrator with no RedundantInfo.>"%self.nAntenna
+            return "<Uninitialized %i antenna RedundantCalibrator with no RedundantInfo.>"%self.nTotalAnt
         else:
             return "<RedundantCalibrator for an %i antenna array: %i good baselines including %i good antennas and %i unique baselines.>"%(self.nTotalAnt, len(self.Info.crossindex), self.Info.nAntenna, self.Info.nUBL)
 
@@ -2165,11 +2167,11 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
             if i not in self._goodAntenna:
                 self.badAntenna.append(i)
 
-        ###fit for idealized antloc
-        A = np.array([list[a] + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
-        self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
-        self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.inv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
-
+        ####fit for idealized antloc
+        #A = np.array([list(a) + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
+        #self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
+        #self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
+        self.antennaLocation = np.copy(self.antennaLocationAtom)
 
     def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
         self.antennaLocationTolerance = antennaLocationTolerance

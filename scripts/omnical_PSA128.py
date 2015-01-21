@@ -8,8 +8,7 @@ import cPickle as pickle
 import scipy.signal as ss
 import scipy.ndimage.filters as sfil
 FILENAME = "omnical_PSA128.py"
-
-
+print "#Omnical Version %s#"%omni.__version__
 
 ######################################################################
 ##############Config parameters###################################

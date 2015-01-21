@@ -14,7 +14,7 @@ import cPickle as pickle
 FILENAME = "first_cal.py"
 PI = np.pi
 TPI = 2 * np.pi
-
+print "#Omnical Version %s#"%omni.__version__
 
 
 ######################################################################
@@ -385,11 +385,12 @@ for pol in wantpols.keys():
 			#plt.show()
 	if make_plots:
 		nplot = 8
-		plot_a = range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle)))
+		plot_a = np.argsort(delay_error[calibrators[pol].Info.subsetant])[range(0, len(avg_angle), len(avg_angle)/min(nplot,len(avg_angle)))]#[range(nplot/2)+range(-nplot/2,0)]
 		for i, a in enumerate(plot_a):
 			plt.subplot(1, len(plot_a), i+1)
 			plt.plot(np.arange(nfreq), (np.angle(linearcalpar[pol][:, a]) + PI)%TPI - PI)
 			plt.plot(np.arange(nfreq), ((np.arange(nfreq)*dfreq + startfreq) * solution[0, a] + solution[1, a] + PI)%TPI - PI)
+			plt.title("Ant#%i"%calibrators[pol].subsetant[a])
 			plt.axis([0, nfreq, -PI, PI])
 			#plt.axes().set_aspect('equal')
 		plt.show()
