@@ -31,12 +31,14 @@ o.add_option('--healthbar', action = 'store', default = '2', help = 'health thre
 o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
 o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
+o.add_option('--newuvf', action = 'store_true', help = 'whether to create new uv files with new flagging computed')
 o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
 o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
 
 opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
-create_new_uvs = opts.newuv
+create_new_uvs = opts.newuv or opts.newuvf
+need_new_flag = opts.newuvf
 overwrite_uvs = opts.overwrite
 make_plots = opts.plot
 ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
@@ -239,7 +241,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
             calibrators[pol].computeUBLFit = False
             additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
 
-    if needrawcal:#restore original data's amplitude after logcal. dont restore phase because it may cause problem in degeneracy removal
+    if needrawcal:#restore original data's phase
         #calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
         calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] + np.angle(crude_calpar[pol][:, calibrators[pol].subsetant])
         #data[p] = np.copy(original_data)
@@ -279,22 +281,34 @@ if create_new_uvs:
     infos = {}
     for pol in wantpols.keys():
         infos[pol] = omni.read_redundantinfo(infopaths[pol])
-    omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), flags = flags, overwrite = overwrite_uvs)
+    if need_new_flag:
+        omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), flags = flags, overwrite = overwrite_uvs)
+    else:
+        omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), overwrite = overwrite_uvs)
     print "Done"
     sys.stdout.flush()
 if make_plots:
     import matplotlib.pyplot as plt
     for p,pol in zip(range(len(wantpols)), wantpols.keys()):
-        plt.subplot(2, len(wantpols), 2 * p + 1)
+        plt.subplot(3, len(wantpols), 3 * p + 1)
         plot_data = (calibrators[pol].rawCalpar[:,:,2]/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5
         plt.imshow(plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,:,2][~flags[wantpols.keys()[0]]])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
         plt.title('RMS fitting error per baseline')
         plt.colorbar()
 
-        plt.subplot(2, len(wantpols), 2 * p + 2)
+        plt.subplot(3, len(wantpols), 3 * p + 2)
         flag_plot_data = np.copy(plot_data)
         flag_plot_data[flags[pol]] = 0
         plt.imshow(flag_plot_data, vmin = 0, vmax = (np.nanmax(calibrators[wantpols.keys()[0]].rawCalpar[:,:,2][~flags[wantpols.keys()[0]]])/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5, interpolation='nearest')
         plt.title('flagged RMS fitting error per baseline')
+        plt.colorbar()
+
+        plt.subplot(3, len(wantpols), 3 * p + 3)
+        shortest_ubli = np.argsort(np.linalg.norm(calibrators[pol].ubl, axis = 1))[0]
+        shortest_vis = np.angle(calibrators[pol].rawCalpar[:,:,3+2*calibrators[pol].nAntenna+2*shortest_ubli] + 1.j * (calibrators[pol].rawCalpar[:,:,3+2*calibrators[pol].nAntenna+2*shortest_ubli+1]))
+        if need_new_flag:
+            shortest_vis[flags[pol]] = np.nan
+        plt.imshow(shortest_vis, interpolation='nearest')
+        plt.title('phase of visibility fit on %s baseline'%(calibrators[pol].ubl[shortest_ubli]))
         plt.colorbar()
     plt.show()

@@ -432,9 +432,11 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
 def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols, oppath, ano, adds=None, flags=None, nTotalAntenna = None, overwrite = False, comment = '', verbose = False):
     METHODNAME = "*apply_omnigain_uvs*"
     ttotal = len(omnigains[wantpols.keys()[0]])
-    ftotal = omnigains[wantpols.keys()[0]][0,0,3]
+    ftotal = int(omnigains[wantpols.keys()[0]][0,0,3])
     if flags is None:
-        flags = np.zeros((ttotal, ftotal), dtype=bool)
+        flags = {}
+        for pol in wantpols.keys():
+            flags[pol] = np.zeros((ttotal, ftotal), dtype=bool)
     else:
         for pol in wantpols.keys():
             if flags[pol].shape != (ttotal, ftotal):
@@ -1189,7 +1191,7 @@ class RedundantCalibrator:
         bad_ubl_count = np.zeros(self.Info.nUBL, dtype='int')
         median_level = nanmedian(nanmedian(self.rawCalpar[:,:,3:3+self.Info.nAntenna], axis= 0), axis= 1)
         bad_count[0] = np.array([(np.abs(self.rawCalpar[:,:,3+a] - median_level) >= .15).sum() for a in range(self.Info.nAntenna)])**2
-        timer.tick(1)
+        #timer.tick(1)
         if data is not None and data.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
             subsetbl = self.Info.subsetbl
@@ -1197,10 +1199,10 @@ class RedundantCalibrator:
             ncross = len(self.Info.crossindex)
             bl1dmatrix = self.Info.bl1dmatrix
             ant_level = np.array([np.median(np.abs(data[:, :, [subsetbl[crossindex[bl]] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
-            timer.tick(2)
+            #timer.tick(2)
             median_level = np.median(ant_level, axis = 0)
             bad_count[1] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
-        timer.tick(2)
+        #timer.tick(2)
         if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
             subsetbl = self.Info.subsetbl
@@ -1208,16 +1210,16 @@ class RedundantCalibrator:
             ncross = len(self.Info.crossindex)
             bl1dmatrix = self.Info.bl1dmatrix
             ant_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
-            timer.tick(3)
+            #timer.tick(3)
             median_level = np.median(ant_level, axis = 0)
             bad_count[2] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
-            timer.tick(3)
+            #timer.tick(3)
             ublindex = [np.array(index).astype('int')[:,2] for index in self.Info.ublindex]
             ubl_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in ublindex[u]]]), axis = 2) for u in range(self.Info.nUBL)])
             median_level = np.median(ubl_level, axis = 0)
             bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .667).sum() for u in range(self.Info.nUBL)])**2
             #print median_level
-        timer.tick(3)
+        #timer.tick(3)
         np.seterr(invalid = errstate['invalid'])
         bad_count = (np.mean(bad_count,axis=0)/float(self.nTime * self.nFrequency)**2 * 100).astype('int')
         bad_ubl_count = (bad_ubl_count/float(self.nTime * self.nFrequency)**2 * 100).astype('int')
@@ -1254,6 +1256,8 @@ class RedundantCalibrator:
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
 
+
+        #chisq flag: spike_flag
         chisq = self.rawCalpar[:,:,2]
         median_level = nanmedian(nanmedian(chisq))
 
@@ -1266,10 +1270,33 @@ class RedundantCalibrator:
         filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
 
         smoothed_chisq = np.outer(filtered_tdir, filtered_fdir)
-        smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore",category=RuntimeWarning)
+            smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
         spike_flag = (chisq - smoothed_chisq) >= smoothed_chisq * thresh
 
-        return (nan_flag|spike_flag)
+
+        #baseline fit flag
+        nubl = 10
+        short_ubl_index = np.argsort(np.linalg.norm(self.ubl, axis=1))[:min(nubl, self.nUBL)]
+        shortest_ubl_vis = self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index] + 1.j * self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index+1]
+        change_rate = np.median(np.abs(shortest_ubl_vis[:-1] - shortest_ubl_vis[1:]), axis = 2)
+        nan_mask2 = np.isnan(change_rate)|np.isinf(change_rate)
+        change_rate[nan_mask2] = 0
+
+        filtered_tdir = sfil.minimum_filter(np.median(change_rate, axis = 1), size = twindow, mode='reflect')
+        filtered_fdir = sfil.minimum_filter(np.median(change_rate, axis = 0), size = fwindow, mode='reflect')
+
+        smoothed_change_rate = np.outer(filtered_tdir, filtered_fdir)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore",category=RuntimeWarning)
+            smoothed_change_rate = smoothed_change_rate * np.median(change_rate[~nan_mask2] / smoothed_change_rate[~nan_mask2])
+
+        ubl_flag_short = (change_rate > 2 * smoothed_change_rate) | nan_mask2
+        ubl_flag = np.zeros_like(spike_flag)
+        ubl_flag[:-1] = ubl_flag_short
+        ubl_flag[1:] = ubl_flag[1:] | ubl_flag_short
+        return (nan_flag|spike_flag|ubl_flag)
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
         if arrayinfoPath is not None and os.path.isfile(arrayinfoPath):
@@ -1278,6 +1305,15 @@ class RedundantCalibrator:
             raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
         if verbose:
             timer = Timer()
+
+        #antennalocation quality check: make sure there's no crazy constant added to antlocs
+        bad_ant_mask = np.array([a in self.badAntenna for a in range(len(self.antennaLocation))]).astype('bool')
+        array_center = la.norm(np.mean(self.antennaLocation[~bad_ant_mask], axis = 0))
+        array_std = la.norm(np.std(self.antennaLocation[~bad_ant_mask], axis = 0))
+        #print array_center, array_std
+        if array_std / array_center < 1e-3:
+            raise TypeError("Average antenna location is %s whereas the typical variation among locations is %s, which is too small and will cause many problems. Please remove the large overall offset from antenna locations."%(np.mean(self.antennaLocation[~bad_ant_mask], axis = 0), np.std(self.antennaLocation[~bad_ant_mask], axis = 0)))
+
         #nAntenna and subsetant : get rid of the bad antennas
         nant=len(self.antennaLocation)
         #subsetant=[i for i in range(nant) if i not in self.badAntenna]
@@ -1520,8 +1556,8 @@ class RedundantCalibrator:
             d.append(np.append(ubl[i],0))
         d=np.array(d)
 
-        m1=-a.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
-        m2=d.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
+        m1=-a.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
+        m2=d.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
         degenM = np.append(m1,m2,axis=0)
         #####################################################################################
         #A: A matrix for logcal amplitude
@@ -2072,8 +2108,9 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):#ret
         print "Degeneracy: a1 = %i, a2 = %i"%(info['subsetant'][a1], info['subsetant'][a2])
     return initialant, solution_path, additional_solution_path, degeneracy_remove, (unsolved_ant == [])
 
-def meanAngle(a):
-    return np.angle(np.mean(np.exp(1.j*np.array(a))))
+def meanAngle(a, weights = None):
+    return np.angle(np.average(np.exp(1.j*np.array(a)), weights = weights))
+
 def medianAngle(a):
     return np.angle(np.median(np.cos(np.array(a))) + 1.j * np.median(np.sin(np.array(a))))
 
@@ -2115,21 +2152,23 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
         nTotalAnt = len(aa)
         RedundantCalibrator.__init__(self, nTotalAnt)
         self.aa = aa
-        self.antennaLocation = np.zeros((self.nTotalAnt,3))
+        self.antennaLocationAtom = np.zeros((self.nTotalAnt,3))
         for i in range(len(self.aa.ant_layout)):
             for j in range(len(self.aa.ant_layout[0])):
-                self.antennaLocation[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
-        self.preciseAntennaLocation = np.array([ant.pos for ant in self.aa])
+                self.antennaLocationAtom[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
+        self.preciseAntennaLocation = .299792458 * np.array([ant.pos for ant in self.aa])
         self._goodAntenna = self.aa.ant_layout.flatten()
+        self._goodAntenna.sort()
         self.badAntenna = []
         self.badUBLpair = []
         for i in range(nTotalAnt):
             if i not in self._goodAntenna:
                 self.badAntenna.append(i)
 
-        #fit for idealized antloc
-        A = self.antennaLocation + [0,0,1]
-        self.antennaLocation = A.dot(la.inv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna])))
+        ###fit for idealized antloc
+        A = np.array([list[a] + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
+        self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
+        self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.inv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
 
 
     def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
@@ -2323,8 +2362,8 @@ def remove_one_antenna(Info,badant):
         d.append(np.append(ubl[i],0))
     d=np.array(d)
 
-    m1=-a.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
-    m2=d.dot(la.pinv(np.transpose(a).dot(a), cond = 10**(-6))).dot(np.transpose(a))
+    m1=-a.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
+    m2=d.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
     degenM = np.append(m1,m2,axis=0)
     #####################################################################################
     #A: A matrix for logcal amplitude
