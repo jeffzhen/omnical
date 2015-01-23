@@ -125,8 +125,8 @@ sys.stdout.flush()
 uv=ap.miriad.UV(uvfiles[0])
 nfreq = uv.nchan;
 if fend == 0:
-	fstart = int(nfreq) / 4
-	fend = 3 * int(nfreq) / 4
+	fstart = int(nfreq) / 10
+	fend = 9 * int(nfreq) / 10
 
 nant = uv['nants']
 sa = ephem.Observer()
@@ -277,123 +277,176 @@ while new_bad_ant != [] and trials < max_try:
 				new_bad_ant.append(calibrators[wantpols.keys()[0]].Info.subsetant[a])
 				break
 
-print "Identified possible bad baselines (not automatically excluded):"
-for u in range(calibrators[wantpols.keys()[0]].nUBL):#assuming calibrators on all pols are the same ubl config
-	for p, pol in enumerate(wantpols.keys()):
-		c = calibrators[pol]
-		if ubl_bad_meter[pol][u] > 1:
-			print np.round(c.ubl[u]), ubl_bad_meter[pol][u], "ant pair %i.%i"%(c.subsetant[int(c.ublindex[u][0][0])], c.subsetant[int(c.ublindex[u][0][1])])
-			break
+	if new_bad_ant == [] or trials == max_try:#start delay fitting
+		print "--------------------------------------------------------------------------"
+		print FILENAME + " MSG: Starting delay fit"
+		worst_delay_ant = {}
+		n_bad_delay = {}
+		linearcalpar = {}#combine lincal results averaged over time and the initial crude_calpar results
+		for pol in wantpols.keys():
+			linearcalpar[pol] = 10.**(calibrators[pol].rawCalpar[:,:,3:3+calibrators[pol].Info.nAntenna]) * np.exp(1j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna])
+			linearcalpar[pol] = nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * nanmedian(np.imag(linearcalpar[pol]), axis = 0)
+			linearcalpar[pol][np.isnan(linearcalpar[pol])] = 1
+			linearcalpar[pol] = linearcalpar[pol] * crude_calpar[pol][:, calibrators[pol].Info.subsetant]
 
-linearcalpar = {}#combine lincal results averaged over time and the initial crude_calpar results
-for pol in wantpols.keys():
-	linearcalpar[pol] = 10.**(calibrators[pol].rawCalpar[:,:,3:3+calibrators[pol].Info.nAntenna]) * np.exp(1j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna])
-	linearcalpar[pol] = nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * nanmedian(np.imag(linearcalpar[pol]), axis = 0)
-	linearcalpar[pol][np.isnan(linearcalpar[pol])] = 1
-	linearcalpar[pol] = linearcalpar[pol] * crude_calpar[pol][:, calibrators[pol].Info.subsetant]
+			#try smoothing out this calpar so it doesnt introduce much frequency structure
 
-	#try smoothing out this calpar so it doesnt introduce much frequency structure
-
-	freq_flag = (np.sum(calibrators[pol].flag(), axis = 0) > .4 * calibrators[pol].nTime)|np.isnan(np.sum(linearcalpar[pol], axis=1))
-	A = np.array([list(a) + [1] for a in calibrators[pol].antloc])
-	AAA = A.dot(np.linalg.pinv(A.transpose().dot(A)).dot(A.transpose()))
-	#if smooth:
-		#calpar = linearcalpar[pol][~freq_flag]
-		#for i in range(15):
-			#for f in range(len(calpar) - 1):
-				#calpar[f+1] = np.exp(1.j*(np.angle(calpar[f+1]) - AAA.dot((np.angle(calpar[f+1]) - np.angle(calpar[f]) + PI)%TPI-PI)))
-			#linearcalpar[pol][~freq_flag] = calpar
-			#for f in np.array(range(calibrators[pol].nFrequency))[freq_flag]-1:
-				#linearcalpar[pol][f+1] = np.exp(1.j*(np.angle(linearcalpar[pol][f+1]) - AAA.dot((np.angle(linearcalpar[pol][f+1]) - np.angle(linearcalpar[pol][f]) + PI)%TPI-PI)))
-
-
-	####amplitude: a single amplitude over all frequency is only useful for calfile and not really accurate
-	if print_ampdelay:
-		amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
-		amp[calibrators[pol].Info.subsetant] = nanmedian(np.abs(linearcalpar[pol]), axis = 0)
-		print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
-		print '{'
-		for a1, a2 in zip(range(len(amp)), amp):
-			print "%i: %f, "%(a1,a2)
-		print '}'
-		sys.stdout.flush()
-
-	count = 0
-	error_history = []
-	delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
-	delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
-	while (count == 0) or (np.max(delay_error[calibrators[pol].Info.subsetant]) > .1 and count < 100):
-		count = count + 1
-		####delay
-
-
-		sub_freq_flag = freq_flag[fstart:fend]
-		avg_angle = np.angle(linearcalpar[pol][fstart:fend].transpose()).astype('float32')#2D nant x freq
-
-		####unwrap phase
-		valid_freq_index = np.arange(len(freq_flag))[fstart:fend][~sub_freq_flag]
-		rough_slopes = np.median(((avg_angle[:, ~sub_freq_flag][:, 1:] - avg_angle[:, ~sub_freq_flag][:, :-1] + PI)%TPI - PI) / (valid_freq_index[None, 1:]-valid_freq_index[None, :-1]), axis = 1)
-		line_model = np.outer(rough_slopes, valid_freq_index)
-		avg_angle[:, ~sub_freq_flag] = avg_angle[:, ~sub_freq_flag] + TPI * np.round((line_model - avg_angle[:, ~sub_freq_flag]) / TPI)
-		#for a in range(len(avg_angle)):
-			#avg_angle[a][~sub_freq_flag] = _O.unwrap_phase(avg_angle[a][~sub_freq_flag])
-
-
-		##I am allowing a phase offset per antenna. iterating on degeneracy removal does not seem to help
-		A = np.ones((fend-fstart, 2),dtype='float32')
-		A[:, 0] = np.arange(fstart, fend) * dfreq + startfreq
-		A = A[~sub_freq_flag]
-		#####matrix_f0 = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[1]
-		#####offsets = np.array([matrix_f0.dot(x[~sub_freq_flag]) for x in avg_angle])
-
-		#####intersect = np.round(offsets/(2.*PI)) * (2.*PI) #find closest multiple of 2pi for the intersect
-		#####overall_angle = 0#omni.meanAngle(offsets, weights = 1/(intersect+1))
-		#####avg_angle = avg_angle - intersect[:,None] - overall_angle
-
-		#######now fit
-		#####A = np.arange(fstart, fend) * dfreq + startfreq
-		#####A = A[~sub_freq_flag].reshape((np.sum(~sub_freq_flag), 1))
-		matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))
-
-		solution = matrix.dot(avg_angle[:, ~sub_freq_flag].transpose())
-		delay[calibrators[pol].Info.subsetant] = solution[0] / TPI
-
-		##use delay fit to further correct rephasing degeneracies in linearcalpar
-		avg_angle_error = np.angle(linearcalpar[pol]) - np.outer(np.arange(nfreq) * dfreq + startfreq, solution[0]) - solution[1]
-		avg_angle_error = (avg_angle_error + PI)%TPI - PI
-		fit_degen = avg_angle_error.dot(AAA.transpose())
-		fit_degen[np.isnan(fit_degen)] = 0
-		linearcalpar[pol] = linearcalpar[pol] / np.exp(1.j*fit_degen)
-		avg_angle_error = (avg_angle_error - fit_degen + PI)%TPI - PI
-		delay_error[calibrators[pol].Info.subsetant] = np.linalg.norm(avg_angle_error[fstart:fend][~sub_freq_flag,:], axis = 0) / (np.sum(~sub_freq_flag))**.5
-		error_history + []
-
-	print count
+			freq_flag = (np.sum(calibrators[pol].flag(mode="1", fwindow=calibrators[pol].nFrequency/100), axis = 0) > .4 * calibrators[pol].nTime)|np.isnan(np.sum(linearcalpar[pol], axis=1))
+			A = np.array([list(a) + [1] for a in calibrators[pol].antloc])
+			AAA = A.dot(np.linalg.pinv(A.transpose().dot(A)).dot(A.transpose()))
+			#if smooth:
+				#calpar = linearcalpar[pol][~freq_flag]
+				#for i in range(15):
+					#for f in range(len(calpar) - 1):
+						#calpar[f+1] = np.exp(1.j*(np.angle(calpar[f+1]) - AAA.dot((np.angle(calpar[f+1]) - np.angle(calpar[f]) + PI)%TPI-PI)))
+					#linearcalpar[pol][~freq_flag] = calpar
+					#for f in np.array(range(calibrators[pol].nFrequency))[freq_flag]-1:
+						#linearcalpar[pol][f+1] = np.exp(1.j*(np.angle(linearcalpar[pol][f+1]) - AAA.dot((np.angle(linearcalpar[pol][f+1]) - np.angle(linearcalpar[pol][f]) + PI)%TPI-PI)))
 
 
 
-	#print stuff for calfile
-	if print_ampdelay:
-		print FILENAME + " MSG: delay on %s in nanoseconds:"%pol
-		print '{'
-		for a1, a2 in zip(range(len(delay)), delay):
-			print "%i: %f, "%(a1,a2)
-		print '}'
-		sys.stdout.flush()
 
-	if make_plots:
-		nplot = 8
-		plot_a = np.argsort(delay_error[calibrators[pol].subsetant])[range(0, calibrators[pol].nAntenna - 1, calibrators[pol].nAntenna/min(nplot,calibrators[pol].nAntenna)) + [-1]]#[range(nplot/2)+range(-nplot/2,0)]
-		for i, a in enumerate(plot_a):
-			plt.subplot(1, len(plot_a), i+1)
-			plt.plot(np.arange(nfreq), (np.angle(linearcalpar[pol][:, a]) + PI)%TPI - PI)
-			plt.plot(np.arange(nfreq), ((np.arange(nfreq)*dfreq + startfreq) * solution[0, a] + solution[1, a] + PI)%TPI - PI)
-			plt.title("Ant#%i %.1f"%(calibrators[pol].subsetant[a], delay_error[calibrators[pol].Info.subsetant[a]]))
-			plt.axis([0, nfreq, -PI, PI])
-			#plt.axes().set_aspect('equal')
-		plt.show()
-		plt.hist(delay_error[calibrators[pol].Info.subsetant], 20)
-		plt.show()
+			################################################
+			####delay fitting and fancy degeneracy removal####
+			################################################
+
+			count = 0
+			MAX_DELAY_ITER = 10 #rarely need more than 1 iteration;
+			DELAY_ERROR_THRESH = .1 #RMS error in radians for delay fitting
+			#solution1_history = []
+			#solution0_history = []
+			#error_history = []
+			#rough_slope_history = []
+			#subant49_history = []
+			delay = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
+			delay_error = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
+			while (count == 0) or (np.max(delay_error[calibrators[pol].Info.subsetant]) > DELAY_ERROR_THRESH and count < MAX_DELAY_ITER):
+				count = count + 1
+
+				sub_freq_flag = freq_flag[fstart:fend]
+				avg_angle = np.angle(linearcalpar[pol][fstart:fend][~sub_freq_flag].transpose()).astype('float32')#2D nant x freq
+
+				####unwrap phase
+				valid_freq_index = np.arange(len(freq_flag))[fstart:fend][~sub_freq_flag]
+				valid_freq_index = valid_freq_index - valid_freq_index[int(len(valid_freq_index)/2)]#important for stability
+				#step = 2
+				rough_slopes = np.median(np.concatenate([((avg_angle[:, step:] - avg_angle[:, :-step] + PI)%TPI - PI) / (valid_freq_index[None, step:]-valid_freq_index[None, :-step]) for step in [1,2,3]], axis = 1), axis = 1)
+				line_model = np.outer(rough_slopes, valid_freq_index)
+				avg_angle = avg_angle + TPI * np.round((line_model - avg_angle) / TPI)
+
+				#make sure no line model is close to PI away from the avg_angle, which can cause instability of fits to jump from -PI to PI
+				unstable_ants = np.std((line_model - avg_angle + PI) % TPI - PI, axis = 1) > 0.5 #this threshold is somewhat arbitrary
+				line_model[unstable_ants] = line_model[unstable_ants] + PI
+				avg_angle = avg_angle + TPI * np.round((line_model - avg_angle) / TPI)
+				#for a in range(len(avg_angle)):
+					#avg_angle[a][~sub_freq_flag] = _O.unwrap_phase(avg_angle[a][~sub_freq_flag])
+
+
+				##I am allowing a phase offset per antenna. iterating on degeneracy removal does not seem to help
+				A = np.ones((fend-fstart, 2),dtype='float32')
+				A[:, 0] = np.arange(fstart, fend) * dfreq + startfreq
+				A = A[~sub_freq_flag]
+				#######
+				#matrix_f0 = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))[1]
+				#offsets = matrix_f0.dot(avg_angle.transpose())
+
+				#intersect = np.round(offsets/TPI) * TPI #find closest multiple of 2pi for the intersect
+				#overall_angle = 0#omni.meanAngle(offsets, weights = 1/(intersect+1))
+				#avg_angle = avg_angle - intersect[:,None] - overall_angle
+
+				###now fit
+				#A = np.arange(fstart, fend) * dfreq + startfreq
+				#A = A[~sub_freq_flag].reshape((np.sum(~sub_freq_flag), 1))
+				#######
+				matrix = (la.pinv(A.transpose().dot(A)).dot(A.transpose()))
+
+				solution = matrix.dot(avg_angle.transpose())
+				delay[calibrators[pol].Info.subsetant] = solution[0] / TPI
+
+				##use delay fit to further correct rephasing degeneracies in linearcalpar
+				avg_angle_error = np.angle(linearcalpar[pol]) - np.outer(np.arange(nfreq) * dfreq + startfreq, solution[0]) - solution[1]
+				avg_angle_error = (avg_angle_error + PI)%TPI - PI
+				fit_degen = avg_angle_error.dot(AAA.transpose())
+				fit_degen[np.isnan(fit_degen)] = 0
+				linearcalpar[pol] = linearcalpar[pol] / np.exp(1.j*fit_degen)
+				avg_angle_error = (avg_angle_error - fit_degen + PI)%TPI - PI
+
+				#remove degeneracy in solution
+				solution_degen = np.zeros_like(solution)
+				solution_degen[1] = omni.medianAngle(solution[1])
+				solution[1] = (solution[1] - solution_degen[1] + PI) % TPI - PI
+				for sdi in range(5):
+					solution_degen = solution_degen + solution.dot(AAA.transpose())
+					solution = solution - solution.dot(AAA.transpose())
+					solution[1] = (solution[1] + PI) % TPI - PI
+					#print la.norm(solution[1])
+				linearcalpar[pol] = linearcalpar[pol] / np.exp(1.j* (np.outer(np.arange(nfreq) * dfreq + startfreq, solution_degen[0]) + solution_degen[1]))
+
+
+				delay_error[calibrators[pol].Info.subsetant] = np.linalg.norm(avg_angle_error[fstart:fend][~sub_freq_flag,:], axis = 0) / (np.sum(~sub_freq_flag))**.5
+				#error_history = error_history + [delay_error[calibrators[pol].Info.subsetant]]
+				#solution1_history = solution1_history + [solution[1]]
+				#solution0_history = solution0_history + [solution[0]]
+				#rough_slope_history = rough_slope_history + [rough_slopes]
+				#subant49_history = subant49_history + [avg_angle[49]]
+			#print "Used %i iterations to find the delays"%count
+			if count == MAX_DELAY_ITER:
+				n_bad_delay[pol] = np.sum(delay_error[calibrators[pol].subsetant] >= DELAY_ERROR_THRESH)
+				worst_delay_ant[pol] = calibrators[pol].subsetant[np.argsort(delay_error[calibrators[pol].subsetant])[-n_bad_delay[pol]:]][::-1]
+				new_bad_ant = new_bad_ant + list(calibrators[pol].subsetant[delay_error[calibrators[pol].subsetant] >= DELAY_ERROR_THRESH])
+
+		print FILENAME + " MSG: %i bad antennas found during delay fitting."%(len(new_bad_ant))
+		if new_bad_ant == []:#end case all good
+			print "##########################################################################"
+			print "Identified possible bad baselines (not automatically excluded):"
+			for u in range(calibrators[wantpols.keys()[0]].nUBL):#assuming calibrators on all pols are the same ubl config
+				for p, pol in enumerate(wantpols.keys()):
+					c = calibrators[pol]
+					if ubl_bad_meter[pol][u] > 1:
+						print np.round(c.ubl[u]), ubl_bad_meter[pol][u], "ant pair %i.%i"%(c.subsetant[int(c.ublindex[u][0][0])], c.subsetant[int(c.ublindex[u][0][1])])
+						break
+
+			for pol in wantpols.keys():
+				####amplitude: a single amplitude over all frequency is only useful for calfile and not really accurate
+				if print_ampdelay:
+					amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
+					amp[calibrators[pol].Info.subsetant] = nanmedian(np.abs(linearcalpar[pol]), axis = 0)
+					print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
+					print '{'
+					for a1, a2 in zip(range(len(amp)), amp):
+						print "%i: %f, "%(a1,a2)
+					print '}'
+					sys.stdout.flush()
+
+				#print stuff for calfile
+				if print_ampdelay:
+					print FILENAME + " MSG: delay on %s in nanoseconds:"%pol
+					print '{'
+					for a1, a2 in zip(range(len(delay)), delay):
+						print "%i: %f, "%(a1,a2)
+					print '}'
+					sys.stdout.flush()
+
+				if make_plots:
+					nplot = 8
+					plot_a = np.argsort(delay_error[calibrators[pol].subsetant])[range(0, calibrators[pol].nAntenna - 1, calibrators[pol].nAntenna/min(nplot,calibrators[pol].nAntenna)) + [-1]]#[range(nplot/2)+range(-nplot/2,0)]
+					for i, a in enumerate(plot_a):
+						plt.subplot(1, len(plot_a), i+1)
+						pltdata = (np.angle(linearcalpar[pol][:, a]) + PI)%TPI - PI
+						pltdata[freq_flag] = np.nan
+						pltdata_bad = (np.angle(linearcalpar[pol][:, a]) + PI)%TPI - PI
+						pltdata_bad[~freq_flag] = np.nan
+						plt.plot(np.arange(nfreq), pltdata)
+						plt.plot(np.arange(nfreq), ((np.arange(nfreq)*dfreq + startfreq) * solution[0, a] + solution[1, a] + PI)%TPI - PI)
+						#plt.plot(np.arange(nfreq), pltdata_bad, 'r--')
+						plt.title("Ant#%i %.2f"%(calibrators[pol].subsetant[a], delay_error[calibrators[pol].Info.subsetant[a]]))
+						plt.axis([0, nfreq, -PI, PI])
+						#plt.axes().set_aspect('equal')
+					plt.show()
+					plt.hist(delay_error[calibrators[pol].subsetant], 20)
+					if count == MAX_DELAY_ITER:
+						plt.title("The %i worst fitting antennas are (worst first):\n %s"%(n_bad_delay[pol], worst_delay_ant[pol]))
+					plt.show()
 
 
 if oppath != "DONT_WRITE/":
@@ -439,3 +492,12 @@ for bant in badAntenna:
 if bad_str[-1] == ",":
 	bad_str = bad_str[:-1]
 print bad_str
+
+for pol in n_bad_delay.keys():
+	print "Possible bad antennas found from %s delay fitting: "%pol,
+	bad_str = ""
+	for bant in worst_delay_ant[pol]:
+		bad_str += (str(int(bant)) + ",")
+	if bad_str[-1] == ",":
+		bad_str = bad_str[:-1]
+	print bad_str

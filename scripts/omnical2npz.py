@@ -20,9 +20,9 @@ if __name__ == '__main__':
 
 
 
-    
+
     NCHAN = opts.nFrequency
-    
+
     calibrator = omni.RedundantCalibrator(opts.nAntenna)
     print "Reading redundant info", opts.infopath, "...",
     sys.stdout.flush()
@@ -30,9 +30,10 @@ if __name__ == '__main__':
     print "Done."
     sys.stdout.flush()
 
-    NANT = calibrator.Info.nAntenna
-    NPRM = 3 + 2 * (calibrator.Info.nAntenna + calibrator.Info.nUBL)
-    
+    NANT = calibrator.nAntenna
+    NUBL = calibrator.nUBL
+    NPRM = 3 + 2 * (calibrator.nAntenna + calibrator.nUBL)
+
     for omnical_file in args:
         print "Processing", omnical_file, "..."
         sys.stdout.flush()
@@ -54,7 +55,10 @@ if __name__ == '__main__':
         d_npz['iters'] = d[:,:,0]
         d_npz['chi2_log'] = d[:,:,1]
         d_npz['chi2_lin'] = d[:,:,2]
-        g = 10**d[:,:,3:3+NANT] * n.exp(- 1.j * d[:,:,3+NANT:3+2*NANT]) # minus to change conjugation convention between omnical and aipy
+        g = 10**d[...,3:3+NANT] * n.exp(- 1.j * d[...,3+NANT:3+2*NANT]) # minus to change conjugation convention between omnical and aipy
+        c = d[..., 3+2*NANT::2] + 1.j * d[..., 3+2*NANT+1::2]
         for i in xrange(NANT):
-            d_npz['%d,%s' % (calibrator.Info.subsetant[i],pol)] = g[...,i]
+            d_npz['%d,%s' % (calibrator.subsetant[i],pol)] = g[...,i]
+        for u in xrange(NUBL):
+            d_npz['%d,%s' % (calibrator.ubl[u],pol)] = c[...,u]
         n.savez(oppath, **d_npz)
