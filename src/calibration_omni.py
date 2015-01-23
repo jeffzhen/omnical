@@ -18,11 +18,12 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '2.4.3'
+__version__ = '2.4.3.00'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
-
+PI = np.pi
+TPI = 2 * np.pi
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
 cal_name = {0: "Lincal", 1: "Logcal"}
@@ -1254,50 +1255,54 @@ class RedundantCalibrator:
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
             return txt
 
-    def flag(self, twindow = 5, fwindow = 5, nsigma = 4):#return true if flagged False if good and unflagged
+    def flag(self, mode = '12', twindow = 5, fwindow = 5, nsigma = 4):#return true if flagged False if good and unflagged
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
 
+        chisq = self.rawCalpar[:,:,2]
+        nan_flag = np.isnan(chisq)|np.isinf(chisq)
 
         #chisq flag: spike_flag
-        chisq = self.rawCalpar[:,:,2]
-        median_level = nanmedian(nanmedian(chisq))
+        if '1' in mode:
+            median_level = nanmedian(nanmedian(chisq))
 
-        thresh = nsigma * (2. / (len(self.subsetbl) - self.nAntenna - self.nUBL))**.5 # relative sigma is sqrt(2/k)
+            thresh = nsigma * (2. / (len(self.subsetbl) - self.nAntenna - self.nUBL))**.5 # relative sigma is sqrt(2/k)
+            chisq[nan_flag] = 1e6 * median_level
 
-        nan_flag = np.isnan(chisq)|np.isinf(chisq)
-        chisq[nan_flag] = 1e6 * median_level
+            filtered_tdir = sfil.minimum_filter(np.median(chisq, axis = 1), size = twindow, mode='reflect')
+            filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
 
-        filtered_tdir = sfil.minimum_filter(np.median(chisq, axis = 1), size = twindow, mode='reflect')
-        filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
-
-        smoothed_chisq = np.outer(filtered_tdir, filtered_fdir)
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore",category=RuntimeWarning)
-            smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
-        spike_flag = (chisq - smoothed_chisq) >= smoothed_chisq * thresh
-
+            smoothed_chisq = np.outer(filtered_tdir, filtered_fdir)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore",category=RuntimeWarning)
+                smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
+            spike_flag = (chisq - smoothed_chisq) >= smoothed_chisq * thresh
+        else:
+            spike_flag = np.zeros_like(nan_flag)
 
         #baseline fit flag
-        nubl = 10
-        short_ubl_index = np.argsort(np.linalg.norm(self.ubl, axis=1))[:min(nubl, self.nUBL)]
-        shortest_ubl_vis = self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index] + 1.j * self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index+1]
-        change_rate = np.median(np.abs(shortest_ubl_vis[:-1] - shortest_ubl_vis[1:]), axis = 2)
-        nan_mask2 = np.isnan(change_rate)|np.isinf(change_rate)
-        change_rate[nan_mask2] = 0
+        if '2' in mode:
+            nubl = 10
+            short_ubl_index = np.argsort(np.linalg.norm(self.ubl, axis=1))[:min(nubl, self.nUBL)]
+            shortest_ubl_vis = self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index] + 1.j * self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index+1]
+            change_rate = np.median(np.abs(shortest_ubl_vis[:-1] - shortest_ubl_vis[1:]), axis = 2)
+            nan_mask2 = np.isnan(change_rate)|np.isinf(change_rate)
+            change_rate[nan_mask2] = 0
 
-        filtered_tdir = sfil.minimum_filter(np.median(change_rate, axis = 1), size = twindow, mode='reflect')
-        filtered_fdir = sfil.minimum_filter(np.median(change_rate, axis = 0), size = fwindow, mode='reflect')
+            filtered_tdir = sfil.minimum_filter(np.median(change_rate, axis = 1), size = twindow, mode='reflect')
+            filtered_fdir = sfil.minimum_filter(np.median(change_rate, axis = 0), size = fwindow, mode='reflect')
 
-        smoothed_change_rate = np.outer(filtered_tdir, filtered_fdir)
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore",category=RuntimeWarning)
-            smoothed_change_rate = smoothed_change_rate * np.median(change_rate[~nan_mask2] / smoothed_change_rate[~nan_mask2])
+            smoothed_change_rate = np.outer(filtered_tdir, filtered_fdir)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore",category=RuntimeWarning)
+                smoothed_change_rate = smoothed_change_rate * np.median(change_rate[~nan_mask2] / smoothed_change_rate[~nan_mask2])
 
-        ubl_flag_short = (change_rate > 2 * smoothed_change_rate) | nan_mask2
-        ubl_flag = np.zeros_like(spike_flag)
-        ubl_flag[:-1] = ubl_flag_short
-        ubl_flag[1:] = ubl_flag[1:] | ubl_flag_short
+            ubl_flag_short = (change_rate > 2 * smoothed_change_rate) | nan_mask2
+            ubl_flag = np.zeros_like(spike_flag)
+            ubl_flag[:-1] = ubl_flag_short
+            ubl_flag[1:] = ubl_flag[1:] | ubl_flag_short
+        else:
+            ubl_flag = np.zeros_like(nan_flag)
         return (nan_flag|spike_flag|ubl_flag)
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
@@ -2103,8 +2108,10 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):#ret
             a2 = int(index[0])
             break
     bl2 = np.array(info['antloc'][a2]) - info['antloc'][initialant]
-    A = np.array([bl1[:2], bl2[:2]])
-    remove_Matrix = (np.array(info['antloc'])- info['antloc'][initialant])[:,:2].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()))
+    #A = np.array([bl1[:2], bl2[:2]])
+    #remove_Matrix = (np.array(info['antloc'])- info['antloc'][initialant])[:,:2].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()))
+    A = np.array([bl1, bl2])
+    remove_Matrix = (np.array(info['antloc'])- info['antloc'][initialant]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()))
     degeneracy_remove = [a1, a2, remove_Matrix]
     if verbose:
         print "Degeneracy: a1 = %i, a2 = %i"%(info['subsetant'][a1], info['subsetant'][a2])
@@ -2167,17 +2174,30 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
             if i not in self._goodAntenna:
                 self.badAntenna.append(i)
 
-        ###fit for idealized antloc
-        #A = np.array([list(a) + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
-        #self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
-        #self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
-        self.antennaLocation = np.copy(self.antennaLocationAtom)
+        self.antennaLocation = np.copy(self.antennaLocationAtom) #* [4, 30, 0]
+        ####fit for idealized antloc
+        A = np.array([list(a) + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
+        self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
+        self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
+        self.antennaLocation[self._goodAntenna, ::2] = self.antennaLocation[self._goodAntenna, ::2].dot(np.array([[np.cos(PI/2+aa.lat), np.sin(PI/2+aa.lat)],[-np.sin(PI/2+aa.lat), np.cos(PI/2+aa.lat)]]).transpose())###rotate into local coordinates
+
+
 
     def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
         self.antennaLocationTolerance = antennaLocationTolerance
         self.badAntenna += badAntenna
         self.badUBLpair += badUBLpair
         RedundantCalibrator.compute_redundantinfo(self)
+
+##class RedundantCalibrator_PAPER2(RedundantCalibrator_PAPER):
+    ##def __init__(self, aa):
+        ##RedundantCalibrator_PAPER.__init__(self, aa)
+        ###self.antennaLocation = np.copy(self.antennaLocationAtom) * [4, 30, 0]
+        ######fit for idealized antloc
+        ##A = np.array([list(a) + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
+        ##self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
+        ##self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
+        ##self.antennaLocation[self._goodAntenna, ::2] = self.antennaLocation[self._goodAntenna, ::2].dot(np.array([[np.cos(PI/2+aa.lat), np.sin(PI/2+aa.lat)],[-np.sin(PI/2+aa.lat), np.cos(PI/2+aa.lat)]]).transpose())###rotate into local coordinates
 
 
 class Timer():
