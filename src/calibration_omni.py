@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '2.5.0'
+__version__ = '2.5.1'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -1551,7 +1551,7 @@ class RedundantCalibrator:
         ###############################################################################
         #bl1dmatrix: a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
                 #I suppose 99999 for bad and auto baselines?
-        bl1dmatrix=99999*np.ones([nAntenna,nAntenna],dtype='int16')
+        bl1dmatrix=(2**31-1)*np.ones([nAntenna,nAntenna],dtype='int32')
         for i in range(len(crosspair)):
             bl1dmatrix[crosspair[i][1]][crosspair[i][0]]=i
             bl1dmatrix[crosspair[i][0]][crosspair[i][1]]=i

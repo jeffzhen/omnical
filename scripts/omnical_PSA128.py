@@ -25,7 +25,7 @@ o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'tim
 o.add_option('--flagsigma', action = 'store', type = 'float', default = 4, help = 'Number of sigmas to flag on chi^2 distribution. 4 sigma by default.')
 o.add_option('--flagt', action = 'store', type = 'int', default = 4, help = 'Number of time slices to run the minimum filter when flagging. 4 by default.')
 o.add_option('--flagf', action = 'store', type = 'int', default = 4, help = 'Number of frequency slices to run the minimum filter when flagging. 4 by default.')
-o.add_option('--datapath', action = 'store', default = 'NOBINDATA', help = 'binary data file folder')
+o.add_option('--datapath', action = 'store', default = 'NOBINDATA', help = 'binary data file folder to save/load binary data converted from uv file. Omit this option if you dont want to save binary data.')
 o.add_option('--healthbar', action = 'store', default = '2', help = 'health threshold (0-100) over which an antenna is marked bad.')
 o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
 o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
@@ -54,6 +54,8 @@ if os.path.isdir(sourcepath):
     keep_binary_data = True
 elif opts.skip:
     raise IOError("Direct binary data import requested by -k or --skip option, but the --datapth %s doesn't exist."%sourcepath)
+
+keep_binary_calpar = False
 
 #print opts.healthbar, opts.healthbar.split(), len(opts.healthbar.split())
 if len(opts.healthbar.split(',')) == 1:
@@ -103,8 +105,6 @@ if os.path.isfile(crudecalpath):
 elif crudecalpath != 'NORAWCAL':
     raise IOError("Input rawcalpath %s doesn't exist on disk."%crudecalpath)
 
-
-keep_binary_calpar = True
 
 converge_percent = 0.001
 max_iter = 20
@@ -254,26 +254,28 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     print "Done. %fmin"%(float(time.time()-timer)/60.)
     sys.stdout.flush()
     #######################save results###############################
+    print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, pol),
+    sys.stdout.flush()
     calibrators[pol].utctimes = timing
     omnigains[pol] = calibrators[pol].get_omnigain()
     adds[pol] = additivein
+
+    calibrators[pol].write_redundantinfo(oppath + '/' + dataano + '_' + ano + "_%s.binfo"%pol)
+    if removeadditive:
+        adds[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omniadd"%pol + str(removeadditiveperiod))
     if keep_binary_calpar:
-        print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, pol),
-        sys.stdout.flush()
-        #Zaki: catch these outputs and save them to wherever you like
         calibrators[pol].rawCalpar.tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnical"%pol)
-        if removeadditive:
-            adds[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omniadd"%pol + str(removeadditiveperiod))
-        #calibrators[pol].get_calibrated_data(data[p])
-        #calibrators[pol].get_omnichisq()
-        #calibrators[pol].get_omnifit()
-        print "Done"
-        sys.stdout.flush()
+    else:
+        calibrators[pol].get_omnichisq().tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnichisq"%pol)
+        calibrators[pol].get_omnifit().tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnifit"%pol)
+        omnigains[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnigain"%pol)
     diag_txt = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, ubl_healthbar = ubl_healthbar, ouput_txt = True)
     text_file = open(oppath + '/' + dataano + '_' + ano + "_%s.diagtxt"%pol, "a")
     text_file.write(diag_txt)
     text_file.close()
 
+    print "Done"
+    sys.stdout.flush()
 if create_new_uvs:
     print FILENAME + " MSG: saving new uv files",
     sys.stdout.flush()
