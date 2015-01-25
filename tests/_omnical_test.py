@@ -219,7 +219,7 @@ class TestUV(unittest.TestCase):
             #calibrator.write_redundantinfo(infoPath = './redundantinfo_test_' + key + '.txt', overwrite = True)
         ###start reading miriads################
         ##print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
-        data, t, timing, lst = omni.importuvs(uvfiles, calibrators[wantpols.keys()[0]].totalVisibilityId, wantpols, nTotalAntenna = 32,timingTolerance = 2*math.pi, init_mem = 5.e7)
+        data, t, timing, lst = omni.importuvs(uvfiles, wantpols, totalVisibilityId=calibrators[wantpols.keys()[0]].totalVisibilityId, nTotalAntenna = 32,timingTolerance = 2*math.pi, init_mem = 5.e7)
         ##print FILENAME + " MSG:",  len(t), "slices read."
 
         ###raw calibration################
