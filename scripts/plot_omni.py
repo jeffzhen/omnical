@@ -17,9 +17,10 @@ print "#Omnical Version %s#"%omni.__version__
 ######################################################################
 o = optparse.OptionParser()
 
-ap.scripting.add_standard_options(o, cal=True, pol=True)
 o.add_option('-t', '--time', action = 'store', type = 'int', default = 0, help = "Time for uv file plotting. Need to match uv['time'] entry.")
 o.add_option('-f', '--frequency', action = 'store', type = 'int', default = 0, help = 'Frequency channel number for the uv file.')
+o.add_option('-p', '--pol', action = 'store', default = 'xx', help = 'Polarization string for uv file plotting.')
+
 o.add_option('-r', '--range', action = 'store', default = None, help = 'Plot range symmetric for single number or use min_max.')
 o.add_option('-a', '--antenna', action = 'store', default = '0', help = 'antenna number or antenna pair for omnigain/omnifit.')
 
@@ -36,6 +37,7 @@ else:
     infopath = None
 time = int(opts.time)
 frequency = int(opts.frequency)
+pol = opts.pol
 antenna = opts.antenna
 mode = opts.mode
 plotrange = opts.range
@@ -225,8 +227,16 @@ if plottype == 'omnichisq':
         plt.title('%s, chi^2'%os.path.basename(datafile))
         plt.colorbar()
     plt.show()
+
 ######################################################################
 ############## omniview uv ###################################
 ######################################################################
 
-
+if plottype == 'uv':
+    plotdata = omni.pick_slice_uvs(datafiles, pol, time, frequency)
+    #try:
+        #totalVisibilityId = info['totalVisibilityId']
+    #except KeyError:
+        #nant = int(np.ceil((len(plotdata)*2)**.5))
+        #totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(nant)])
+    omni.omniview(plotdata, info)

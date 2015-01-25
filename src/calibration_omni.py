@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '2.5.1'
+__version__ = '2.5.2'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -288,8 +288,15 @@ def read_redundantinfo(infopath, verbose = False):
         print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
     return info
 
-def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files.
+def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files.
     METHODNAME = "*importuvs*"
+
+    ###############sanitize inputs################################
+    uvfilenames = [os.path.expanduser(uvfilename) for uvfilename in uvfilenames]
+    for uvfilename in uvfilenames:
+        if not (os.path.isdir(uvfilename) and os.path.isfile(uvfilename + '/visdata')):
+            raise IOError("UV file %s does not exit or is not a valid MIRIAD UV file."%uvfilename)
+
     ############################################################
     sun = ephem.Sun()
     #julDelta = 2415020
@@ -300,7 +307,10 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
         nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
     else:
         nant = nTotalAntenna
-    if nant * (nant + 1) / 2 < len(totalVisibilityId):
+
+    if totalVisibilityId is None:
+        totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(nant)])
+    elif nant * (nant + 1) / 2 < len(totalVisibilityId):
         raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
     startfreq = uv['sfreq']
     dfreq = uv['sdf']
@@ -414,10 +424,114 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
                     #data[len(t) - 1, p, abs(bl) - 1] = (np.real(rawd.data) + 1.j * np.sign(bl) * np.imag(rawd.data)).astype('complex64')
         del(uv)
         if not datapulled:
-            print FILENAME + METHODNAME + " MSG:",  "FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting."
-            exit(1)
+            raise IOError("FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting.")
     reorder = (1, 0, 3, 2)
     return np.transpose(data[:len(t)],reorder), t, timing, lst
+
+def pick_slice_uvs(uvfilenames, pol_str_or_num, t_index_lst_jd, findex, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, verbose = False):#tolerance of timing in radians in lst.
+    METHODNAME = "*pick_slice_uvs*"
+
+    ###############sanitize inputs################################
+    uvfilenames = [os.path.expanduser(uvfilename) for uvfilename in uvfilenames]
+    for uvfilename in uvfilenames:
+        if not (os.path.isdir(uvfilename) and os.path.isfile(uvfilename + '/visdata')):
+            raise IOError("UV file %s does not exit or is not a valid MIRIAD UV file."%uvfilename)
+
+    try:
+        try:
+            pnum = int(pol_str_or_num)
+            pol = ap.miriad.pol2str[pnum]
+        except ValueError:
+            pol = pol_str_or_num
+            pnum = ap.miriad.str2pol[pol]
+    except KeyError:
+        raise ValueError("Invalid polarization option %s. Need to be a string like 'xx', 'xy' or a valid MIRIAD pol number like -5 or -6."%pnum)
+    ############################################################
+    sun = ephem.Sun()
+
+    ####get some info from the first uvfile####################
+    uv=ap.miriad.UV(uvfilenames[0])
+    nfreq = uv.nchan;
+    if nTotalAntenna is None:
+        nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
+    else:
+        nant = nTotalAntenna
+
+    if totalVisibilityId is None:
+        totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(nant)])
+    elif nant * (nant + 1) / 2 < len(totalVisibilityId):
+        raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
+    startfreq = uv['sfreq']
+    dfreq = uv['sdf']
+
+    sa = ephem.Observer()
+    sa.lon = uv['longitu']
+    sa.lat = uv['latitud']
+    del(uv)
+
+    if findex >= nfreq:
+        raise IOError("UV file indicates that it has %i frequency channels, so the input findex %i is invalid."%(nfreq, findex))
+    #######compute bl1dmatrix####each entry is 1 indexed with minus meaning conjugate
+    bl1dmatrix = np.zeros((nant, nant), dtype = 'int32')
+    for a1a2, bl in zip(totalVisibilityId, range(len(totalVisibilityId))):
+        a1, a2 = a1a2
+        bl1dmatrix[a1, a2] = bl + 1
+        bl1dmatrix[a2, a1] = - (bl + 1)
+    ####prepare processing
+    data = np.zeros(len(totalVisibilityId), dtype = 'complex64')
+    #sunpos = np.zeros((deftime, 2))
+    t = []#julian date
+    timing = []#local time string
+    lst = []#in units of sidereal hour
+
+    ###start processing
+    datapulled = False
+    for uvfile in uvfilenames:
+        uv = ap.miriad.UV(uvfile)
+        if len(timing) > 0:
+            print FILENAME + METHODNAME + "MSG:",  timing[-1]#uv.nchan
+        #print FILENAME + " MSG:",  uv['nants']
+
+        uv.rewind()
+        uv.select('clear', 0, 0)
+        uv.select('polarization', pnum, 0, include=True)
+        pol_exist = False
+        current_t = None
+        for preamble, rawd in uv.all():
+            pol_exist = True
+
+            if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
+                if datapulled:
+                    break
+                t += [preamble[1]]
+                sa.date = preamble[1] - julDelta
+                #sun.compute(sa)
+                timing += [sa.date.__str__()]
+                if abs((uv['lst'] - float(sa.sidereal_time()) + math.pi)%(2*math.pi) - math.pi) >= timingTolerance:
+                    raise Exception("Error: uv['lst'] is %f radians whereas time computed by ephem is %f radians, the difference is larger than tolerance of %f."%(uv['lst'], float(sa.sidereal_time()), timingTolerance))
+                else:
+                    lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
+                    #sunpos = np.concatenate((sunpos, np.zeros((deftime, 2))))
+                    #sunpos[len(t) - 1] = np.asarray([[sun.alt, sun.az]])
+
+                if (type(t_index_lst_jd) is type(0.)) and (t_index_lst_jd == t[-1] or t_index_lst_jd == lst[-1]):
+                    datapulled = True
+                elif type(t_index_lst_jd) is type(0) and t_index_lst_jd == len(t)-1:
+                    datapulled = True
+
+            if datapulled:
+                a1, a2 = preamble[2]
+                bl = bl1dmatrix[a1, a2]#bl is 1 indexed with minus meaning conjugate
+                data[abs(bl) - 1] = (np.real(rawd.data[findex]) + 1.j * np.sign(bl) * np.imag(rawd.data[findex])).astype('complex64')
+
+            if not pol_exist:
+                raise IOError("Polarization %s does not exist in uv file %s."%(pol, uvfile))
+
+        del(uv)
+    if not datapulled:
+        raise IOError("FATAL ERROR: no data pulled. Total of %i time slices read from UV files. Please check polarization information."%len(t))
+    return data
+
 
 def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq
     METHODNAME = "*apply_calpar*"
@@ -1907,7 +2021,7 @@ def omniview(data_in, info, plotrange = None, title = '', plot_single_ubl = Fals
                 if ubl == info['nUBL']:
                     #if i == 1:
                         #ax.text(-(len(ds)-1 + 0.7)*plotrange, -0.7*plotrange, "#Ant:%i\n#UBL:%i"%(info['nAntenna'],info['nUBL']),bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.2))
-                    ax.set_title(title + "\n#Ant:%i\n#UBL:%i"%(info['nAntenna'],info['nUBL']))
+                    ax.set_title(title + "\nGood Antenna count: %i\nUBL count: %i"%(info['nAntenna'],info['nUBL']))
                     ax.grid(True)
                     ax.set(adjustable='datalim', aspect=1)
                     ax.set_xlabel('Real')
