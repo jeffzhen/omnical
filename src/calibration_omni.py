@@ -729,8 +729,8 @@ def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputP
 
     opchisq[:, :2] = jd
     opchisq[:, 2] = float(nF)
-    opchisq[:, 3::2] = calpars[:, :, 0]#number of lincal iters
-    opchisq[:, 4::2] = calpars[:, :, 2]#chisq which is sum of squares of errors in each visbility
+    #opchisq[:, 3::2] = calpars[:, :, 0]#number of lincal iters
+    opchisq[:, 3:] = calpars[:, :, 2]#chisq which is sum of squares of errors in each visbility
 
     opomnigain[:, :, :2] = jd[:, None]
     opomnigain[:, :, 2] = np.array(info['subsetant']).astype('float32')

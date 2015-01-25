@@ -122,7 +122,7 @@ else:
             except ValueError:
                 raise IOError("One of the antennas are not valid. The good antennas are: %s."%info['subsetant'])
 
-            ubls = np.zeros(len(antennas))
+            ubls = np.zeros(len(antennas), dtype = int)
             for i, apair in enumerate(antennas):
                 crossbl = info['bl1dmatrix'][apair[0]][apair[1]]
                 if crossbl > len(info['bltoubl']) or crossbl < 0:
@@ -135,45 +135,96 @@ else:
 ######################################################################
 if plottype == 'omnigain':
     p = 0
+    nprefix = 2
     for datafile in datafiles:
         data = np.fromfile(datafile, dtype='complex64')
-        nf = int(np.imag(data[1]))
-        nt = len(data) / len(info['subsetant']) / (nf + 2)
-        if len(data) != nt * len(info['subsetant']) * (nf + 2):
-            raise IOError("File %s is incompatible with shape %s inferred from info file %s."%(datafile, (nt, len(info['subsetant']), (nf + 2)), infopath))
+        nf = int(np.imag(data[nprefix - 1]))
+        nt = len(data) / len(info['subsetant']) / (nf + nprefix)
+        if len(data) != nt * len(info['subsetant']) * (nf + nprefix):
+            raise IOError("File %s is incompatible with shape %s inferred from info file %s."%(datafile, (nt, len(info['subsetant']), (nf + nprefix)), infopath))
         else:
-            data.shape = (nt, len(info['subsetant']), (nf + 2))
+            data.shape = (nt, len(info['subsetant']), (nf + nprefix))
+
             if mode == 'amp':
-                data = np.abs(data)
-                ranges[0] = max(0, ranges[0])
+                data = np.abs(data[:, antennas, nprefix:])
             elif mode == 'phs':
-                data = np.angle(data)
+                data = np.angle(data[:, antennas, nprefix:])
             elif mode == 'real':
-                data = np.real(data)
+                data = np.real(data[:, antennas, nprefix:])
             elif mode == 'imag':
-                data = np.imag(data)
-        for a in antennas:
+                data = np.imag(data[:, antennas, nprefix:])
+        for i,a in enumerate(antennas):
             p = p + 1
             plt.subplot(len(antennas), len(datafiles), p)
-            if force_range:
-                plt.imshow(data[:, a, 2:], vmin = ranges[0], vmax = ranges[1], interpolation = 'nearest')
-            else:
-                plt.imshow(data[:, a, 2:], interpolation = 'nearest')
-            plt.title('%s Ant#%i'%(os.path.basename(datafile), info['subsetant'][a]))
 
+            plotdata = data[:, i]
+            if not force_range:
+                ranges = [np.percentile(plotdata, 10), np.percentile(plotdata, 90)]
+            plt.imshow(plotdata, vmin = ranges[0], vmax = ranges[1], interpolation = 'nearest')
+            plt.title('%s Ant#%i'%(os.path.basename(datafile), info['subsetant'][a]))
             plt.colorbar()
     plt.show()
-
 
 
 ######################################################################
 ############## omnifit ###################################
 ######################################################################
+if plottype == 'omnifit':
+    p = 0
+    nprefix = 3
+    for datafile in datafiles:
+        data = np.fromfile(datafile, dtype='complex64')
+        nf = int(np.imag(data[nprefix - 1]))
+        nt = len(data) / info['nUBL'] / (nf + nprefix)
+        if len(data) != nt * info['nUBL'] * (nf + nprefix):
+            raise IOError("File %s is incompatible with shape %s inferred from info file %s."%(datafile, (nt, info['nUBL'], (nf + nprefix)), infopath))
+        else:
+            data.shape = (nt, info['nUBL'], (nf + nprefix))
+
+            if mode == 'amp':
+                data = np.abs(data[:, ubls, nprefix:])
+            elif mode == 'phs':
+                data = np.angle(data[:, ubls, nprefix:])
+            elif mode == 'real':
+                data = np.real(data[:, ubls, nprefix:])
+            elif mode == 'imag':
+                data = np.imag(data[:, ubls, nprefix:])
+        for i,u in enumerate(ubls):
+            p = p + 1
+            plt.subplot(len(ubls), len(datafiles), p)
+
+            plotdata = data[:, i]
+            if not force_range:
+                ranges = [np.percentile(plotdata, 5), np.percentile(plotdata, 95)]
+            plt.imshow(plotdata, vmin = ranges[0], vmax = ranges[1], interpolation = 'nearest')
+            plt.title('%s, baseline [%.1f, %.1f, %.1f]'%(os.path.basename(datafile), info['ubl'][u][0], info['ubl'][u][1], info['ubl'][u][2]))
+            plt.colorbar()
+    plt.show()
+
 
 ######################################################################
 ############## omnichisq ###################################
 ######################################################################
-
+if plottype == 'omnichisq':
+    p = 0
+    nprefix = 3
+    for datafile in datafiles:
+        data = np.fromfile(datafile, dtype='float32')
+        nf = int(data[nprefix - 1])
+        nt = len(data) / (nf + nprefix)
+        if len(data) != nt * (nf + nprefix):
+            raise IOError("File %s is not a valid omnichisq file."%datafile)
+        else:
+            data.shape = (nt, (nf + nprefix))
+            plotdata = data[:, nprefix+1:]
+        p = p + 1
+        plt.subplot(1, len(datafiles), p)
+        if not force_range:
+            ranges = [np.percentile(plotdata, 5), np.percentile(plotdata, 95)]
+        plt.imshow(plotdata, vmin = ranges[0], vmax = ranges[1], interpolation = 'nearest')
+        plt.title('%s, chi^2'%os.path.basename(datafile))
+        plt.colorbar()
+    plt.show()
 ######################################################################
 ############## omniview uv ###################################
 ######################################################################
