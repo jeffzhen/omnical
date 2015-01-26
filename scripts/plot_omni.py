@@ -125,11 +125,13 @@ else:
                 raise IOError("One of the antennas are not valid. The good antennas are: %s."%info['subsetant'])
 
             ubls = np.zeros(len(antennas), dtype = int)
+            reverse = np.zeros(len(antennas), dtype = bool)
             for i, apair in enumerate(antennas):
                 crossbl = info['bl1dmatrix'][apair[0]][apair[1]]
                 if crossbl > len(info['bltoubl']) or crossbl < 0:
                     raise IOError("One of the antenna pairs %s is not valid."%apair)
                 ubls[i] = info['bltoubl'][crossbl]
+                reverse[i] = info['reversed'][crossbl]
 
 
 ######################################################################
@@ -187,10 +189,12 @@ if plottype == 'omnifit':
                 data = np.abs(data[:, ubls, nprefix:])
             elif mode == 'phs':
                 data = np.angle(data[:, ubls, nprefix:])
+                data[:,reverse] = -data[:,reverse]
             elif mode == 'real':
                 data = np.real(data[:, ubls, nprefix:])
             elif mode == 'imag':
                 data = np.imag(data[:, ubls, nprefix:])
+                data[:,reverse] = -data[:,reverse]
         for i,u in enumerate(ubls):
             p = p + 1
             plt.subplot(len(ubls), len(datafiles), p)

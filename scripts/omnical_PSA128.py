@@ -260,7 +260,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     omnigains[pol] = calibrators[pol].get_omnigain()
     adds[pol] = additivein
 
-    calibrators[pol].write_redundantinfo(oppath + '/' + dataano + '_' + ano + "_%s.binfo"%pol)
+
     if removeadditive:
         adds[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omniadd"%pol + str(removeadditiveperiod))
     if keep_binary_calpar:
@@ -269,6 +269,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
         calibrators[pol].get_omnichisq().tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnichisq"%pol)
         calibrators[pol].get_omnifit().tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnifit"%pol)
         omnigains[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnigain"%pol)
+    calibrators[pol].write_redundantinfo(oppath + '/' + dataano + '_' + ano + "_%s.binfo"%pol, overwrite=True)
     diag_txt = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, ubl_healthbar = ubl_healthbar, ouput_txt = True)
     text_file = open(oppath + '/' + dataano + '_' + ano + "_%s.diagtxt"%pol, "a")
     text_file.write(diag_txt)
@@ -310,6 +311,6 @@ if make_plots:
         if need_new_flag:
             shortest_vis[flags[pol]] = np.nan
         plt.imshow(shortest_vis, interpolation='nearest')
-        plt.title('phase of visibility fit on %s baseline'%(calibrators[pol].ubl[shortest_ubli]))
+        plt.title('phase of visibility fit on [%.1f, %.1f, %.1f] baseline'%(calibrators[pol].ubl[shortest_ubli][0], calibrators[pol].ubl[shortest_ubli][1], calibrators[pol].ubl[shortest_ubli][2]))
         plt.colorbar()
     plt.show()

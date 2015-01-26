@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '2.5.3'
+__version__ = '2.5.5'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -428,7 +428,7 @@ def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = N
     reorder = (1, 0, 3, 2)
     return np.transpose(data[:len(t)],reorder), t, timing, lst
 
-def pick_slice_uvs(uvfilenames, pol_str_or_num, t_index_lst_jd, findex, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, verbose = False):#tolerance of timing in radians in lst.
+def pick_slice_uvs(uvfilenames, pol_str_or_num, t_index_lst_jd, findex, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = 100, verbose = False):#tolerance of timing in radians in lst.
     METHODNAME = "*pick_slice_uvs*"
 
     ###############sanitize inputs################################
