@@ -3142,6 +3142,15 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	int ncross = info->crossindex.size();
 	////read in amp and args
 	for (int b = 0; b < ncross; b++){
+
+		if ((data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0] == 0) and (data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1] == 0)){//got 0, quit
+			for(int i = 3; i < 3 + 2 * nant + 2 * nubl; i++){
+				calpar->at(i) = 0;
+			}
+			calpar->at(1) = INFINITY;
+			return;
+		}
+
 		module->amp1[b] = log10(amp(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]));
 		module->pha1[b] = phase(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]) * info->reversed[b];
 	}
@@ -3185,7 +3194,7 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 		additiveout->at(info->crossindex[b])[1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1] - amp * sin(phase);
 	}
 	if(command == 0){////compute additive term only
-		calpar->at(0) = pow(norm(additiveout), 2);
+		calpar->at(1) = pow(norm(additiveout), 2);
 		//cout << norm(additiveout) << endl;
 		return;
 	} else if(command == 1){////compute full set of calpars

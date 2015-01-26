@@ -25,13 +25,14 @@ o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'tim
 o.add_option('--flagsigma', action = 'store', type = 'float', default = 4, help = 'Number of sigmas to flag on chi^2 distribution. 4 sigma by default.')
 o.add_option('--flagt', action = 'store', type = 'int', default = 4, help = 'Number of time slices to run the minimum filter when flagging. 4 by default.')
 o.add_option('--flagf', action = 'store', type = 'int', default = 4, help = 'Number of frequency slices to run the minimum filter when flagging. 4 by default.')
-o.add_option('--datapath', action = 'store', default = 'NOBINDATA', help = 'binary data file folder')
+o.add_option('--datapath', action = 'store', default = 'NOBINDATA', help = 'binary data file folder to save/load binary data converted from uv file. Omit this option if you dont want to save binary data.')
 o.add_option('--healthbar', action = 'store', default = '2', help = 'health threshold (0-100) over which an antenna is marked bad.')
 o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
 o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
 o.add_option('--newuvf', action = 'store_true', help = 'whether to create new uv files with new flagging computed')
 o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
+o.add_option('-s', '--singlethread', action = 'store_true', help = 'whether to disable multiprocessing for calibration and use only one thread. May need this option for things like grid engine.')
 o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
 
 opts,args = o.parse_args(sys.argv[1:])
@@ -48,12 +49,18 @@ uvfiles = args
 flag_thresh = opts.flagsigma
 flagt = opts.flagt
 flagf = opts.flagf
+if opts.singlethread:
+    nthread = 1
+else:
+    nthread = None
 
 keep_binary_data = False
 if os.path.isdir(sourcepath):
     keep_binary_data = True
 elif opts.skip:
     raise IOError("Direct binary data import requested by -k or --skip option, but the --datapth %s doesn't exist."%sourcepath)
+
+keep_binary_calpar = False
 
 #print opts.healthbar, opts.healthbar.split(), len(opts.healthbar.split())
 if len(opts.healthbar.split(',')) == 1:
@@ -104,8 +111,6 @@ elif crudecalpath != 'NORAWCAL':
     raise IOError("Input rawcalpath %s doesn't exist on disk."%crudecalpath)
 
 
-keep_binary_calpar = True
-
 converge_percent = 0.001
 max_iter = 20
 step_size = .3
@@ -153,7 +158,7 @@ if skip:
 else:
     print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
     sys.stdout.flush()
-    data, t, timing, lst = omni.importuvs(uvfiles, np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), wantpols, timingTolerance=100)#, nTotalAntenna = len(aa))
+    data, t, timing, lst = omni.importuvs(uvfiles, wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)#, nTotalAntenna = len(aa))
     print FILENAME + " MSG:",  len(t), "slices read. data shape: ", data.shape
     sys.stdout.flush()
 
@@ -217,7 +222,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     timer = time.time()
     additivein = np.zeros_like(data[p])
 
-    calibrators[pol].logcal(data[p], additivein, verbose=True)
+    calibrators[pol].logcal(data[p], additivein, nthread = nthread, verbose=True)
 
     if needrawcal:#restore original data's amplitude after logcal. dont restore phase because it may cause problem in degeneracy removal
         calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
@@ -226,7 +231,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
         data[p] = omni.apply_calpar(data[p], 1/np.abs(crude_calpar[pol]), calibrators[pol].totalVisibilityId)
         #del original_data
 
-    additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
+    additiveout = calibrators[pol].lincal(data[p], additivein, nthread = nthread, verbose=True)
     #######################remove additive###############################
     if removeadditive:
         nadditiveloop = 1
@@ -238,7 +243,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
                 #additivein[:,f] = ss.convolve(additivein[:,f], np.ones(removeadditiveperiod * 2 + 1)[:, None], mode='same')/weight[:, None]
             additivein = ((sfil.convolve1d(np.real(additivein), np.ones(removeadditiveperiod * 2 + 1), mode='constant') + 1j * sfil.convolve1d(np.imag(additivein), np.ones(removeadditiveperiod * 2 + 1), mode='constant'))/weight[:, None, None]).astype('complex64')
             calibrators[pol].computeUBLFit = False
-            additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
+            additiveout = calibrators[pol].lincal(data[p], additivein, nthread = nthread, verbose=True)
 
     if needrawcal:#restore original data's phase
         #calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
@@ -254,26 +259,29 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     print "Done. %fmin"%(float(time.time()-timer)/60.)
     sys.stdout.flush()
     #######################save results###############################
+    print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, pol),
+    sys.stdout.flush()
     calibrators[pol].utctimes = timing
     omnigains[pol] = calibrators[pol].get_omnigain()
     adds[pol] = additivein
+
+
+    if removeadditive:
+        adds[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omniadd"%pol + str(removeadditiveperiod))
     if keep_binary_calpar:
-        print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, pol),
-        sys.stdout.flush()
-        #Zaki: catch these outputs and save them to wherever you like
         calibrators[pol].rawCalpar.tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnical"%pol)
-        if removeadditive:
-            adds[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omniadd"%pol + str(removeadditiveperiod))
-        #calibrators[pol].get_calibrated_data(data[p])
-        #calibrators[pol].get_omnichisq()
-        #calibrators[pol].get_omnifit()
-        print "Done"
-        sys.stdout.flush()
+    else:
+        calibrators[pol].get_omnichisq().tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnichisq"%pol)
+        calibrators[pol].get_omnifit().tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnifit"%pol)
+        omnigains[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnigain"%pol)
+    calibrators[pol].write_redundantinfo(oppath + '/' + dataano + '_' + ano + "_%s.binfo"%pol, overwrite=True)
     diag_txt = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, ubl_healthbar = ubl_healthbar, ouput_txt = True)
     text_file = open(oppath + '/' + dataano + '_' + ano + "_%s.diagtxt"%pol, "a")
     text_file.write(diag_txt)
     text_file.close()
 
+    print "Done"
+    sys.stdout.flush()
 if create_new_uvs:
     print FILENAME + " MSG: saving new uv files",
     sys.stdout.flush()
@@ -308,6 +316,6 @@ if make_plots:
         if need_new_flag:
             shortest_vis[flags[pol]] = np.nan
         plt.imshow(shortest_vis, interpolation='nearest')
-        plt.title('phase of visibility fit on %s baseline'%(calibrators[pol].ubl[shortest_ubli]))
+        plt.title('phase of visibility fit on [%.1f, %.1f, %.1f] baseline'%(calibrators[pol].ubl[shortest_ubli][0], calibrators[pol].ubl[shortest_ubli][1], calibrators[pol].ubl[shortest_ubli][2]))
         plt.colorbar()
     plt.show()

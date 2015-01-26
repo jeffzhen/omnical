@@ -18,11 +18,12 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '2.4.2'
+__version__ = '2.5.6'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
-
+PI = np.pi
+TPI = 2 * np.pi
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
 cal_name = {0: "Lincal", 1: "Logcal"}
@@ -287,8 +288,15 @@ def read_redundantinfo(infopath, verbose = False):
         print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
     return info
 
-def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files.
+def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files.
     METHODNAME = "*importuvs*"
+
+    ###############sanitize inputs################################
+    uvfilenames = [os.path.expanduser(uvfilename) for uvfilename in uvfilenames]
+    for uvfilename in uvfilenames:
+        if not (os.path.isdir(uvfilename) and os.path.isfile(uvfilename + '/visdata')):
+            raise IOError("UV file %s does not exit or is not a valid MIRIAD UV file."%uvfilename)
+
     ############################################################
     sun = ephem.Sun()
     #julDelta = 2415020
@@ -299,7 +307,10 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
         nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
     else:
         nant = nTotalAntenna
-    if nant * (nant + 1) / 2 < len(totalVisibilityId):
+
+    if totalVisibilityId is None:
+        totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(nant)])
+    elif nant * (nant + 1) / 2 < len(totalVisibilityId):
         raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
     startfreq = uv['sfreq']
     dfreq = uv['sdf']
@@ -413,10 +424,114 @@ def importuvs(uvfilenames, totalVisibilityId, wantpols, nTotalAntenna = None, ti
                     #data[len(t) - 1, p, abs(bl) - 1] = (np.real(rawd.data) + 1.j * np.sign(bl) * np.imag(rawd.data)).astype('complex64')
         del(uv)
         if not datapulled:
-            print FILENAME + METHODNAME + " MSG:",  "FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting."
-            exit(1)
+            raise IOError("FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting.")
     reorder = (1, 0, 3, 2)
     return np.transpose(data[:len(t)],reorder), t, timing, lst
+
+def pick_slice_uvs(uvfilenames, pol_str_or_num, t_index_lst_jd, findex, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = 100, verbose = False):#tolerance of timing in radians in lst.
+    METHODNAME = "*pick_slice_uvs*"
+
+    ###############sanitize inputs################################
+    uvfilenames = [os.path.expanduser(uvfilename) for uvfilename in uvfilenames]
+    for uvfilename in uvfilenames:
+        if not (os.path.isdir(uvfilename) and os.path.isfile(uvfilename + '/visdata')):
+            raise IOError("UV file %s does not exit or is not a valid MIRIAD UV file."%uvfilename)
+
+    try:
+        try:
+            pnum = int(pol_str_or_num)
+            pol = ap.miriad.pol2str[pnum]
+        except ValueError:
+            pol = pol_str_or_num
+            pnum = ap.miriad.str2pol[pol]
+    except KeyError:
+        raise ValueError("Invalid polarization option %s. Need to be a string like 'xx', 'xy' or a valid MIRIAD pol number like -5 or -6."%pnum)
+    ############################################################
+    sun = ephem.Sun()
+
+    ####get some info from the first uvfile####################
+    uv=ap.miriad.UV(uvfilenames[0])
+    nfreq = uv.nchan;
+    if nTotalAntenna is None:
+        nant = uv['nants'] # 'nants' should be the number of dual-pol antennas. PSA32 has a bug in double counting
+    else:
+        nant = nTotalAntenna
+
+    if totalVisibilityId is None:
+        totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(nant)])
+    elif nant * (nant + 1) / 2 < len(totalVisibilityId):
+        raise Exception("FATAL ERROR: Total number of antenna %d implies %d baselines whereas the length of totalVisibilityId is %d."%(nant, nant * (nant + 1) / 2, len(totalVisibilityId)))
+    startfreq = uv['sfreq']
+    dfreq = uv['sdf']
+
+    sa = ephem.Observer()
+    sa.lon = uv['longitu']
+    sa.lat = uv['latitud']
+    del(uv)
+
+    if findex >= nfreq:
+        raise IOError("UV file indicates that it has %i frequency channels, so the input findex %i is invalid."%(nfreq, findex))
+    #######compute bl1dmatrix####each entry is 1 indexed with minus meaning conjugate
+    bl1dmatrix = np.zeros((nant, nant), dtype = 'int32')
+    for a1a2, bl in zip(totalVisibilityId, range(len(totalVisibilityId))):
+        a1, a2 = a1a2
+        bl1dmatrix[a1, a2] = bl + 1
+        bl1dmatrix[a2, a1] = - (bl + 1)
+    ####prepare processing
+    data = np.zeros(len(totalVisibilityId), dtype = 'complex64')
+    #sunpos = np.zeros((deftime, 2))
+    t = []#julian date
+    timing = []#local time string
+    lst = []#in units of sidereal hour
+
+    ###start processing
+    datapulled = False
+    for uvfile in uvfilenames:
+        uv = ap.miriad.UV(uvfile)
+        if len(timing) > 0:
+            print FILENAME + METHODNAME + "MSG:",  timing[-1]#uv.nchan
+        #print FILENAME + " MSG:",  uv['nants']
+
+        uv.rewind()
+        uv.select('clear', 0, 0)
+        uv.select('polarization', pnum, 0, include=True)
+        pol_exist = False
+        current_t = None
+        for preamble, rawd in uv.all():
+            pol_exist = True
+
+            if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
+                if datapulled:
+                    break
+                t += [preamble[1]]
+                sa.date = preamble[1] - julDelta
+                #sun.compute(sa)
+                timing += [sa.date.__str__()]
+                if abs((uv['lst'] - float(sa.sidereal_time()) + math.pi)%(2*math.pi) - math.pi) >= timingTolerance:
+                    raise Exception("Error: uv['lst'] is %f radians whereas time computed by ephem is %f radians, the difference is larger than tolerance of %f."%(uv['lst'], float(sa.sidereal_time()), timingTolerance))
+                else:
+                    lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
+                    #sunpos = np.concatenate((sunpos, np.zeros((deftime, 2))))
+                    #sunpos[len(t) - 1] = np.asarray([[sun.alt, sun.az]])
+
+                if (type(t_index_lst_jd) is type(0.)) and (t_index_lst_jd == t[-1] or t_index_lst_jd == lst[-1]):
+                    datapulled = True
+                elif type(t_index_lst_jd) is type(0) and t_index_lst_jd == len(t)-1:
+                    datapulled = True
+
+            if datapulled:
+                a1, a2 = preamble[2]
+                bl = bl1dmatrix[a1, a2]#bl is 1 indexed with minus meaning conjugate
+                data[abs(bl) - 1] = (np.real(rawd.data[findex]) + 1.j * np.sign(bl) * np.imag(rawd.data[findex])).astype('complex64')
+
+            if not pol_exist:
+                raise IOError("Polarization %s does not exist in uv file %s."%(pol, uvfile))
+
+        del(uv)
+    if not datapulled:
+        raise IOError("FATAL ERROR: no data pulled. Total of %i time slices read from UV files. Please check polarization information."%len(t))
+    return data
+
 
 def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq
     METHODNAME = "*apply_calpar*"
@@ -728,8 +843,8 @@ def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputP
 
     opchisq[:, :2] = jd
     opchisq[:, 2] = float(nF)
-    opchisq[:, 3::2] = calpars[:, :, 0]#number of lincal iters
-    opchisq[:, 4::2] = calpars[:, :, 2]#chisq which is sum of squares of errors in each visbility
+    #opchisq[:, 3::2] = calpars[:, :, 0]#number of lincal iters
+    opchisq[:, 3:] = calpars[:, :, 2]#chisq which is sum of squares of errors in each visbility
 
     opomnigain[:, :, :2] = jd[:, None]
     opomnigain[:, :, 2] = np.array(info['subsetant']).astype('float32')
@@ -1203,7 +1318,9 @@ class RedundantCalibrator:
             ant_level = np.array([np.median(np.abs(data[:, :, [subsetbl[crossindex[bl]] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
             #timer.tick(2)
             median_level = np.median(ant_level, axis = 0)
-            bad_count[1] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore",category=RuntimeWarning)
+                bad_count[1] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
         #timer.tick(2)
         if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
@@ -1214,12 +1331,16 @@ class RedundantCalibrator:
             ant_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
             #timer.tick(3)
             median_level = np.median(ant_level, axis = 0)
-            bad_count[2] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore",category=RuntimeWarning)
+                bad_count[2] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
             #timer.tick(3)
             ublindex = [np.array(index).astype('int')[:,2] for index in self.Info.ublindex]
             ubl_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in ublindex[u]]]), axis = 2) for u in range(self.Info.nUBL)])
             median_level = np.median(ubl_level, axis = 0)
-            bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .667).sum() for u in range(self.Info.nUBL)])**2
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore",category=RuntimeWarning)
+                bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .667).sum() for u in range(self.Info.nUBL)])**2
             #print median_level
         #timer.tick(3)
         np.seterr(invalid = errstate['invalid'])
@@ -1254,50 +1375,54 @@ class RedundantCalibrator:
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
             return txt
 
-    def flag(self, twindow = 5, fwindow = 5, nsigma = 4):#return true if flagged False if good and unflagged
+    def flag(self, mode = '12', twindow = 5, fwindow = 5, nsigma = 4):#return true if flagged False if good and unflagged
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
 
+        chisq = self.rawCalpar[:,:,2]
+        nan_flag = np.isnan(chisq)|np.isinf(chisq)
 
         #chisq flag: spike_flag
-        chisq = self.rawCalpar[:,:,2]
-        median_level = nanmedian(nanmedian(chisq))
+        if '1' in mode:
+            median_level = nanmedian(nanmedian(chisq))
 
-        thresh = nsigma * (2. / (len(self.subsetbl) - self.nAntenna - self.nUBL))**.5 # relative sigma is sqrt(2/k)
+            thresh = nsigma * (2. / (len(self.subsetbl) - self.nAntenna - self.nUBL))**.5 # relative sigma is sqrt(2/k)
+            chisq[nan_flag] = 1e6 * median_level
 
-        nan_flag = np.isnan(chisq)|np.isinf(chisq)
-        chisq[nan_flag] = 1e6 * median_level
+            filtered_tdir = sfil.minimum_filter(np.median(chisq, axis = 1), size = twindow, mode='reflect')
+            filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
 
-        filtered_tdir = sfil.minimum_filter(np.median(chisq, axis = 1), size = twindow, mode='reflect')
-        filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
-
-        smoothed_chisq = np.outer(filtered_tdir, filtered_fdir)
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore",category=RuntimeWarning)
-            smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
-        spike_flag = (chisq - smoothed_chisq) >= smoothed_chisq * thresh
-
+            smoothed_chisq = np.outer(filtered_tdir, filtered_fdir)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore",category=RuntimeWarning)
+                smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
+            spike_flag = (chisq - smoothed_chisq) >= smoothed_chisq * thresh
+        else:
+            spike_flag = np.zeros_like(nan_flag)
 
         #baseline fit flag
-        nubl = 10
-        short_ubl_index = np.argsort(np.linalg.norm(self.ubl, axis=1))[:min(nubl, self.nUBL)]
-        shortest_ubl_vis = self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index] + 1.j * self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index+1]
-        change_rate = np.median(np.abs(shortest_ubl_vis[:-1] - shortest_ubl_vis[1:]), axis = 2)
-        nan_mask2 = np.isnan(change_rate)|np.isinf(change_rate)
-        change_rate[nan_mask2] = 0
+        if '2' in mode:
+            nubl = 10
+            short_ubl_index = np.argsort(np.linalg.norm(self.ubl, axis=1))[:min(nubl, self.nUBL)]
+            shortest_ubl_vis = self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index] + 1.j * self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index+1]
+            change_rate = np.median(np.abs(shortest_ubl_vis[:-1] - shortest_ubl_vis[1:]), axis = 2)
+            nan_mask2 = np.isnan(change_rate)|np.isinf(change_rate)
+            change_rate[nan_mask2] = 0
 
-        filtered_tdir = sfil.minimum_filter(np.median(change_rate, axis = 1), size = twindow, mode='reflect')
-        filtered_fdir = sfil.minimum_filter(np.median(change_rate, axis = 0), size = fwindow, mode='reflect')
+            filtered_tdir = sfil.minimum_filter(np.median(change_rate, axis = 1), size = twindow, mode='reflect')
+            filtered_fdir = sfil.minimum_filter(np.median(change_rate, axis = 0), size = fwindow, mode='reflect')
 
-        smoothed_change_rate = np.outer(filtered_tdir, filtered_fdir)
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore",category=RuntimeWarning)
-            smoothed_change_rate = smoothed_change_rate * np.median(change_rate[~nan_mask2] / smoothed_change_rate[~nan_mask2])
+            smoothed_change_rate = np.outer(filtered_tdir, filtered_fdir)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore",category=RuntimeWarning)
+                smoothed_change_rate = smoothed_change_rate * np.median(change_rate[~nan_mask2] / smoothed_change_rate[~nan_mask2])
 
-        ubl_flag_short = (change_rate > 2 * smoothed_change_rate) | nan_mask2
-        ubl_flag = np.zeros_like(spike_flag)
-        ubl_flag[:-1] = ubl_flag_short
-        ubl_flag[1:] = ubl_flag[1:] | ubl_flag_short
+            ubl_flag_short = (change_rate > 2 * smoothed_change_rate) | nan_mask2
+            ubl_flag = np.zeros_like(spike_flag)
+            ubl_flag[:-1] = ubl_flag_short
+            ubl_flag[1:] = ubl_flag[1:] | ubl_flag_short
+        else:
+            ubl_flag = np.zeros_like(nan_flag)
         return (nan_flag|spike_flag|ubl_flag)
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
@@ -1540,7 +1665,7 @@ class RedundantCalibrator:
         ###############################################################################
         #bl1dmatrix: a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
                 #I suppose 99999 for bad and auto baselines?
-        bl1dmatrix=99999*np.ones([nAntenna,nAntenna],dtype='int16')
+        bl1dmatrix=(2**31-1)*np.ones([nAntenna,nAntenna],dtype='int32')
         for i in range(len(crosspair)):
             bl1dmatrix[crosspair[i][1]][crosspair[i][0]]=i
             bl1dmatrix[crosspair[i][0]][crosspair[i][1]]=i
@@ -1896,7 +2021,7 @@ def omniview(data_in, info, plotrange = None, title = '', plot_single_ubl = Fals
                 if ubl == info['nUBL']:
                     #if i == 1:
                         #ax.text(-(len(ds)-1 + 0.7)*plotrange, -0.7*plotrange, "#Ant:%i\n#UBL:%i"%(info['nAntenna'],info['nUBL']),bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.2))
-                    ax.set_title(title + "\n#Ant:%i\n#UBL:%i"%(info['nAntenna'],info['nUBL']))
+                    ax.set_title(title + "\nGood Antenna count: %i\nUBL count: %i"%(info['nAntenna'],info['nUBL']))
                     ax.grid(True)
                     ax.set(adjustable='datalim', aspect=1)
                     ax.set_xlabel('Real')
@@ -2103,8 +2228,10 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):#ret
             a2 = int(index[0])
             break
     bl2 = np.array(info['antloc'][a2]) - info['antloc'][initialant]
-    A = np.array([bl1[:2], bl2[:2]])
-    remove_Matrix = (np.array(info['antloc'])- info['antloc'][initialant])[:,:2].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()))
+    #A = np.array([bl1[:2], bl2[:2]])
+    #remove_Matrix = (np.array(info['antloc'])- info['antloc'][initialant])[:,:2].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()))
+    A = np.array([bl1, bl2])
+    remove_Matrix = (np.array(info['antloc'])- info['antloc'][initialant]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()))
     degeneracy_remove = [a1, a2, remove_Matrix]
     if verbose:
         print "Degeneracy: a1 = %i, a2 = %i"%(info['subsetant'][a1], info['subsetant'][a2])
@@ -2167,17 +2294,30 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
             if i not in self._goodAntenna:
                 self.badAntenna.append(i)
 
+        self.antennaLocation = np.copy(self.antennaLocationAtom) #* [4, 30, 0]
         ####fit for idealized antloc
-        #A = np.array([list(a) + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
-        #self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
-        #self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
-        self.antennaLocation = np.copy(self.antennaLocationAtom)
+        A = np.array([list(a) + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
+        self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
+        self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
+        self.antennaLocation[self._goodAntenna, ::2] = self.antennaLocation[self._goodAntenna, ::2].dot(np.array([[np.cos(PI/2+aa.lat), np.sin(PI/2+aa.lat)],[-np.sin(PI/2+aa.lat), np.cos(PI/2+aa.lat)]]).transpose())###rotate into local coordinates
+
+
 
     def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
         self.antennaLocationTolerance = antennaLocationTolerance
         self.badAntenna += badAntenna
         self.badUBLpair += badUBLpair
         RedundantCalibrator.compute_redundantinfo(self)
+
+##class RedundantCalibrator_PAPER2(RedundantCalibrator_PAPER):
+    ##def __init__(self, aa):
+        ##RedundantCalibrator_PAPER.__init__(self, aa)
+        ###self.antennaLocation = np.copy(self.antennaLocationAtom) * [4, 30, 0]
+        ######fit for idealized antloc
+        ##A = np.array([list(a) + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
+        ##self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
+        ##self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
+        ##self.antennaLocation[self._goodAntenna, ::2] = self.antennaLocation[self._goodAntenna, ::2].dot(np.array([[np.cos(PI/2+aa.lat), np.sin(PI/2+aa.lat)],[-np.sin(PI/2+aa.lat), np.cos(PI/2+aa.lat)]]).transpose())###rotate into local coordinates
 
 
 class Timer():
