@@ -32,6 +32,7 @@ o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data
 o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
 o.add_option('--newuvf', action = 'store_true', help = 'whether to create new uv files with new flagging computed')
 o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
+o.add_option('-s', '--singlethread', action = 'store_true', help = 'whether to disable multiprocessing for calibration and use only one thread. May need this option for things like grid engine.')
 o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
 
 opts,args = o.parse_args(sys.argv[1:])
@@ -48,6 +49,10 @@ uvfiles = args
 flag_thresh = opts.flagsigma
 flagt = opts.flagt
 flagf = opts.flagf
+if opts.singlethread:
+    nthread = 1
+else:
+    nthread = None
 
 keep_binary_data = False
 if os.path.isdir(sourcepath):
@@ -217,7 +222,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     timer = time.time()
     additivein = np.zeros_like(data[p])
 
-    calibrators[pol].logcal(data[p], additivein, verbose=True)
+    calibrators[pol].logcal(data[p], additivein, nthread = nthread, verbose=True)
 
     if needrawcal:#restore original data's amplitude after logcal. dont restore phase because it may cause problem in degeneracy removal
         calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
@@ -226,7 +231,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
         data[p] = omni.apply_calpar(data[p], 1/np.abs(crude_calpar[pol]), calibrators[pol].totalVisibilityId)
         #del original_data
 
-    additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
+    additiveout = calibrators[pol].lincal(data[p], additivein, nthread = nthread, verbose=True)
     #######################remove additive###############################
     if removeadditive:
         nadditiveloop = 1
@@ -238,7 +243,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
                 #additivein[:,f] = ss.convolve(additivein[:,f], np.ones(removeadditiveperiod * 2 + 1)[:, None], mode='same')/weight[:, None]
             additivein = ((sfil.convolve1d(np.real(additivein), np.ones(removeadditiveperiod * 2 + 1), mode='constant') + 1j * sfil.convolve1d(np.imag(additivein), np.ones(removeadditiveperiod * 2 + 1), mode='constant'))/weight[:, None, None]).astype('complex64')
             calibrators[pol].computeUBLFit = False
-            additiveout = calibrators[pol].lincal(data[p], additivein, verbose=True)
+            additiveout = calibrators[pol].lincal(data[p], additivein, nthread = nthread, verbose=True)
 
     if needrawcal:#restore original data's phase
         #calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
