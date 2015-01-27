@@ -408,16 +408,16 @@ while new_bad_ant != [] and trials < max_try:
 						break
 
 			for pol in wantpols.keys():
-				####amplitude: a single amplitude over all frequency is only useful for calfile and not really accurate
-				if print_ampdelay:
-					amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
-					amp[calibrators[pol].Info.subsetant] = nanmedian(np.abs(linearcalpar[pol]), axis = 0)
-					print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
-					print '{'
-					for a1, a2 in zip(range(len(amp)), amp):
-						print "%i: %f, "%(a1,a2)
-					print '}'
-					sys.stdout.flush()
+				######amplitude: a single amplitude over all frequency is only useful for calfile and not really accurate
+				##if print_ampdelay:
+					##amp = np.ones(calibrators[pol].nTotalAnt, dtype='float') * bad_ant_suppress
+					##amp[calibrators[pol].Info.subsetant] = nanmedian(np.abs(linearcalpar[pol]), axis = 0)
+					##print FILENAME + " MSG: amplitude factor on %s as |g|:"%pol
+					##print '{'
+					##for a1, a2 in zip(range(len(amp)), amp):
+						##print "%i: %f, "%(a1,a2)
+					##print '}'
+					##sys.stdout.flush()
 
 				#print stuff for calfile
 				if print_ampdelay:
