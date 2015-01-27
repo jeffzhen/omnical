@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '2.5.6'
+__version__ = '2.5.7'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -1978,7 +1978,7 @@ class RedundantCalibrator:
 
 
 
-def omniview(data_in, info, plotrange = None, title = '', plot_single_ubl = False):
+def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False):
     import matplotlib.pyplot as plt
     data = np.array(data_in)
     try:#in case info is Info class
@@ -2030,8 +2030,12 @@ def omniview(data_in, info, plotrange = None, title = '', plot_single_ubl = Fals
             if ubl == info['nUBL']:
                 break
     plt.axis([-plotrange, plotrange, -plotrange, plotrange])
-
-    plt.show()
+    if oppath is not None:
+        plt.savefig(oppath, bbox_inches='tight')
+    if not suppress:
+        plt.show()
+    else:
+        plt.close()
     return
 
 def lin_depend(v1, v2, tol = 0):#whether v1 and v2 are linearly dependent
