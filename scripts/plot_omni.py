@@ -32,7 +32,10 @@ o.add_option('-s', '--suppress', action = 'store_true', help = 'whether to suppr
 
 
 opts, args = o.parse_args(sys.argv[1:])
-datafiles = [os.path.expanduser(arg) for arg in args]
+if len(args) == 0:
+    raise IOError("No files to plot.")
+else:
+    datafiles = [os.path.expanduser(arg) for arg in args]
 if opts.infopath is not None:
     infopath = os.path.expanduser(opts.infopath)
 else:
