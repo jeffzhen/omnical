@@ -17,7 +17,7 @@ print "#Omnical Version %s#"%omni.__version__
 ######################################################################
 o = optparse.OptionParser()
 
-o.add_option('-t', '--time', action = 'store', type = 'int', default = 0, help = "Time for uv file plotting. Need to match uv['time'] entry.")
+o.add_option('-t', '--time', action = 'store', type = 'int', default = 0, help = "Time index for uv file plotting.")
 o.add_option('-f', '--frequency', action = 'store', type = 'int', default = 0, help = 'Frequency channel number for the uv file.')
 o.add_option('-p', '--pol', action = 'store', default = 'xx', help = 'Polarization string for uv file plotting.')
 
