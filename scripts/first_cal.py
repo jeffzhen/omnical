@@ -37,7 +37,7 @@ o.add_option('-t', '--info_tag', action = 'store', default = "DEFAULT", help = '
 #o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
 #o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
 o.add_option('--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
-o.add_option('--ampdelay', action = 'store_true', help = 'whether to print out amplitude and delay for Calfile usage.')
+o.add_option('--ampdelay', action = 'store_true', help = 'whether to print out amplitude and delay for Calfile usage. Amplitude print out disabled because theres no justifiable reason to ever use it.')
 #o.add_option('--smooth', action = 'store_true', help = 'whether to smooth the calibration results over frequency.')
 o.add_option('--plot', action = 'store_true', help = 'Whether to make plots in the end.')
 #o.add_option('--crude', action = 'store_true', help = 'whether to apply crude calibration')
