@@ -178,19 +178,30 @@ if plottype == 'omnigain':
         nt = len(data) / len(info['subsetant']) / (nf + nprefix)
         if len(data) != nt * len(info['subsetant']) * (nf + nprefix):
             raise IOError("File %s is incompatible with shape %s inferred from info file %s."%(datafile, (nt, len(info['subsetant']), (nf + nprefix)), infopath))
-        else:
-            data.shape = (nt, len(info['subsetant']), (nf + nprefix))
+        data.shape = (nt, len(info['subsetant']), (nf + nprefix))
 
-            if mode == 'amp':
-                data = np.abs(data[:, antennas, nprefix:])
-                if force_range:
-                    ranges[0] = max(ranges[0], 0)
-            elif mode == 'phs':
-                data = np.angle(data[:, antennas, nprefix:])
-            elif mode == 'real':
-                data = np.real(data[:, antennas, nprefix:])
-            elif mode == 'imag':
-                data = np.imag(data[:, antennas, nprefix:])
+        if mode == 'amp':
+            data = np.abs(data[:, antennas, nprefix:])
+            if force_range:
+                ranges[0] = max(ranges[0], 0)
+        elif mode == 'phs':
+            data = np.angle(data[:, antennas, nprefix:])
+        elif mode == 'real':
+            data = np.real(data[:, antennas, nprefix:])
+        elif mode == 'imag':
+            data = np.imag(data[:, antennas, nprefix:])
+
+        flagpath = datafile.replace(plottype, 'omniflag')
+        if os.path.isfile(flagpath):
+            flag = np.fromfile(flagpath, dtype='bool').reshape((nt, nf))
+        else:
+            flag = np.zeros((nt, nf), dtype='bool')
+
+        if time is not None:
+            flag = flag[time]
+        elif frequency is not None:
+            flag = flag[:,frequency]
+
         for i,a in enumerate(antennas):
             p = p + 1
             plt.subplot(len(antennas), len(datafiles), p)
@@ -204,6 +215,7 @@ if plottype == 'omnigain':
             if not force_range:
                 ranges = [np.percentile(plotdata, 10), np.percentile(plotdata, 90)]
 
+            plotdata[flag] = np.nan
             if len(plotdata.shape) == 2:
                 plt.imshow(plotdata, vmin = ranges[0], vmax = ranges[1], interpolation = 'nearest')
                 plt.colorbar()
@@ -232,21 +244,32 @@ if plottype == 'omnifit':
         nt = len(data) / info['nUBL'] / (nf + nprefix)
         if len(data) != nt * info['nUBL'] * (nf + nprefix):
             raise IOError("File %s is incompatible with shape %s inferred from info file %s."%(datafile, (nt, info['nUBL'], (nf + nprefix)), infopath))
-        else:
-            data.shape = (nt, info['nUBL'], (nf + nprefix))
+        data.shape = (nt, info['nUBL'], (nf + nprefix))
 
-            if mode == 'amp':
-                data = np.abs(data[:, ubls, nprefix:])
-                if force_range:
-                    ranges[0] = max(ranges[0], 0)
-            elif mode == 'phs':
-                data = np.angle(data[:, ubls, nprefix:])
-                data[:,reverse] = -data[:,reverse]
-            elif mode == 'real':
-                data = np.real(data[:, ubls, nprefix:])
-            elif mode == 'imag':
-                data = np.imag(data[:, ubls, nprefix:])
-                data[:,reverse] = -data[:,reverse]
+        if mode == 'amp':
+            data = np.abs(data[:, ubls, nprefix:])
+            if force_range:
+                ranges[0] = max(ranges[0], 0)
+        elif mode == 'phs':
+            data = np.angle(data[:, ubls, nprefix:])
+            data[:,reverse] = -data[:,reverse]
+        elif mode == 'real':
+            data = np.real(data[:, ubls, nprefix:])
+        elif mode == 'imag':
+            data = np.imag(data[:, ubls, nprefix:])
+            data[:,reverse] = -data[:,reverse]
+
+        flagpath = datafile.replace(plottype, 'omniflag')
+        if os.path.isfile(flagpath):
+            flag = np.fromfile(flagpath, dtype='bool').reshape((nt, nf))
+        else:
+            flag = np.zeros((nt, nf), dtype='bool')
+
+        if time is not None:
+            flag = flag[time]
+        elif frequency is not None:
+            flag = flag[:,frequency]
+
         for i,u in enumerate(ubls):
             p = p + 1
             plt.subplot(len(ubls), len(datafiles), p)
@@ -260,6 +283,8 @@ if plottype == 'omnifit':
 
             if not force_range:
                 ranges = [np.percentile(plotdata, 5), np.percentile(plotdata, 95)]
+
+            plotdata[flag] = np.nan
             if len(plotdata.shape) == 2:
                 plt.imshow(plotdata, vmin = ranges[0], vmax = ranges[1], interpolation = 'nearest')
                 plt.colorbar()
@@ -287,21 +312,29 @@ if plottype == 'omnichisq':
         nt = len(data) / (nf + nprefix)
         if len(data) != nt * (nf + nprefix):
             raise IOError("File %s is not a valid omnichisq file."%datafile)
+
+        data.shape = (nt, (nf + nprefix))
+        data = data[:, nprefix:]
+
+        flagpath = datafile.replace(plottype, 'omniflag')
+        if os.path.isfile(flagpath):
+            flag = np.fromfile(flagpath, dtype='bool').reshape((nt, nf))
         else:
-            data.shape = (nt, (nf + nprefix))
-            data = data[:, nprefix+1:]
-            if time is not None:
-                plotdata = data[time]
-            elif frequency is not None:
-                plotdata = data[:, frequency]
-            else:
-                plotdata = np.copy(data)
+            flag = np.zeros((nt, nf), dtype='bool')
+
+        if time is not None:
+            plotdata = data[time]
+        elif frequency is not None:
+            plotdata = data[:, frequency]
+        else:
+            plotdata = np.copy(data)
         p = p + 1
         plt.subplot(1, len(datafiles), p)
         if not force_range:
             ranges = [np.percentile(plotdata, 5), np.percentile(plotdata, 95)]
         else:
             ranges[0] = max(ranges[0], 0)
+        plotdata[flag] = np.nan
         if len(plotdata.shape) == 2:
             plt.imshow(plotdata, vmin = ranges[0], vmax = ranges[1], interpolation = 'nearest')
             plt.colorbar()

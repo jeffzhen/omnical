@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '2.5.7'
+__version__ = '2.6.0'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -334,6 +334,7 @@ def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = N
     sys.stdout.flush()
     try:
         data = np.zeros((deftime, len(wantpols), len(totalVisibilityId), nfreq), dtype = 'complex64')
+        flags = np.zeros((deftime, len(wantpols), len(totalVisibilityId), nfreq), dtype = 'bool')
     except MemoryError:
         raise Exception("Failed to allocate %.2fGB of memory. Set init_mem keyword in Bytes for importuvs() to decrease initial memory allocation."%(init_mem/1.074e9))
     if verbose:
@@ -359,7 +360,7 @@ def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = N
             pol_exist = False
             current_t = None
             if p == 0:#need time extracting shananigans
-                for preamble, rawd in uv.all():
+                for preamble, rawd, flag in uv.all(raw=True):
                     pol_exist = True
 
                     if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
@@ -374,6 +375,7 @@ def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = N
                         if len(t) > len(data):
                             print FILENAME + METHODNAME + " MSG:",  "expanding number of time slices from", len(data), "to", len(data) + deftime
                             data = np.concatenate((data, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')))
+                            flags = np.concatenate((flags, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'bool')))
                             #sunpos = np.concatenate((sunpos, np.zeros((deftime, 2))))
                             #sunpos[len(t) - 1] = np.asarray([[sun.alt, sun.az]])
                     current_t = len(t) - 1
@@ -382,9 +384,10 @@ def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = N
                     bl = bl1dmatrix[a1, a2]#bl is 1 indexed with minus meaning conjugate
                     datapulled = True
                     #print info[p]['subsetbl'][info[p]['crossindex'][bl]],
-                    data[current_t, p, abs(bl) - 1] = (np.real(rawd.data) + 1.j * np.sign(bl) * np.imag(rawd.data)).astype('complex64')
+                    data[current_t, p, abs(bl) - 1] = (np.real(rawd) + 1.j * np.sign(bl) * np.imag(rawd))
+                    flags[current_t, p, abs(bl) - 1] = flag
             else:
-                for preamble, rawd in uv.all():
+                for preamble, rawd, flag in uv.all(raw=True):
                     pol_exist = True
                     if current_t is None or t[current_t] != preamble[1]:
                         try:
@@ -396,7 +399,8 @@ def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = N
                     bl = bl1dmatrix[a1, a2]#bl is 1 indexed with minus meaning conjugate
                     datapulled = True
                     #print info[p]['subsetbl'][info[p]['crossindex'][bl]],
-                    data[current_t, p, abs(bl) - 1] = (np.real(rawd.data) + 1.j * np.sign(bl) * np.imag(rawd.data)).astype('complex64')
+                    data[current_t, p, abs(bl) - 1] = (np.real(rawd) + 1.j * np.sign(bl) * np.imag(rawd))
+                    flags[current_t, p, abs(bl) - 1] = flag
             if not pol_exist:
                 raise IOError("Polarization %s does not exist in uv file %s."%(pol, uvfile))
         #currentpol = 0
@@ -426,7 +430,7 @@ def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = N
         if not datapulled:
             raise IOError("FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting.")
     reorder = (1, 0, 3, 2)
-    return np.transpose(data[:len(t)],reorder), t, timing, lst
+    return np.transpose(data[:len(t)],reorder), t, timing, lst, np.transpose(flags[:len(t)],reorder)
 
 def pick_slice_uvs(uvfilenames, pol_str_or_num, t_index_lst_jd, findex, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = 100, verbose = False):#tolerance of timing in radians in lst.
     METHODNAME = "*pick_slice_uvs*"

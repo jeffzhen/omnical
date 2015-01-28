@@ -145,7 +145,7 @@ sys.stdout.flush()
 ###start reading miriads################
 print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed"
 sys.stdout.flush()
-rawdata, t, timing, lst = omni.importuvs(uvfiles, wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)#, nTotalAntenna = len(aa))
+rawdata, t, timing, lst, rawflag = omni.importuvs(uvfiles, wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)#, nTotalAntenna = len(aa))
 print FILENAME + " MSG:",  len(t), "slices read."
 sys.stdout.flush()
 
