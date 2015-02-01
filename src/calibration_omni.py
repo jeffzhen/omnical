@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '2.6.1'
+__version__ = '3.0.0'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -985,7 +985,11 @@ def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, usel
     #additive_out[len(additive_out)/2:] = np.imag(np_additive_out.flatten())
 
 
-
+##########################################################################################
+##########################################################################################
+##################      RedundantCalibrator    ###########################################
+##########################################################################################
+##########################################################################################
 class RedundantCalibrator:
 #This class is the main tool for performing redundant calibration on data sets. For a given redundant configuration, say 32 antennas with 3 bad antennas, the user should create one instance of Redundant calibrator and reuse it for all data collected from that array. In general, upon creating an instance, the user need to create the info field of the instance by either computing it or reading it from a text file. readyForCpp(verbose = True) should be a very helpful function to provide information on what information is missing for running the calibration.
     def __init__(self, nTotalAnt, info = None):
@@ -1978,9 +1982,225 @@ class RedundantCalibrator:
             return 'badbaseline'
         return self.Info.reversed[crossblindex]
 
+##########################Sub-class#############################
+class RedundantCalibrator_PAPER(RedundantCalibrator):
+    def __init__(self, aa):
+        nTotalAnt = len(aa)
+        RedundantCalibrator.__init__(self, nTotalAnt)
+        self.aa = aa
+        self.antennaLocationAtom = np.zeros((self.nTotalAnt,3))
+        for i in range(len(self.aa.ant_layout)):
+            for j in range(len(self.aa.ant_layout[0])):
+                self.antennaLocationAtom[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
+        self.preciseAntennaLocation = .299792458 * np.array([ant.pos for ant in self.aa])
+        self._goodAntenna = self.aa.ant_layout.flatten()
+        self._goodAntenna.sort()
+        self.badAntenna = []
+        self.badUBLpair = []
+        for i in range(nTotalAnt):
+            if i not in self._goodAntenna:
+                self.badAntenna.append(i)
+
+        self.antennaLocation = np.copy(self.antennaLocationAtom) #* [4, 30, 0]
+        ####fit for idealized antloc
+        A = np.array([list(a) + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
+        self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
+        self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
+        self.antennaLocation[self._goodAntenna, ::2] = self.antennaLocation[self._goodAntenna, ::2].dot(np.array([[np.cos(PI/2+aa.lat), np.sin(PI/2+aa.lat)],[-np.sin(PI/2+aa.lat), np.cos(PI/2+aa.lat)]]).transpose())###rotate into local coordinates
+
+    def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
+        self.antennaLocationTolerance = antennaLocationTolerance
+        self.badAntenna += badAntenna
+        self.badUBLpair += badUBLpair
+        RedundantCalibrator.compute_redundantinfo(self)
+
+##########################################################################################
+##########################################################################################
+##################           Treasure          ###########################################
+##########################################################################################
+##########################################################################################
+
+class Treasure:
+    def __init__(self, folder_path, nlst = int(TPI/1e-3), nfreq = 1024, tolerance = 0):
+        if os.path.isdir(folder_path):
+            self.folderPath = folder_path
+            with open(self.folderPath + '/header.txt', 'r') as f:
+                self.nTime = int(f.readline())
+                self.nFrequency = int(f.readline())
+                self.lsts = np.arange(0, TPI, TPI/self.nTime)
+                self.frequencies = np.arange(self.nFrequency)
+                self.coinShape = (self.nTime, self.nFrequency, 10)#N, real(v), imag(v), real(v)^2, imag(v)^2, epsilon^-2, real(v)epsilon^-2, imag(v)epsilon^-2, placeholder1, placeholder2; epsilon^2 should be for only real part/imag part, and should be same for both
+                self.coinDtype = f.readline().replace('\n', '')
+                self.tolerance = float(f.readline())
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    self.ubls = np.loadtxt(f)
+        else:
+            self.folderPath = folder_path
+            self.nTime = nlst
+            self.nFrequency = nfreq
+            self.lsts = np.arange(0, TPI, TPI/self.nTime)
+            self.frequencies = np.arange(self.nFrequency)
+            self.coinShape = (self.nTime, self.nFrequency, 10)#N, real(v), imag(v), real(v)^2, imag(v)^2, epsilon^-2, real(v)epsilon^-2, imag(v)epsilon^-2, placeholder1, placeholder2; epsilon^2 should be for only real part/imag part, and should be same for both
+            self.coinDtype = 'float64'
+            self.tolerance = tolerance
+            self.ubls = np.array([], dtype = 'float64')
+            self.duplicate_treasure(folder_path)
 
 
+    def duplicate_treasure(self, folder_path):
+        if os.path.exists(folder_path):
+            raise IOError("Requested folder path %s already exists."%folder_path)
+        os.makedirs(folder_path)
+        for i in range(len(self.ubls)):
+            shutil.copy(self.folderPath + '/%i.coin'%i, folder_path)
+        with open(folder_path + '/header.txt', 'w') as f:
+            f.write('%i\n'%self.nTime)
+            f.write('%i\n'%self.nFrequency)
+            f.write(self.coinDtype + '\n')
+            f.write('%.3e\n'%self.tolerance)
+            for ubl in self.ubls:
+                f.write('%f %f %f\n'%(ubl[0], ubl[1], ubl[2]))
+        new_treasure = Treasure(folder_path)
+        return new_treasure
 
+    def update_coin(self, ublvec, lsts, visibilities, epsilonsqs):#lsts should be [0,TPI); visibilities should be 2D np array nTime by nFrequency, epsilonsqs should be for real/imag parts seperately (should be same though); to flag any data point make either visibilities or epsilonsqs np.nan
+        if visibilities.shape != (len(lsts), self.nFrequency):
+            raise ValueError("visibilities array has wrong shape %s that does not agree with %s."%(visibilities.shape, (len(lsts), self.nFrequency)))
+        if epsilonsqs.shape != (len(lsts), self.nFrequency):
+            raise ValueError("epsilonsqs array has wrong shape %s that does not agree with %s."%(epsilonsqs.shape, (len(lsts), self.nFrequency)))
+        if np.max(lsts) > TPI or np.min(lsts) < 0:
+            raise ValueError("lsts range [%f, %f] is not inside the expected [0, 2pi)."%(np.max(lsts), np.min(lsts)))
+        if np.max(np.array(lsts)[1:] - np.array(lsts)[:-1]) > TPI/self.nTime * 1.001:
+            raise ValueError("lsts interval is %f, which is larger than desired grid size %f."%(np.max(np.array(lsts)[1:] - np.array(lsts)[:-1]), TPI/self.nTime))
+        lsts = np.array(lsts)
+        n_wrap = np.sum(lsts[1:] - lsts[:-1] < 0)
+        if n_wrap > 1:
+            raise ValueError("lsts is not a continuous list of times. Only one wrap around from 2pi to 0 allowed.")
+        elif n_wrap == 1:
+            iwrap = int(np.argsort(lsts[1:] - lsts[:-1])[0]) + 1#wrappping happend between iwrap-1 and iwrap
+            self.update_coin(ublvec, lsts[:iwrap], visibilities[:iwrap], epsilonsqs[:iwrap])
+            self.update_coin(ublvec, lsts[iwrap:], visibilities[iwrap:], epsilonsqs[iwrap:])
+            return
+        else:
+            index = self.get_coin_index(ublvec)
+            if index is None:
+                index = self.add_coin(ublvec)
+
+            update_range = np.array([np.ceil(lsts[0]/(TPI/self.nTime)), np.ceil(lsts[-1]/(TPI/self.nTime))], dtype = 'int32') # [inclusive, exclusive)
+            update_visibilities = sp.interpolate.interp1d(lsts, visibilities, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]])
+            update_epsilonsqs = sp.interpolate.interp1d(lsts, epsilonsqs, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]])
+            #print lsts, self.lsts[update_range[0]:update_range[1]]
+            coin_content = read_ndarray(self.folderPath + '/%i.coin'%index, self.coinShape, self.coinDtype, update_range)
+            good_flag = ~(np.isnan(update_epsilonsqs) | np.isnan(update_visibilities) | np.isinf(update_epsilonsqs) | np.isinf(update_visibilities))
+            coin_content[..., 0] = coin_content[..., 0] + good_flag
+            coin_content[good_flag, 1] = coin_content[good_flag, 1] + np.real(update_visibilities[good_flag])
+            coin_content[good_flag, 2] = coin_content[good_flag, 2] + np.imag(update_visibilities[good_flag])
+            coin_content[good_flag, 3] = coin_content[good_flag, 3] + np.real(update_visibilities[good_flag])**2
+            coin_content[good_flag, 4] = coin_content[good_flag, 4] + np.imag(update_visibilities[good_flag])**2
+            coin_content[good_flag, 5] = coin_content[good_flag, 5] + np.real(update_visibilities[good_flag])/update_epsilonsqs[good_flag]
+            coin_content[good_flag, 6] = coin_content[good_flag, 6] + np.imag(update_visibilities[good_flag])/update_epsilonsqs[good_flag]
+            coin_content[good_flag, 7] = coin_content[good_flag, 7] + update_epsilonsqs[good_flag]**-1
+            #print coin_content[good_flag, 7]
+            write_ndarray(self.folderPath + '/%i.coin'%index, self.coinShape, self.coinDtype, update_range, coin_content, check=True)
+            return
+
+    def get_coin_index(self, ublvec):
+        if len(ublvec) != 3:
+            raise ValueError("ublvec %s is not a 3D vector."%ublvec)
+        if len(self.ubls) < 1:
+            return None
+        deltas = np.linalg.norm(self.ubls - ublvec, axis = 1)
+        if np.min(deltas) <= self.tolerance:
+            return np.argsort(deltas)[0]
+        else:
+            return None
+
+    def add_coin(self, ublvec):
+        if len(ublvec) != 3:
+            raise ValueError("ublvec %s is not a 3D vector."%ublvec)
+        existing_index = self.get_coin_index(ublvec)
+        if existing_index is None:
+            if len(self.ubls) < 1:
+                self.ubls = np.array([ublvec], dtype= 'float64')
+            else:
+                self.ubls = np.append(self.ubls, [ublvec] ,axis = 0)
+            np.zeros(self.coinShape, dtype = self.coinDtype).tofile(self.folderPath + '/%i.coin'%(len(self.ubls) - 1))
+            return len(self.ubls) - 1
+        else:
+            return existing_index
+
+    def get_coin(self, ublvec):
+        return Coin(self.folderPath + '/%i.coin'%self.get_coin_index(ublvec), self.coinShape, self.coinDtype)
+
+    def burn(self):
+        shutil.rmtree(self.folderPath)
+
+class Coin:
+    def __init__(self, path, shape, dtype):
+        if not os.path.isfile(path):
+            raise IOError("%s doesnt exist."%path)
+        self.data = np.fromfile(path, dtype=dtype).reshape(shape)
+        self.attributes = ['count', 'mean', 'variance_re', 'variance_im', 'weighted_mean', 'weighted_variance']
+
+    def __getattr__(self, attr):
+        if attr not in self.attributes:
+            raise AttributeError("Coin class has no attribute named %s. Valid attributes are:\n %s"%(attr, self.attributes))
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore",category=RuntimeWarning)
+            if attr == 'count':
+                return self.data[..., 0]
+            elif attr == 'mean':
+                return (self.data[..., 1] + 1.j * self.data[..., 2]) / self.data[..., 0]
+            elif attr == 'variance_re':
+                n = self.data[..., 0]
+                return (n * self.data[..., 3] - self.data[..., 1]**2) / n / (n-1)
+            elif attr == 'variance_im':
+                n = self.data[..., 0]
+                return (n * self.data[..., 4] - self.data[..., 2]**2) / n / (n-1)
+            elif attr == 'weighted_mean':
+                return (self.data[..., 5] + 1.j * self.data[..., 6]) / self.data[..., 7]
+            elif attr == 'weighted_variance':
+                return 1/self.data[..., 7]
+
+def read_ndarray(path, shape, dtype, ranges):#read middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)
+    if not os.path.isfile(path):
+        raise IOError(path + 'doesnt exist.')
+    if len(ranges) != 2 or ranges[0] < 0 or ranges[0] >= ranges[1] or ranges[1] > shape[0]:
+        raise ValueError("%s is not a vlid range."%ranges)
+    nbytes = np.dtype(dtype).itemsize
+    higher_dim_chunks = 1 # product of higher dimensions. if array is (2,3,4,5), this is 3*4*5
+    for m in shape[1:]:
+        higher_dim_chunks = higher_dim_chunks * m
+
+    #print np.fromfile(path, dtype = dtype).shape
+    with open(path, 'r') as f:
+        f.seek(higher_dim_chunks * nbytes * ranges[0])
+        #print higher_dim_chunks * nbytes * ranges[0]
+        result = np.fromfile(f, dtype = dtype, count = (ranges[1] - ranges[0]) * higher_dim_chunks)
+    new_shape = np.array(shape)
+    new_shape[0] = (ranges[1] - ranges[0])
+    #print result.shape,tuple(new_shape)
+    return result.reshape(tuple(new_shape))
+
+def write_ndarray(path, shape, dtype, ranges, data, check = True):#write middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)
+    if not os.path.isfile(path):
+        raise IOError(path + 'doesnt exist.')
+    if len(ranges) != 2 or ranges[0] < 0 or ranges[0] >= ranges[1] or ranges[1] > shape[0]:
+        raise ValueError("%s is not a vlid range."%ranges)
+    if data.dtype != dtype or data.shape[1:] != shape[1:] or data.shape[0] != ranges[1] - ranges[0]:
+        raise ValueError("data shape %s cannot be fit into data file shape %s."%(data.shape, shape))
+    nbytes = np.dtype(dtype).itemsize
+    higher_dim_chunks = 1 # product of higher dimensions. if array is (2,3,4,5), this is 3*4*5
+    for m in shape[1:]:
+        higher_dim_chunks = higher_dim_chunks * m
+    with open(path, 'r+') as f:
+        f.seek(higher_dim_chunks * nbytes * ranges[0])
+        data.tofile(f)
+    if check:
+        if not (data == read_ndarray(path, shape, dtype, ranges)).all():
+            raise IOError("write_ndarray failed on %s"%path)
+    return
 
 def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False):
     import matplotlib.pyplot as plt
@@ -2283,51 +2503,14 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
     result[info['subsetant']] = np.exp(1.j*calpar)# * result[info['subsetant']]
     return result
 
-##########################Sub-class#############################
-class RedundantCalibrator_PAPER(RedundantCalibrator):
-    def __init__(self, aa):
-        nTotalAnt = len(aa)
-        RedundantCalibrator.__init__(self, nTotalAnt)
-        self.aa = aa
-        self.antennaLocationAtom = np.zeros((self.nTotalAnt,3))
-        for i in range(len(self.aa.ant_layout)):
-            for j in range(len(self.aa.ant_layout[0])):
-                self.antennaLocationAtom[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
-        self.preciseAntennaLocation = .299792458 * np.array([ant.pos for ant in self.aa])
-        self._goodAntenna = self.aa.ant_layout.flatten()
-        self._goodAntenna.sort()
-        self.badAntenna = []
-        self.badUBLpair = []
-        for i in range(nTotalAnt):
-            if i not in self._goodAntenna:
-                self.badAntenna.append(i)
-
-        self.antennaLocation = np.copy(self.antennaLocationAtom) #* [4, 30, 0]
-        ####fit for idealized antloc
-        A = np.array([list(a) + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
-        self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
-        self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
-        self.antennaLocation[self._goodAntenna, ::2] = self.antennaLocation[self._goodAntenna, ::2].dot(np.array([[np.cos(PI/2+aa.lat), np.sin(PI/2+aa.lat)],[-np.sin(PI/2+aa.lat), np.cos(PI/2+aa.lat)]]).transpose())###rotate into local coordinates
 
 
 
-    def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
-        self.antennaLocationTolerance = antennaLocationTolerance
-        self.badAntenna += badAntenna
-        self.badUBLpair += badUBLpair
-        RedundantCalibrator.compute_redundantinfo(self)
-
-##class RedundantCalibrator_PAPER2(RedundantCalibrator_PAPER):
-    ##def __init__(self, aa):
-        ##RedundantCalibrator_PAPER.__init__(self, aa)
-        ###self.antennaLocation = np.copy(self.antennaLocationAtom) * [4, 30, 0]
-        ######fit for idealized antloc
-        ##A = np.array([list(a) + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
-        ##self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
-        ##self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
-        ##self.antennaLocation[self._goodAntenna, ::2] = self.antennaLocation[self._goodAntenna, ::2].dot(np.array([[np.cos(PI/2+aa.lat), np.sin(PI/2+aa.lat)],[-np.sin(PI/2+aa.lat), np.cos(PI/2+aa.lat)]]).transpose())###rotate into local coordinates
-
-
+##########################################################################################
+##########################################################################################
+##################           Timer             ###########################################
+##########################################################################################
+##########################################################################################
 class Timer():
     def __init__(self):
         self.time = time.time()
