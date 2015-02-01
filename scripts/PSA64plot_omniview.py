@@ -11,7 +11,7 @@ nant = 64
 wantpols = {}
 wantpols['xx'] = ap.miriad.str2pol['xx']
 
-papercal_data, _, _, _ = omni.importuvs(paper_uvfiles, wantpols, timingTolerance=100)
-omnical_data, _, _, _ = omni.importuvs(omni_uvfiles, wantpols, timingTolerance=100)
+papercal_data, _, _, _, rawflag = omni.importuvs(paper_uvfiles, wantpols, timingTolerance=100)
+omnical_data, _, _, _, rawflag = omni.importuvs(omni_uvfiles, wantpols, timingTolerance=100)
 
 omni.omniview(np.array([papercal_data[0,0,120], omnical_data[0,0,120]]), info)

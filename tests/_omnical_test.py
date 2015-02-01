@@ -5,7 +5,7 @@ import aipy as ap
 import numpy.linalg as la
 import commands, os, time, math, ephem
 import omnical.calibration_omni as omni
-
+print "#Omnical Version %s#"%omni.__version__
 class TestMethods(unittest.TestCase):
     def setUp(self):
         self.i = _O.RedundantInfo()
@@ -219,7 +219,7 @@ class TestUV(unittest.TestCase):
             #calibrator.write_redundantinfo(infoPath = './redundantinfo_test_' + key + '.txt', overwrite = True)
         ###start reading miriads################
         ##print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
-        data, t, timing, lst = omni.importuvs(uvfiles, wantpols, totalVisibilityId=calibrators[wantpols.keys()[0]].totalVisibilityId, nTotalAntenna = 32,timingTolerance = 2*math.pi, init_mem = 5.e7)
+        data, t, timing, lst, _ = omni.importuvs(uvfiles, wantpols, totalVisibilityId=calibrators[wantpols.keys()[0]].totalVisibilityId, nTotalAntenna = 32,timingTolerance = 2*math.pi, init_mem = 5.e7)
         ##print FILENAME + " MSG:",  len(t), "slices read."
 
         ###raw calibration################
@@ -273,6 +273,46 @@ class TestUV(unittest.TestCase):
         np.testing.assert_almost_equal(np.sum(np.abs(additiveout)[:,:,calibrators['xx'].Info.crossindex]**2, axis=2)[nanmask], newresult[:,:,2][nanmask], decimal = 5)
         np.testing.assert_almost_equal(correctresult[:,:,3:67][nanmask], newresult[:,:,3:67][nanmask], decimal = 5)
         np.testing.assert_almost_equal(np.sort(np.abs(correctresult[:,:,67:][nanmask])), np.sort(np.abs(newresult[:,:,67:][nanmask])), decimal = 5)
+
+class TestTreasure(unittest.TestCase):
+    def test_IO(self):
+        nTime = 3
+        nFrequency = 5
+        treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test.treasure', nlst = nTime, nfreq = nFrequency)
+        treasure.add_coin(np.array([0,2,3]))
+        treasure.add_coin(np.array([1,2,3]))
+        self.assertEqual(treasure.get_coin_index(np.array([1,2,3])), 1)
+
+        treasure2 = treasure.duplicate_treasure(os.path.dirname(os.path.realpath(__file__)) + '/test2.treasure')
+        treasure.burn()
+
+        treasure2.add_coin(np.array([1,2,3]))
+        treasure2.add_coin(np.array([1,2,4]))
+        self.assertEqual(treasure2.get_coin_index(np.array([1,2,4])), 2)
+        self.assertEqual(treasure2.coinShape, (nTime, nFrequency, 10))
+        treasure2.burn()
+
+    def test_math(self):
+        nTime = 10
+        nFrequency = 1
+        treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test3.treasure', nlst = nTime, nfreq = nFrequency)
+        treasure.add_coin(np.array([0,2,3]))
+        treasure.add_coin(np.array([1,2,3]))
+        nupdate = 4
+        update_lsts = np.append((treasure.lsts[-nupdate/2:]+np.pi/2/nTime), (treasure.lsts[:nupdate/2]+np.pi/2/nTime))
+        for i in range(10000):
+            #print i
+            vis_re = (np.random.randn(nupdate) * (np.arange(nupdate) + 1) + range(nupdate)).reshape(nupdate, 1)
+            vis_im = (np.random.randn(nupdate) * (np.arange(nupdate) + 1) + range(nupdate)).reshape(nupdate, 1)
+            epsilons = (np.arange(nupdate, dtype='float') + 1).reshape(nupdate, 1)
+            treasure.update_coin(np.array([1,2,3]), update_lsts, vis_re + 1.j * vis_im, epsilons**2)
+        #print epsilons**2
+        c = treasure.get_coin(np.array([1,2,3]))
+        print c.count, c.mean, c.weighted_mean
+        print c.variance_re, c.variance_im
+        print c.weighted_variance
+        treasure.burn()
+
 
 class TestRedInfo(unittest.TestCase):
     def test_getset(self):
