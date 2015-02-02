@@ -5,10 +5,10 @@ import aipy as a
 import glob, os
 from scipy import interpolate
 
-D = 6266#6242#
+D = 6242#6301 1.9#6290  1.9#6300 1.63#6266 1.9#6242#
 nadd = 7
 nchan = 203
-uvfiles = glob.glob('/data4/paper/2012EoR/psa_live/psa%i/*uvcRREcAC'%D)
+uvfiles = sorted(glob.glob('/data4/paper/2012EoR/psa_live/psa%i/*uvcRREcAC'%D))
 
 lst_file = '/data2/home/hz2ug/omnical/results/psa%i_lsts.txt'%D
 if os.path.isfile(lst_file):
@@ -41,7 +41,7 @@ dof = len(info['crossindex']) * 2*nadd / (2*nadd + 1) - (info['nAntenna'] + info
 
 
 
-f = np.load('/data2/home/hz2ug/omnical/results/tsys_model_jy.npz')
+f = np.load('/data2/home/hz2ug/PSA64_plot_for_zaki/tsys_model_jy.npz')
 noise = np.array(f['tsys_jy'] **2) / (43*100./nchan*1e6)
 
 noise_model = interpolate.interp2d(np.arange(0, nchan), f['lsts']/12.*np.pi, noise)
@@ -57,26 +57,25 @@ model_range = (lsts < max(f['lsts']/12.*np.pi)) & (lsts > min(f['lsts']/12.*np.p
 onedchi = (chi2[model_range, 25:160] / dof / modeled_noise[model_range,25:160]).flatten()
 nanmask = (~(np.isnan(onedchi)))&np.isfinite(onedchi)
 
-plt.subplot('131')
+plt.subplot('141')
 im = plt.imshow(chi2[model_range] / dof)
 im.set_clim(0,1.5e4)
 plt.colorbar()
 #plt.show()
 
-plt.subplot('132')
+plt.subplot('142')
 im = plt.imshow(modeled_noise[model_range])
 im.set_clim(0,1.5e4/np.median(onedchi[nanmask]))
 plt.colorbar()
 
-plt.subplot('133')
+plt.subplot('143')
 im = plt.imshow(chi2[model_range] / dof / modeled_noise[model_range])
-im.set_clim(0,5)
+im.set_clim(0,3)
 plt.colorbar()
 
 
-plt.show()
-
-
+plt.subplot('144')
 plt.hist(onedchi[nanmask], np.arange(0,3*np.median(onedchi[nanmask]),3*np.median(onedchi[nanmask])/100.))
+plt.title('%.2f, %.2f'%(np.mean(onedchi[nanmask]), np.median(onedchi[nanmask])))
 plt.show()
 f.close()
