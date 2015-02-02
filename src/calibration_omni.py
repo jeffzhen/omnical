@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '3.0.0'
+__version__ = '3.0.1'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -2089,7 +2089,7 @@ class Treasure:
 
             update_range = np.array([np.ceil(lsts[0]/(TPI/self.nTime)), np.ceil(lsts[-1]/(TPI/self.nTime))], dtype = 'int32') # [inclusive, exclusive)
             update_visibilities = sp.interpolate.interp1d(lsts, visibilities, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]])
-            update_epsilonsqs = sp.interpolate.interp1d(lsts, epsilonsqs, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]])
+            update_epsilonsqs = sp.interpolate.interp1d(lsts**2, epsilonsqs, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]]**2)
             #print lsts, self.lsts[update_range[0]:update_range[1]]
             coin_content = read_ndarray(self.folderPath + '/%i.coin'%index, self.coinShape, self.coinDtype, update_range)
             good_flag = ~(np.isnan(update_epsilonsqs) | np.isnan(update_visibilities) | np.isinf(update_epsilonsqs) | np.isinf(update_visibilities))
@@ -2228,7 +2228,9 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
         ds = data[:, info['subsetbl'][info['crossindex']]]
         fig, axes = plt.subplots(nrows=1, ncols=len(ds), sharey=True, sharex=True)
 
+    outputdata = []
     for i in range(len(ds)):
+        outputdata = outputdata + [[]]
         d = ds[i]
         ax = axes[i]
         if plotrange is None:
@@ -2241,6 +2243,8 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
                 #print marker, color
                 if plot_single_ubl or len(info['ublindex'][ubl]) > 1:
                     ax.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker=marker, color=color)
+                    outputdata[i] = outputdata[i] + [(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]) + 1.j * np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker, color, info['ubl'][ubl])]
+
                 ubl += 1
                 if ubl == info['nUBL']:
                     #if i == 1:
@@ -2260,7 +2264,7 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
         plt.show()
     else:
         plt.close()
-    return
+    return outputdata
 
 def lin_depend(v1, v2, tol = 0):#whether v1 and v2 are linearly dependent
     if len(v1) != len(v2):
