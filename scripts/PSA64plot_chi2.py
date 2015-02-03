@@ -5,7 +5,7 @@ import aipy as a
 import glob, os
 from scipy import interpolate
 
-D = 6242#6301 1.9#6290  1.9#6300 1.63#6266 1.9#6242#
+D = 6266#6301 1.9#6290  1.9#6300 1.63#6266 1.9#6242 1.9#
 nadd = 7
 nchan = 203
 uvfiles = sorted(glob.glob('/data4/paper/2012EoR/psa_live/psa%i/*uvcRREcAC'%D))
@@ -41,7 +41,7 @@ dof = len(info['crossindex']) * 2*nadd / (2*nadd + 1) - (info['nAntenna'] + info
 
 
 
-f = np.load('/data2/home/hz2ug/PSA64_plot_for_zaki/tsys_model_jy.npz')
+f = np.load('/data2/home/hz2ug/PSA64_plot_for_zaki/tsys_model_jy_corrected.npz')
 noise = np.array(f['tsys_jy'] **2) / (43*100./nchan*1e6)
 
 noise_model = interpolate.interp2d(np.arange(0, nchan), f['lsts']/12.*np.pi, noise)
@@ -70,6 +70,7 @@ plt.colorbar()
 
 plt.subplot('143')
 im = plt.imshow(chi2[model_range] / dof / modeled_noise[model_range])
+np.savez('/data2/home/zakiali/jeff_psa64/chisqdof_%i.npz'%D, chi2[model_range] / dof / modeled_noise[model_range])
 im.set_clim(0,3)
 plt.colorbar()
 
