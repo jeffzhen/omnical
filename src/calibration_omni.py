@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -2088,9 +2088,20 @@ class Treasure:
                 index = self.add_coin(ublvec)
 
             update_range = np.array([np.ceil(lsts[0]/(TPI/self.nTime)), np.ceil(lsts[-1]/(TPI/self.nTime))], dtype = 'int32') # [inclusive, exclusive)
+
+
+            update_flag = np.ceil(lsts[:-1]/(TPI/self.nTime)) == np.floor(lsts[1:]/(TPI/self.nTime))
+            update_lsts = np.floor(lsts[1:]/(TPI/self.nTime))[update_flag] * TPI/self.nTime
+            left_lsts = lsts[:-1][update_flag]
+            right_lsts = lsts[1:][update_flag]
+            left_distance = update_lsts - left_lsts
+            right_distance = right_lsts - update_lsts
+            weight_left = right_distance / (lsts[1:] - lsts[:-1])
+            weight_right = left_distance / (lsts[1:] - lsts[:-1])
             update_visibilities = sp.interpolate.interp1d(lsts, visibilities, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]])
-            update_epsilonsqs = sp.interpolate.interp1d(lsts**2, epsilonsqs, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]]**2)
-            #print lsts, self.lsts[update_range[0]:update_range[1]]
+            #update_epsilonsqs = sp.interpolate.interp1d(lsts**2, epsilonsqs, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]]**2)
+            update_epsilonsqs = weight_left**2 * epsilonsqs[:-1][update_flag] + weight_right**2 * epsilonsqs[1:][update_flag]
+            #print weight_left, weight_right
             coin_content = read_ndarray(self.folderPath + '/%i.coin'%index, self.coinShape, self.coinDtype, update_range)
             good_flag = ~(np.isnan(update_epsilonsqs) | np.isnan(update_visibilities) | np.isinf(update_epsilonsqs) | np.isinf(update_visibilities))
             coin_content[..., 0] = coin_content[..., 0] + good_flag
@@ -2154,10 +2165,10 @@ class Coin:
                 return (self.data[..., 1] + 1.j * self.data[..., 2]) / self.data[..., 0]
             elif attr == 'variance_re':
                 n = self.data[..., 0]
-                return (n * self.data[..., 3] - self.data[..., 1]**2) / n / (n-1)
+                return (n * self.data[..., 3] - self.data[..., 1]**2) / n / (n-1) / n
             elif attr == 'variance_im':
                 n = self.data[..., 0]
-                return (n * self.data[..., 4] - self.data[..., 2]**2) / n / (n-1)
+                return (n * self.data[..., 4] - self.data[..., 2]**2) / n / (n-1) / n
             elif attr == 'weighted_mean':
                 return (self.data[..., 5] + 1.j * self.data[..., 6]) / self.data[..., 7]
             elif attr == 'weighted_variance':
