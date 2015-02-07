@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '3.0.2'
+__version__ = '3.1.1'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -1865,6 +1865,8 @@ class RedundantCalibrator:
         return ublall
 
     def compute_UBL(self,tolerance = 0.1):
+        if tolerance == 0:
+            tolerance = np.min(np.linalg.norm(np.array(self.antennaLocation) - self.antennaLocation[0], axis = 1)) / 1.e6
         ubl = {}
         for bl, (a1, a2) in enumerate(self.totalVisibilityId):
             if a1 != a2 and a1 not in self.badAntenna and a2 not in self.badAntenna:
@@ -2029,9 +2031,12 @@ class Treasure:
                 self.nFrequency = int(f.readline())
                 self.lsts = np.arange(0, TPI, TPI/self.nTime)
                 self.frequencies = np.arange(self.nFrequency)
-                self.coinShape = (self.nTime, self.nFrequency, 10)#N, real(v), imag(v), real(v)^2, imag(v)^2, epsilon^-2, real(v)epsilon^-2, imag(v)epsilon^-2, placeholder1, placeholder2; epsilon^2 should be for only real part/imag part, and should be same for both
+                self.coinShape = (self.nTime, self.nFrequency, int(f.readline()))#N, real(v), imag(v), real(v)^2, imag(v)^2, epsilon^-2, real(v)epsilon^-2, imag(v)epsilon^-2, placeholder1, placeholder2; epsilon^2 should be for only real part/imag part, and should be same for both
                 self.coinDtype = f.readline().replace('\n', '')
+                self.sealDtype = f.readline().replace('\n', '')
+                self.sealSize = int(f.readline())
                 self.tolerance = float(f.readline())
+                self.sealPosition = None
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     self.ubls = np.loadtxt(f)
@@ -2043,7 +2048,10 @@ class Treasure:
             self.frequencies = np.arange(self.nFrequency)
             self.coinShape = (self.nTime, self.nFrequency, 10)#N, real(v), imag(v), real(v)^2, imag(v)^2, epsilon^-2, real(v)epsilon^-2, imag(v)epsilon^-2, placeholder1, placeholder2; epsilon^2 should be for only real part/imag part, and should be same for both
             self.coinDtype = 'float64'
+            self.sealDtype = 'bool'
+            self.sealSize = 1024
             self.tolerance = tolerance
+            self.sealPosition = None
             self.ubls = np.array([], dtype = 'float64')
             self.duplicate_treasure(folder_path)
 
@@ -2054,10 +2062,14 @@ class Treasure:
         os.makedirs(folder_path)
         for i in range(len(self.ubls)):
             shutil.copy(self.folderPath + '/%i.coin'%i, folder_path)
+            shutil.copy(self.folderPath + '/%i.seal'%i, folder_path)
         with open(folder_path + '/header.txt', 'w') as f:
             f.write('%i\n'%self.nTime)
             f.write('%i\n'%self.nFrequency)
+            f.write('%i\n'%self.coinShape[2])
             f.write(self.coinDtype + '\n')
+            f.write(self.sealDtype + '\n')
+            f.write('%i\n'%self.sealSize)
             f.write('%.3e\n'%self.tolerance)
             for ubl in self.ubls:
                 f.write('%f %f %f\n'%(ubl[0], ubl[1], ubl[2]))
@@ -2098,12 +2110,15 @@ class Treasure:
             right_distance = right_lsts - update_lsts
             weight_left = right_distance / (lsts[1:] - lsts[:-1])
             weight_right = left_distance / (lsts[1:] - lsts[:-1])
-            update_visibilities = sp.interpolate.interp1d(lsts, visibilities, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]])
+            update_visibilities = weight_left * visibilities[:-1][update_flag] + weight_right * visibilities[1:][update_flag]#sp.interpolate.interp1d(lsts, visibilities, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]])
             #update_epsilonsqs = sp.interpolate.interp1d(lsts**2, epsilonsqs, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]]**2)
             update_epsilonsqs = weight_left**2 * epsilonsqs[:-1][update_flag] + weight_right**2 * epsilonsqs[1:][update_flag]
             #print weight_left, weight_right
-            coin_content = read_ndarray(self.folderPath + '/%i.coin'%index, self.coinShape, self.coinDtype, update_range)
             good_flag = ~(np.isnan(update_epsilonsqs) | np.isnan(update_visibilities) | np.isinf(update_epsilonsqs) | np.isinf(update_visibilities))
+
+            if not self.seize_coin(ublvec):
+                return False
+            coin_content = read_ndarray(self.folderPath + '/%i.coin'%index, self.coinShape, self.coinDtype, update_range)
             coin_content[..., 0] = coin_content[..., 0] + good_flag
             coin_content[good_flag, 1] = coin_content[good_flag, 1] + np.real(update_visibilities[good_flag])
             coin_content[good_flag, 2] = coin_content[good_flag, 2] + np.imag(update_visibilities[good_flag])
@@ -2114,7 +2129,8 @@ class Treasure:
             coin_content[good_flag, 7] = coin_content[good_flag, 7] + update_epsilonsqs[good_flag]**-1
             #print coin_content[good_flag, 7]
             write_ndarray(self.folderPath + '/%i.coin'%index, self.coinShape, self.coinDtype, update_range, coin_content, check=True)
-            return
+            self.release_coin(ublvec)
+            return True
 
     def get_coin_index(self, ublvec):
         if len(ublvec) != 3:
@@ -2137,12 +2153,48 @@ class Treasure:
             else:
                 self.ubls = np.append(self.ubls, [ublvec] ,axis = 0)
             np.zeros(self.coinShape, dtype = self.coinDtype).tofile(self.folderPath + '/%i.coin'%(len(self.ubls) - 1))
+            np.zeros(self.sealSize, dtype = self.sealDtype).tofile(self.folderPath + '/%i.seal'%(len(self.ubls) - 1))
             return len(self.ubls) - 1
         else:
             return existing_index
 
     def get_coin(self, ublvec):
-        return Coin(self.folderPath + '/%i.coin'%self.get_coin_index(ublvec), self.coinShape, self.coinDtype)
+        if self.seize_coin(ublvec):
+            coin = Coin(self.folderPath + '/%i.coin'%self.get_coin_index(ublvec), self.coinShape, self.coinDtype)
+            self.release_coin(ublvec)
+            return coin
+        else:
+            return None
+
+    def seize_coin(self, ublvec, retry_wait = 1, max_wait = 60):
+        if self.sealPosition is not None:
+            raise TypeError("Treasure class is trying to seize coin without properly release previous seizure.")
+
+        index = self.get_coin_index(ublvec)
+        start_time = time.time()
+        while not self.try_coin(ublvec) and time.time()-start_time < max_wait:
+            time.sleep(retry_wait)
+        if time.time()-start_time > max_wait:
+            return False
+        seal_position = np.random.random_integers(self.sealSize) - 1
+        write_ndarray(self.folderPath + '/%i.seal'%index, (self.sealSize,), self.sealDtype, [seal_position, seal_position + 1], np.array([1], dtype=self.sealDtype), check = True)
+        if np.sum(np.fromfile(self.folderPath + '/%i.seal'%index, dtype=self.sealDtype)) == 1:
+            self.sealPosition = seal_position
+            return True
+        else:
+            write_ndarray(self.folderPath + '/%i.seal'%index, (self.sealSize,), self.sealDtype, [seal_position, seal_position + 1], np.array([0], dtype=self.sealDtype), check = True)
+            return False
+
+    def release_coin(self, ublvec):
+        if self.sealPosition is None:
+            raise TypeError("Treasure class is trying to release coin without a previous seizure.")
+
+        index = self.get_coin_index(ublvec)
+        write_ndarray(self.folderPath + '/%i.seal'%index, (self.sealSize,), self.sealDtype, [self.sealPosition, self.sealPosition + 1], np.array([0], dtype=self.sealDtype), check = True)
+        self.sealPosition = None
+
+    def try_coin(self, ublvec):
+        return np.sum(np.fromfile(self.folderPath + '/%i.seal'%self.get_coin_index(ublvec), dtype=self.sealDtype)) == 0
 
     def burn(self):
         shutil.rmtree(self.folderPath)

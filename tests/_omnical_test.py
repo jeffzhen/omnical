@@ -279,6 +279,8 @@ class TestTreasure(unittest.TestCase):
         nTime = 3
         nFrequency = 5
         treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test.treasure', nlst = nTime, nfreq = nFrequency)
+        treasure.burn()
+        treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test.treasure', nlst = nTime, nfreq = nFrequency)
         treasure.add_coin(np.array([0,2,3]))
         treasure.add_coin(np.array([1,2,3]))
         self.assertEqual(treasure.get_coin_index(np.array([1,2,3])), 1)
@@ -295,6 +297,8 @@ class TestTreasure(unittest.TestCase):
     def test_math(self):
         nTime = 10
         nFrequency = 1
+        treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test3.treasure', nlst = nTime, nfreq = nFrequency)
+        treasure.burn()
         treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test3.treasure', nlst = nTime, nfreq = nFrequency)
         treasure.add_coin(np.array([0,2,3]))
         treasure.add_coin(np.array([1,2,3]))

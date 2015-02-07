@@ -1169,7 +1169,7 @@ PyTypeObject RedInfoType = {
 | |  | | (_) | (_| | |_| | |  __/ | | | | | |  __/ |_| | | | (_) | (_| \__ \
 |_|  |_|\___/ \__,_|\__,_|_|\___| |_| |_| |_|\___|\__|_| |_|\___/ \__,_|___/ */
 
-PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
+PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//return version
     int uselogcal = 1, removedegen = 1, maxiter = 10, dummy = 0, computeUBLFit = 1, trust_period = 1;
     float stepsize=.3, conv=.01;
     npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
@@ -1203,7 +1203,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
     }
     if (PyArray_NDIM(calpar) != 3 || PyArray_TYPE(calpar) != PyArray_FLOAT
             || PyArray_DIM(calpar,0) != nint || PyArray_DIM(calpar,1) != nfreq || (uint)PyArray_DIM(calpar,2) != calpar_v.size()) {
-        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data");
+        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data and the third being 3+2(nAnt+nUBL).");
         return NULL;
     }
 
@@ -1294,7 +1294,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
     return rv;
 }
 
-PyObject *redcal2_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
+PyObject *redcal2_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in place version
     int uselogcal = 1, removedegen = 1, maxiter = 10, dummy = 0, computeUBLFit = 1, trust_period = 1;
     float stepsize=.3, conv=.01;
     npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
@@ -1332,7 +1332,7 @@ PyObject *redcal2_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
     }
     if (PyArray_NDIM(calpar) != 3 || PyArray_TYPE(calpar) != PyArray_FLOAT
             || PyArray_DIM(calpar,0) != nint || PyArray_DIM(calpar,1) != nfreq || (uint)PyArray_DIM(calpar,2) != calpar_v.size()) {
-        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data");
+        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data and the third being 3+2(nAnt+nUBL).");
         return NULL;
     }
 
@@ -1403,6 +1403,96 @@ PyObject *redcal2_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
             }
             //if (removedegen) removeDegen((vector<float> *) PyArray_GETPTR3(calpar,t,f,0), &(redinfo->info), &module);
             if (removedegen) removeDegen(&calpar_v, &(redinfo->info), &module);
+            // copy to output arrays
+            for (int b = 0; b < nbls; b++) {
+                ((float *) PyArray_GETPTR3(additiveout,t,f,b))[0] = additiveout_v[b][0];
+                ((float *) PyArray_GETPTR3(additiveout,t,f,b))[1] = additiveout_v[b][1];
+            }
+            for (unsigned int b = 0; b < calpar_v.size(); b++) {
+                ((float *) PyArray_GETPTR3(calpar,t,f,b))[0] = calpar_v[b];
+            }
+        }
+    }
+    //for (unsigned int b = 0; b < 5; b++) {
+        //cout << ((float *) PyArray_GETPTR3(calpar,0,10,b))[0] << " ";
+    //}
+    //cout << endl << flush;
+    return Py_BuildValue("");
+}
+
+PyObject *gaincal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in place version like redcal2
+    int maxiter = 10, dummy = 0;
+    float stepsize=.3, conv=.01;
+    npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
+    npy_intp nint, nfreq, nbls;
+    RedInfoObject *redinfo;
+    PyArrayObject *data, *additivein, *calpar, *additiveout; // input arrays
+    //PyObject *rv;
+    static char *kwlist[] = {"data", "calpar", "info", "additivein", "additiveout", "maxiter", "stepsize", "conv", "dummy"};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!O!|iffi", kwlist,
+            &PyArray_Type, &data, &PyArray_Type, &calpar, &RedInfoType, &redinfo, &PyArray_Type, &additivein, &PyArray_Type, &additiveout,
+            &maxiter, &stepsize, &conv, &dummy))
+        return NULL;
+    // check shape and type of data
+    if (PyArray_NDIM(data) != 3 || PyArray_TYPE(data) != PyArray_CFLOAT) {
+        PyErr_Format(PyExc_ValueError, "data must be a (nint,nfreq,nbls) array of complex floats");
+        return NULL;
+    }
+    nint = PyArray_DIM(data,0);
+    nfreq = PyArray_DIM(data,1);
+    nbls = PyArray_DIM(data,2);
+    vector<vector<float> > data_v(nbls, vector<float>(2, 0));
+    vector<float> calpar_v(3 + 2*(redinfo->info.nUBL + redinfo->info.nAntenna), 0);
+    vector<vector<float> >additivein_v(nbls, vector<float>(2, 0));
+    vector<vector<float> >additiveout_v(nbls, vector<float>(2, 0));
+    // check that dims of additivein and data match
+    if (PyArray_NDIM(additivein) != 3 || PyArray_TYPE(additivein) != PyArray_CFLOAT
+            || PyArray_DIM(additivein,0) != nint || PyArray_DIM(additivein,1) != nfreq || PyArray_DIM(additivein,2) != nbls) {
+        PyErr_Format(PyExc_ValueError, "additivein must be of the same type and shape as data");
+        return NULL;
+    }
+    if (PyArray_NDIM(additiveout) != 3 || PyArray_TYPE(additiveout) != PyArray_CFLOAT
+            || PyArray_DIM(additiveout,0) != nint || PyArray_DIM(additiveout,1) != nfreq || PyArray_DIM(additiveout,2) != nbls) {
+        PyErr_Format(PyExc_ValueError, "additiveout must be of the same type and shape as data");
+        return NULL;
+    }
+    if (PyArray_NDIM(calpar) != 3 || PyArray_TYPE(calpar) != PyArray_FLOAT
+            || PyArray_DIM(calpar,0) != nint || PyArray_DIM(calpar,1) != nfreq || (uint)PyArray_DIM(calpar,2) != calpar_v.size()) {
+        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data and the third being 3+2(nAnt+nUBL).");
+        return NULL;
+    }
+
+    // allocate output additiveout array
+    dims[0] = nint;
+    dims[1] = nfreq;
+    dims[2] = nbls;
+    calmemmodule module;////memory module to be reused in order to avoid redeclaring all sorts of long vectors
+    initcalmodule(&module, &(redinfo->info));
+
+    for (int t = 0; t < nint; t++){
+        for (int f = 0; f < nfreq; f++){
+            // copy from input arrays
+            for (int b = 0; b < nbls; b++) {
+                data_v[b][0] = ((float *) PyArray_GETPTR3(data,t,f,b))[0];
+                data_v[b][1] = ((float *) PyArray_GETPTR3(data,t,f,b))[1];
+                additivein_v[b][0] = ((float *) PyArray_GETPTR3(additivein,t,f,b))[0];
+                additivein_v[b][1] = ((float *) PyArray_GETPTR3(additivein,t,f,b))[1];
+            }
+
+
+			gaincal(
+				&data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
+				&additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0),
+				&(redinfo->info),
+				&calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0),
+				&additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0),
+				&module,
+				conv,
+				maxiter,
+				stepsize
+			);
+
+
             // copy to output arrays
             for (int b = 0; b < nbls; b++) {
                 ((float *) PyArray_GETPTR3(additiveout,t,f,b))[0] = additiveout_v[b][0];
@@ -1502,6 +1592,8 @@ static PyMethodDef omnical_methods[] = {
         "redcal(data,calpar,info,additivein,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,conv=.001)\nRun redundant calibration on data (3D array of complex floats)."},
     {"redcal2", (PyCFunction)redcal2_wrap, METH_VARARGS | METH_KEYWORDS,
         "redcal(data,calpar,info,additivein,additiveout,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,conv=.001)\nRun redundant calibration on data (3D array of complex floats)."},
+    {"gaincal", (PyCFunction)gaincal_wrap, METH_VARARGS | METH_KEYWORDS,
+        "gaincal(data,calpar,info,additivein,additiveout,maxiter=20,stepsize=.3,conv=.001)\nRun gain calibration on data (3D array of complex floats)."},
     {"unwrap_phase", (PyCFunction)unwrap_phase, METH_VARARGS | METH_KEYWORDS,
         "unwrap_phase(calpar)\nUnwrap phase in radians."},
     ////{"omnical_old", (PyCFunction)cal_wrap_old, METH_VARARGS,
