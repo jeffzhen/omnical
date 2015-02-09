@@ -9,7 +9,8 @@ import scipy.signal as ss
 import scipy.ndimage.filters as sfil
 FILENAME = "omnical_PSA128.py"
 print "#Omnical Version %s#"%omni.__version__
-
+PI = np.pi
+TPI = 2 * np.pi
 ######################################################################
 ##############Config parameters###################################
 ######################################################################
@@ -26,6 +27,7 @@ o.add_option('--flagsigma', action = 'store', type = 'float', default = 4, help 
 o.add_option('--flagt', action = 'store', type = 'int', default = 4, help = 'Number of time slices to run the minimum filter when flagging. 4 by default.')
 o.add_option('--flagf', action = 'store', type = 'int', default = 4, help = 'Number of frequency slices to run the minimum filter when flagging. 4 by default.')
 o.add_option('--datapath', action = 'store', default = 'NOBINDATA', help = 'binary data file folder to save/load binary data converted from uv file. Omit this option if you dont want to save binary data.')
+o.add_option('--treasure', action = 'store', default = None, help = 'trasure folder to update.')
 o.add_option('--healthbar', action = 'store', default = '2', help = 'health threshold (0-100) over which an antenna is marked bad.')
 o.add_option('-o', '--outputpath', action = 'store', default = ".", help = 'output folder')
 o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
@@ -45,6 +47,12 @@ ano = opts.tag##This is the file name difference for final calibration parameter
 dataano = opts.datatag#ano for existing data and lst.dat
 sourcepath = os.path.expanduser(opts.datapath)
 oppath = os.path.expanduser(opts.outputpath)
+if opts.treasure is not None:
+    if not os.path.isdir(os.path.expanduser(opts.treasure)):
+        raise IOError("Treasure path %s does not exist."%opts.treasure)
+    treasurePath = os.path.expanduser(opts.treasure)
+else:
+    treasurePath = None
 uvfiles = [os.path.expanduser(arg) for arg in args]
 flag_thresh = opts.flagsigma
 flagt = opts.flagt
@@ -159,8 +167,9 @@ if skip:
     print FILENAME + " MSG: SKIPPED reading uvfiles. Reading binary data files directly...",
     sys.stdout.flush()
     with open(utcPath) as f:
-        timing = f.readlines()
-        timing = [t.replace('\n','') for t in timing]
+        timing = [t.replace('\n','') for t in f.readlines()]
+    with open(lstPath) as f:
+        lst = [float(t) for t in f.readlines()]
     print (len(timing), nfreq, len(aa) * (len(aa) + 1) / 2), "...",
     data = np.array([np.fromfile(sourcepath + 'data_' + dataano + '_' + pol, dtype = 'complex64').reshape((len(timing), nfreq, len(aa) * (len(aa) + 1) / 2)) for pol in wantpols.keys()])
     rawflag = np.array([np.fromfile(sourcepath + 'flag_' + dataano + '_' + pol, dtype = 'bool').reshape((len(timing), nfreq, len(aa) * (len(aa) + 1) / 2)) for pol in wantpols.keys()])
@@ -308,6 +317,12 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
 
     print "Done"
     sys.stdout.flush()
+    if treasurePath is not None and (sunpos[:,0] < -.1).all():
+        print FILENAME + " MSG: updating treasure on %s %s in %s."%(dataano, pol, treasurePath),
+        sys.stdout.flush()
+        calibrators[pol].update_treasure(treasurePath, np.array(lst)*TPI/24., flags[pol], verbose = True)
+        print "Done"
+        sys.stdout.flush()
 if create_new_uvs:
     print FILENAME + " MSG: saving new uv files",
     sys.stdout.flush()

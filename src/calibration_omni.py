@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '3.1.1'
+__version__ = '3.2.0'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -288,7 +288,7 @@ def read_redundantinfo(infopath, verbose = False):
         print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
     return info
 
-def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files.
+def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files. return lst in sidereal hour
     METHODNAME = "*importuvs*"
 
     ###############sanitize inputs################################
@@ -1404,7 +1404,7 @@ class RedundantCalibrator:
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
                 smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
-            spike_flag = (chisq - smoothed_chisq) >= smoothed_chisq * thresh
+            spike_flag = ((chisq - smoothed_chisq) >= smoothed_chisq * thresh) | (chisq == 0)
         else:
             spike_flag = np.zeros_like(nan_flag)
 
@@ -1432,6 +1432,19 @@ class RedundantCalibrator:
         else:
             ubl_flag = np.zeros_like(nan_flag)
         return (nan_flag|spike_flag|ubl_flag)
+
+    def update_treasure(self, treasure, lsts, flags, verbose = False):
+        if type(treasure) == type('aa'):
+            treasure = Treasure(treasure)
+        if len(lsts) != self.nTime:
+            raise TypeError("lsts has length %i which disagrees with RedundantCalibrator's nTime of %i."%(len(lsts), nTime))
+        for i, ublvec in enumerate(self.Info.ubl):
+            if verbose:
+                print ".",
+                sys.stdout.flush()
+            visibilities = self.rawCalpar[..., 3+2*self.nAntenna+i] + 1.j*self.rawCalpar[..., 4+2*self.nAntenna+i]
+            visibilities[flags] = np.nan
+            treasure.update_coin(ublvec, lsts, visibilities, self.rawCalpar[..., 2]/2./(len(self.crossindex)-self.nAntenna-self.nUBL+2))#divide by 2 because epsilon^2 should be for real/imag separately
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
         if arrayinfoPath is not None and os.path.isfile(arrayinfoPath):
@@ -2023,7 +2036,7 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
 ##########################################################################################
 
 class Treasure:
-    def __init__(self, folder_path, nlst = int(TPI/1e-3), nfreq = 1024, tolerance = 0):
+    def __init__(self, folder_path, nlst = int(TPI/1e-3), nfreq = 1024, tolerance = 1e-3):
         if os.path.isdir(folder_path):
             self.folderPath = folder_path
             with open(self.folderPath + '/header.txt', 'r') as f:
@@ -2060,9 +2073,13 @@ class Treasure:
         if os.path.exists(folder_path):
             raise IOError("Requested folder path %s already exists."%folder_path)
         os.makedirs(folder_path)
-        for i in range(len(self.ubls)):
+        for i,ublvec in enumerate(self.ubls):
+            if not self.seize_coin(ublvec):
+                shutil.rmtree(folder_path)
+                return None
             shutil.copy(self.folderPath + '/%i.coin'%i, folder_path)
-            shutil.copy(self.folderPath + '/%i.seal'%i, folder_path)
+            self.release_coin(ublvec)
+            np.zeros(self.sealSize, dtype=self.sealDtype).tofile(folder_path + '/%i.seal'%i)
         with open(folder_path + '/header.txt', 'w') as f:
             f.write('%i\n'%self.nTime)
             f.write('%i\n'%self.nFrequency)
@@ -2076,7 +2093,7 @@ class Treasure:
         new_treasure = Treasure(folder_path)
         return new_treasure
 
-    def update_coin(self, ublvec, lsts, visibilities, epsilonsqs):#lsts should be [0,TPI); visibilities should be 2D np array nTime by nFrequency, epsilonsqs should be for real/imag parts seperately (should be same though); to flag any data point make either visibilities or epsilonsqs np.nan
+    def update_coin(self, ublvec, lsts, visibilities, epsilonsqs):#lsts should be [0,TPI); visibilities should be 2D np array nTime by nFrequency, epsilonsqs should be for real/imag parts seperately (should be same though); to flag any data point make either visibilities or epsilonsqs np.nan, or make epsilonsqs 0
         if visibilities.shape != (len(lsts), self.nFrequency):
             raise ValueError("visibilities array has wrong shape %s that does not agree with %s."%(visibilities.shape, (len(lsts), self.nFrequency)))
         if epsilonsqs.shape != (len(lsts), self.nFrequency):
@@ -2110,11 +2127,11 @@ class Treasure:
             right_distance = right_lsts - update_lsts
             weight_left = right_distance / (lsts[1:] - lsts[:-1])
             weight_right = left_distance / (lsts[1:] - lsts[:-1])
-            update_visibilities = weight_left * visibilities[:-1][update_flag] + weight_right * visibilities[1:][update_flag]#sp.interpolate.interp1d(lsts, visibilities, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]])
+            update_visibilities = weight_left[:, None] * visibilities[:-1][update_flag] + weight_right[:, None] * visibilities[1:][update_flag]#sp.interpolate.interp1d(lsts, visibilities, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]])
             #update_epsilonsqs = sp.interpolate.interp1d(lsts**2, epsilonsqs, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]]**2)
-            update_epsilonsqs = weight_left**2 * epsilonsqs[:-1][update_flag] + weight_right**2 * epsilonsqs[1:][update_flag]
+            update_epsilonsqs = (weight_left**2)[:, None] * epsilonsqs[:-1][update_flag] + (weight_right**2)[:, None] * epsilonsqs[1:][update_flag]
             #print weight_left, weight_right
-            good_flag = ~(np.isnan(update_epsilonsqs) | np.isnan(update_visibilities) | np.isinf(update_epsilonsqs) | np.isinf(update_visibilities))
+            good_flag = ~(np.isnan(update_epsilonsqs) | np.isnan(update_visibilities) | np.isinf(update_epsilonsqs) | np.isinf(update_visibilities) | (update_epsilonsqs == 0))
 
             if not self.seize_coin(ublvec):
                 return False
@@ -2154,6 +2171,8 @@ class Treasure:
                 self.ubls = np.append(self.ubls, [ublvec] ,axis = 0)
             np.zeros(self.coinShape, dtype = self.coinDtype).tofile(self.folderPath + '/%i.coin'%(len(self.ubls) - 1))
             np.zeros(self.sealSize, dtype = self.sealDtype).tofile(self.folderPath + '/%i.seal'%(len(self.ubls) - 1))
+            with open(self.folderPath + '/header.txt', 'a') as f:
+                f.write('%f %f %f\n'%(ublvec[0], ublvec[1], ublvec[2]))
             return len(self.ubls) - 1
         else:
             return existing_index
@@ -2194,6 +2213,8 @@ class Treasure:
         self.sealPosition = None
 
     def try_coin(self, ublvec):
+        if self.get_coin_index(ublvec) is None:
+            self.add_coin(ublvec)
         return np.sum(np.fromfile(self.folderPath + '/%i.seal'%self.get_coin_index(ublvec), dtype=self.sealDtype)) == 0
 
     def burn(self):
@@ -2246,7 +2267,7 @@ def read_ndarray(path, shape, dtype, ranges):#read middle part of binary file of
     #print result.shape,tuple(new_shape)
     return result.reshape(tuple(new_shape))
 
-def write_ndarray(path, shape, dtype, ranges, data, check = True):#write middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)
+def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3):#write middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)
     if not os.path.isfile(path):
         raise IOError(path + 'doesnt exist.')
     if len(ranges) != 2 or ranges[0] < 0 or ranges[0] >= ranges[1] or ranges[1] > shape[0]:
@@ -2261,6 +2282,12 @@ def write_ndarray(path, shape, dtype, ranges, data, check = True):#write middle 
         f.seek(higher_dim_chunks * nbytes * ranges[0])
         data.tofile(f)
     if check:
+        tries = 0
+        while not (data == read_ndarray(path, shape, dtype, ranges)).all() and tries < max_retry:
+            tries = tries + 1
+            with open(path, 'r+') as f:
+                f.seek(higher_dim_chunks * nbytes * ranges[0])
+                data.tofile(f)
         if not (data == read_ndarray(path, shape, dtype, ranges)).all():
             raise IOError("write_ndarray failed on %s"%path)
     return
