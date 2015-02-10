@@ -3,7 +3,7 @@ import random
 import numpy as np
 import aipy as ap
 import numpy.linalg as la
-import commands, os, time, math, ephem
+import commands, os, time, math, ephem, shutil
 import omnical.calibration_omni as omni
 print "#Omnical Version %s#"%omni.__version__
 class TestMethods(unittest.TestCase):
@@ -278,30 +278,29 @@ class TestTreasure(unittest.TestCase):
     def test_IO(self):
         nTime = 3
         nFrequency = 5
+        shutil.rmtree(os.path.dirname(os.path.realpath(__file__)) + '/test.treasure', ignore_errors = True)
+        shutil.rmtree(os.path.dirname(os.path.realpath(__file__)) + '/test2.treasure', ignore_errors = True)
         treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test.treasure', nlst = nTime, nfreq = nFrequency)
-        treasure.burn()
-        treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test.treasure', nlst = nTime, nfreq = nFrequency)
-        treasure.add_coin(np.array([0,2,3]))
-        treasure.add_coin(np.array([1,2,3]))
-        self.assertEqual(treasure.get_coin_index(np.array([1,2,3])), 1)
+        treasure.add_coin(('xx', np.array([0,2,3])))
+        treasure.add_coin(('xx', np.array([1,2,3])))
+        self.assertEqual(treasure.coin_name(('xx', np.array([1,2,3]))), os.path.dirname(os.path.realpath(__file__)) + '/test.treasure/xx1.coin')
 
         treasure2 = treasure.duplicate_treasure(os.path.dirname(os.path.realpath(__file__)) + '/test2.treasure')
         treasure.burn()
 
-        treasure2.add_coin(np.array([1,2,3]))
-        treasure2.add_coin(np.array([1,2,4]))
-        self.assertEqual(treasure2.get_coin_index(np.array([1,2,4])), 2)
+        treasure2.add_coin(('xx', np.array([1,2,3])))
+        treasure2.add_coin(('xx', np.array([1,2,4])))
+        self.assertEqual(treasure2.coin_name(('xx', np.array([1,2,4]))), os.path.dirname(os.path.realpath(__file__)) + '/test2.treasure/xx2.coin')
         self.assertEqual(treasure2.coinShape, (nTime, nFrequency, 10))
         treasure2.burn()
 
     def test_math(self):
         nTime = 10
         nFrequency = 1
+        shutil.rmtree(os.path.dirname(os.path.realpath(__file__)) + '/test3.treasure', ignore_errors = True)
         treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test3.treasure', nlst = nTime, nfreq = nFrequency)
-        treasure.burn()
-        treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test3.treasure', nlst = nTime, nfreq = nFrequency)
-        treasure.add_coin(np.array([0,2,3]))
-        treasure.add_coin(np.array([1,2,3]))
+        treasure.add_coin(('xx', np.array([0,2,3])))
+        treasure.add_coin(('xx', np.array([1,2,3])))
         nupdate = 4
         update_lsts = np.append((treasure.lsts[-nupdate/2:]+np.pi/2/nTime), (treasure.lsts[:nupdate/2]+np.pi/2/nTime))
         nan_prob = .1
@@ -315,9 +314,9 @@ class TestTreasure(unittest.TestCase):
                 vis_re[:nupdate/2] = vis_re[:nupdate/2] + np.nan
             if random.random() < nan_prob:
                 vis_re[-nupdate/2:] = vis_re[-nupdate/2:] + np.nan
-            treasure.update_coin(np.array([1,2,3]), update_lsts, vis_re + 1.j * vis_im, epsilons**2)
+            treasure.update_coin(('xx', np.array([1,2,3])), update_lsts, vis_re + 1.j * vis_im, epsilons**2)
         #print epsilons**2
-        c = treasure.get_coin(np.array([1,2,3]))
+        c = treasure.get_coin(('xx', np.array([1,2,3])))
 
         #print c.count, c.mean, c.weighted_mean
         #print c.variance_re, c.variance_im

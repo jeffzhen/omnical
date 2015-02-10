@@ -315,13 +315,13 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     text_file.write(diag_txt)
     text_file.close()
 
-    print "Done"
+    print "Done."
     sys.stdout.flush()
     if treasurePath is not None and (sunpos[:,0] < -.1).all():
         print FILENAME + " MSG: updating treasure on %s %s in %s."%(dataano, pol, treasurePath),
         sys.stdout.flush()
-        calibrators[pol].update_treasure(treasurePath, np.array(lst)*TPI/24., flags[pol], verbose = True)
-        print "Done"
+        calibrators[pol].update_treasure(treasurePath, np.array(lst)*TPI/24., flags[pol], pol, verbose = True)
+        print "Done."
         sys.stdout.flush()
 if create_new_uvs:
     print FILENAME + " MSG: saving new uv files",
@@ -330,7 +330,7 @@ if create_new_uvs:
     for pol in wantpols.keys():
         infos[pol] = omni.read_redundantinfo(infopaths[pol])
     omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), flags = flags, overwrite = overwrite_uvs)
-    print "Done"
+    print "Done."
     sys.stdout.flush()
 if make_plots:
     import matplotlib.pyplot as plt
