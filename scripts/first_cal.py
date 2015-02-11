@@ -295,7 +295,9 @@ while new_bad_ant != [] and trials < max_try:
 			linearcalpar[pol] = linearcalpar[pol] * crude_calpar[pol][:, calibrators[pol].Info.subsetant]
 
 			freq_flag = (np.sum(calibrators[pol].flag(mode="1", fwindow=calibrators[pol].nFrequency/100), axis = 0) > .4 * calibrators[pol].nTime)|np.isnan(np.sum(linearcalpar[pol], axis=1))
-			A = np.array([list(a) + [1] for a in calibrators[pol].antloc])
+			antlocs = np.array(calibrators[pol].antloc)
+			antlocs = antlocs - np.mean(antlocs, axis = 0)#move origin to center of array
+			A = np.array([list(a) + [1] for a in antlocs])
 			AAA = A.dot(np.linalg.pinv(A.transpose().dot(A)).dot(A.transpose()))
 
 			################################################
