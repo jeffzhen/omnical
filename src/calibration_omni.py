@@ -2003,10 +2003,11 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
         nTotalAnt = len(aa)
         RedundantCalibrator.__init__(self, nTotalAnt)
         self.aa = aa
-        self.antennaLocationAtom = np.zeros((self.nTotalAnt,3))
+        self.antennaLocationAtom = np.zeros((self.nTotalAnt,3), dtype='int32')
         for i in range(len(self.aa.ant_layout)):
             for j in range(len(self.aa.ant_layout[0])):
                 self.antennaLocationAtom[self.aa.ant_layout[i][j]] = np.array([i, j, 0])
+
         self.preciseAntennaLocation = .299792458 * np.array([ant.pos for ant in self.aa])
         self._goodAntenna = self.aa.ant_layout.flatten()
         self._goodAntenna.sort()
@@ -2015,11 +2016,12 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
         for i in range(nTotalAnt):
             if i not in self._goodAntenna:
                 self.badAntenna.append(i)
+        self.antennaLocationAtom = self.antennaLocationAtom - np.mean(self.antennaLocationAtom[self._goodAntenna], axis = 0).astype('int32')
 
-        self.antennaLocation = np.copy(self.antennaLocationAtom) #* [4, 30, 0]
+        ##self.antennaLocation = np.copy(self.antennaLocationAtom) #* [4, 30, 0]
         ####fit for idealized antloc
         A = np.array([list(a) + [1] for a in self.antennaLocationAtom[self._goodAntenna]])
-        self.antennaLocation = np.zeros_like(self.antennaLocationAtom)
+        self.antennaLocation = np.zeros_like(self.antennaLocationAtom).astype('float64')
         self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
         self.antennaLocation[self._goodAntenna, ::2] = self.antennaLocation[self._goodAntenna, ::2].dot(np.array([[np.cos(PI/2+aa.lat), np.sin(PI/2+aa.lat)],[-np.sin(PI/2+aa.lat), np.cos(PI/2+aa.lat)]]).transpose())###rotate into local coordinates
 
