@@ -2153,8 +2153,8 @@ class Treasure:
             right_lsts = lsts[1:][update_flag]
             left_distance = update_lsts - left_lsts
             right_distance = right_lsts - update_lsts
-            weight_left = right_distance / (lsts[1:] - lsts[:-1])
-            weight_right = left_distance / (lsts[1:] - lsts[:-1])
+            weight_left = right_distance / (lsts[1:][update_flag] - lsts[:-1][update_flag])
+            weight_right = left_distance / (lsts[1:][update_flag] - lsts[:-1][update_flag])
             update_visibilities = weight_left[:, None] * visibilities[:-1][update_flag] + weight_right[:, None] * visibilities[1:][update_flag]#sp.interpolate.interp1d(lsts, visibilities, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]])
             #update_epsilonsqs = sp.interpolate.interp1d(lsts**2, epsilonsqs, kind='linear', axis=0, copy=True, bounds_error=True, assume_sorted=True)(self.lsts[update_range[0]:update_range[1]]**2)
             update_epsilonsqs = (weight_left**2)[:, None] * epsilonsqs[:-1][update_flag] + (weight_right**2)[:, None] * epsilonsqs[1:][update_flag]
