@@ -36,6 +36,7 @@ o.add_option('--flag', action = 'store_true', help = 'whether to create new flag
 o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
 o.add_option('-s', '--singlethread', action = 'store_true', help = 'whether to disable multiprocessing for calibration and use only one thread. May need this option for things like grid engine.')
 o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
+o.add_option('--mem', action = 'store', type = 'float', default = 4e9, help = 'Amount of initial memory to reserve when parsing uv files in number of bytes.')
 
 opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
@@ -80,6 +81,7 @@ elif len(opts.healthbar.split(',')) == 2:
 else:
     raise Exception("User input healthbar option (--healthbar %s) is not recognized."%opts.healthbar)
 
+init_mem = opts.mem
 
 for uvf in uvfiles:
     if not os.path.isdir(uvf):
@@ -179,7 +181,7 @@ if skip:
 else:
     print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
     sys.stdout.flush()
-    data, t, timing, lst, rawflag = omni.importuvs(uvfiles, wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)#, nTotalAntenna = len(aa))
+    data, t, timing, lst, rawflag = omni.importuvs(uvfiles, wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100, init_mem=init_mem)#, nTotalAntenna = len(aa))
     print FILENAME + " MSG:",  len(t), "slices read. data shape: ", data.shape
     sys.stdout.flush()
 
