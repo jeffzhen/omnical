@@ -210,7 +210,10 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
     threshold = 128
     if info['nAntenna'] > threshold:
         binaryinfokeysnew.extend(['AtAi','BtBi'])
-    binaryinfokeysnew.extend(['totalVisibilityId'])
+    if 'totalVisibilityId' in info:
+        binaryinfokeysnew.extend(['totalVisibilityId'])
+    else:
+        print "warning: info doesn't have the key 'totalVisibilityId'"
     marker = 9999999
     datachunk = [0 for i in range(len(binaryinfokeysnew)+1)]
     count = 0
@@ -446,12 +449,12 @@ def read_redundantinfo(infopath, verbose = False):
         if info['nAntenna'] <= threshold:
             info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
             info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
-        info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
-        info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
-        info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
-        info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
-        info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
-        info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
+        #info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+        #info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+        #info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+        #info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+        #info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+        #info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
     if verbose:
         print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
     return info
@@ -1677,7 +1680,7 @@ class RedundantCalibrator:
                     #timer.tick('m')
                 #info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
                 #info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
-
+        info['totalVisibilityId'] = self.totalVisibilityId
         if verbose:
             timer.tick('m')
         self.Info = RedundantInfo(info)
