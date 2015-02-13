@@ -18,18 +18,21 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '3.3.0'
+__version__ = '3.3.1'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
 PI = np.pi
 TPI = 2 * np.pi
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+infokeys_optional = ['totalVisibilityId']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
 cal_name = {0: "Lincal", 1: "Logcal"}
 
 int_infokeys = ['nAntenna','nUBL','nBaseline']
 intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
+intarray_infokeys_optional = ['totalVisibilityId']
+
 float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 def read_redundantinfo_txt(infopath, verbose = False):
     METHODNAME = "read_redundantinfo_txt"
@@ -1080,6 +1083,11 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
                     self.__setattr__(key, int(info[key]))
                 elif key in intarray_infokeys and key != 'ublindex':
                     self.__setattr__(key, np.array(info[key]).astype('int32'))
+                elif key in intarray_infokeys_optional:
+                    try:
+                        self.__setattr__(key, np.array(info[key]).astype('int32'))
+                    except KeyError:
+                        pass
                 elif key in float_infokeys:
                     self.__setattr__(key, np.array(info[key]).astype('float32'))
             except:
@@ -1119,30 +1127,14 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
         info = {}
         for key in infokeys:
             try:
-                #if key in ['A','B']:
-                    ##print key
-                    #info[key] = sps.csr_matrix(self.__getattribute__(key))
-                #elif key in ['At','Bt']:
-                    #tmp = self.__getattribute__(key+'sparse')
-                    #matrix = np.zeros((info['nAntenna'] + info['nUBL'], len(info['crossindex'])))
-                    #for i in tmp:
-                        #matrix[i[0],i[1]] = i[2]
-                    #info[key] = sps.csr_matrix(matrix)
-                #elif key in ['ublindex']:
-                    #ublindex = []
-                    #for i in self.__getattribute__(key):
-                        #while len(ublindex) < i[0] + 1:
-                            #ublindex.append(np.zeros((1,3)))
-                        #while len(ublindex[i[0]]) < i[1] + 1:
-                            #ublindex[i[0]] = np.array(ublindex[i[0]].tolist() + [[0,0,0]])
-                        #ublindex[i[0]][i[1]] = np.array(i[2:])
-                    #info[key] = ublindex
-
-                #else:
-                    ##print key
-                    info[key] = self.__getattribute__(key)
+                info[key] = self.__getattribute__(key)
             except:
                 raise Exception("Error retrieving %s item."%key)
+        for key in infokeys_optional:
+            try:
+                info[key] = self.__getattribute__(key)
+            except:
+                pass
         return info
 
 def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit = 1, trust_period = 1):#####same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container
@@ -2808,7 +2800,7 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
 ##################           Timer             ###########################################
 ##########################################################################################
 ##########################################################################################
-class Timer():
+class Timer:
     def __init__(self):
         self.time = time.time()
         self.start_time = self.time
