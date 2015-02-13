@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '3.3.1'
+__version__ = '3.3.2'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -775,7 +775,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
     ####load calpar from omnigain
     calpars = {}#bad antenna included
     for key in wantpols.keys():
-        calpars[key] = (1. + np.zeros((ttotal, nant, nfreq),dtype='complex64'))
+        calpars[key] = np.ones((ttotal, nant, nfreq),dtype='complex64')
         calpars[key][:,info[key]['subsetant'],:] = omnigains[key][:,:,4::2] + 1.j * omnigains[key][:,:,5::2]
 
 
@@ -785,10 +785,6 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
     #datapulled = False
     for uvfile in uvfilenames:
         uvi = ap.miriad.UV(uvfile)
-        if len(timing) > 0:
-            if verbose:
-                print FILENAME + METHODNAME + "MSG:", uvfile + ' after', timing[-1]#uv.nchan
-                sys.stdout.flush()
 
         if oppath is None:
             oppath = os.path.abspath(os.path.dirname(os.path.dirname(uvfile + '/'))) + '/'
@@ -804,16 +800,24 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
         uvo.init_from_uv(uvi)
         historystr = "Applied OMNICAL on %s: "%time.asctime(time.localtime(time.time()))
         uvo['history'] += historystr + comment + "\n"
-        for preamble, data, flag in uvi.all(raw=True):
-            uvo.copyvr(uvi)
-            if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
-                t += [preamble[1]]
 
-                if len(t) > ttotal:
-                    raise Exception(FILENAME + METHODNAME + " MSG: FATAL ERROR: omnigain input array has length", omnigains[0].shape, "but the total length is exceeded when processing " + uvfile + " Aborted!")
-            polwanted = False
-            for pol in wantpols.keys():
-                if wantpols[pol] == uvi['pol']:
+        for p, pol in enumerate(wantpols.keys()):
+            uvi.rewind()
+            uvi.select('clear', 0, 0)
+            uvi.select('polarization', wantpols[pol], 0, include=True)
+            current_t = None
+            if p == 0:#need time extracting shananigans
+                if len(timing) > 0:
+                    if verbose:
+                        print FILENAME + METHODNAME + "MSG:", uvfile + ' after', timing[-1]#uv.nchan
+                        sys.stdout.flush()
+                for preamble, data, flag in uvi.all(raw=True):
+                    uvo.copyvr(uvi)
+                    if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
+                        t += [preamble[1]]
+
+                        if len(t) > ttotal:
+                            raise Exception(FILENAME + METHODNAME + " MSG: FATAL ERROR: omnigain input array has length", omnigains[0].shape, "but the total length is exceeded when processing " + uvfile + " Aborted!")
                     a1, a2 = preamble[2]
                     bl = bl1dmatrix[a1, a2]
                     if bl > 0:
@@ -825,16 +829,55 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
                         flag[:] = True
                     #print data.shape, additive.shape, calpars[pol][len(t) - 1, a1].shape
                     uvo.write(preamble, (data-additive)/calpars[pol][len(t) - 1, a1].conjugate()/calpars[pol][len(t) - 1, a2], flag|flags[pol][len(t) - 1])
-                    polwanted = True
-                    break
-            if not polwanted:
-                uvo.write(preamble, data, flag)
+            else:
+                for preamble, data, flag in uvi.all(raw=True):
+                    if current_t is None or t[current_t] != preamble[1]:
+                        try:
+                            current_t = t.index(preamble[1])
+                        except ValueError:
+                            raise ValueError("Julian date %f for %s does not exist in %s for file %s."%(preamble[1], pol, wantpols.keys()[0], uvfile))
+                    uvo.copyvr(uvi)
+                    a1, a2 = preamble[2]
+                    bl = bl1dmatrix[a1, a2]
+                    if bl > 0:
+                        additive = adds[pol][current_t, :, bl - 1]
+                    elif bl < 0:
+                        additive = adds[pol][current_t, :, - bl - 1].conjugate()
+                    else:
+                        additive = 0
+                        flag[:] = True
+                    #print data.shape, additive.shape, calpars[pol][len(t) - 1, a1].shape
+                    uvo.write(preamble, (data-additive)/calpars[pol][current_t, a1].conjugate()/calpars[pol][current_t, a2], flag|flags[pol][current_t])
 
+        ###apply to xy and yx
+        if 'xx' in wantpols.keys() and 'yy' in wantpols.keys():
+            calpars['x'] = calpars['xx']
+            calpars['y'] = calpars['yy']
+            for p, pol in enumerate(['xy', 'yx']):
+                uvi.rewind()
+                uvi.select('clear', 0, 0)
+                uvi.select('polarization', ap.miriad.str2pol[pol], 0, include=True)
+                for preamble, data, flag in uvi.all(raw=True):
+                    if current_t is None or t[current_t] != preamble[1]:
+                        try:
+                            current_t = t.index(preamble[1])
+                        except ValueError:
+                            raise ValueError("Julian date %f for %s does not exist in %s for file %s."%(preamble[1], pol, wantpols.keys()[0], uvfile))
+                    uvo.copyvr(uvi)
+                    a1, a2 = preamble[2]
+                    bl = bl1dmatrix[a1, a2]
+                    if bl > 0:
+                        additive = adds[pol][current_t, :, bl - 1]
+                    elif bl < 0:
+                        additive = adds[pol][current_t, :, - bl - 1].conjugate()
+                    else:
+                        additive = 0
+                        flag[:] = True
+                    #print data.shape, additive.shape, calpars[pol][len(t) - 1, a1].shape
+                    uvo.write(preamble, (data-additive)/calpars[pol[0]][current_t, a1].conjugate()/calpars[pol[1]][current_t, a2], flag|flags[pol][current_t])
         del(uvo)
         del(uvi)
-        #if not datapulled:
-            #print FILENAME + METHODNAME + " MSG:",  "FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting."
-            #exit(1)
+
     return
 
 def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wantpols, oppath, ano, additivefilenames = None, nTotalAntenna = None, comment = '', overwrite= False):
@@ -2430,7 +2473,9 @@ class Coin:
             if attr == 'count':
                 return self.data[..., 0]
             elif attr == 'mean':
-                return (self.data[..., 1] + 1.j * self.data[..., 2]) / self.data[..., 0]
+                result = (self.data[..., 1] + 1.j * self.data[..., 2]) / self.data[..., 0]
+                result[np.isinf(result)|np.isnan(result)] = 0
+                return result
             elif attr == 'variance_re':
                 n = self.data[..., 0]
                 return (n * self.data[..., 3] - self.data[..., 1]**2) / n / (n-1) / n
@@ -2438,7 +2483,9 @@ class Coin:
                 n = self.data[..., 0]
                 return (n * self.data[..., 4] - self.data[..., 2]**2) / n / (n-1) / n
             elif attr == 'weighted_mean':
-                return (self.data[..., 5] + 1.j * self.data[..., 6]) / self.data[..., 7]
+                result = (self.data[..., 5] + 1.j * self.data[..., 6]) / self.data[..., 7]
+                result[np.isinf(result)|np.isnan(result)] = 0
+                return result
             elif attr == 'weighted_variance':
                 return 1/self.data[..., 7]
 
