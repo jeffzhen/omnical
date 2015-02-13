@@ -388,7 +388,7 @@ while new_bad_ant != [] and trials < max_try:
 				new_bad_ant = new_bad_ant + list(calibrators[pol].subsetant[delay_error[pol][calibrators[pol].subsetant] >= DELAY_ERROR_THRESH])
 
 		print FILENAME + " MSG: %i bad antennas found during delay fitting."%(len(new_bad_ant))
-		if new_bad_ant == [] or len(new_bad_ant) > calibrators[wantpols.keys()[0]].nAntenna / 10.:#end case all good or too many delay fitting failures
+		if new_bad_ant == [] or len(new_bad_ant) > calibrators[wantpols.keys()[0]].nAntenna / 20.:#end case all good or too many delay fitting failures
 			new_bad_ant = []
 			print "##########################################################################"
 			print "Identified possible bad baselines (not automatically excluded):"
