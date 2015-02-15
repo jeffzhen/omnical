@@ -45,6 +45,23 @@ class TestMethods(unittest.TestCase):
         omni.write_redundantinfo(correctinfo, infotestpath, overwrite = True, verbose = False)
         Info = omni.RedundantInfo(infotestpath)
         self.assertTrue(omni.compare_info(correctinfo, Info.get_info(), tolerance = 1e-3))
+        os.remove(infotestpath)
+
+    def test_large_info_IO(self):
+        #t = omni.Timer()
+        infotestpath = os.path.dirname(os.path.realpath(__file__)) + '/redundantinfo_test.bin'
+        calibrator = omni.RedundantCalibrator(150)
+        #t.tick("created calibrator")
+        calibrator.compute_redundantinfo()
+        #t.tick("computed info")
+        info = calibrator.Info.get_info()
+        #t.tick("got info")
+        calibrator.write_redundantinfo(infotestpath)
+        #t.tick("wrote info")
+        info2 = omni.read_redundantinfo(infotestpath)
+        #t.tick("read info")
+        self.assertTrue(omni.compare_info(info, info2, tolerance = 1e-3))
+        os.remove(infotestpath)
 
     def test_testinfo_logcal(self):
         #check that logcal give 0 chi2 for all 20 testinfos
@@ -161,6 +178,7 @@ class TestMethods(unittest.TestCase):
         d[:,:,0] = 7
         #print _O.norm(d)
         np.testing.assert_array_equal(_O.norm(d), d.flatten()[:6])
+
 
 class TestUV(unittest.TestCase):
     def test_all(self):

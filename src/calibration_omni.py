@@ -18,18 +18,21 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '3.2.2'
+__version__ = '3.3.2'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
 PI = np.pi
 TPI = 2 * np.pi
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+infokeys_optional = ['totalVisibilityId']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
 cal_name = {0: "Lincal", 1: "Logcal"}
 
 int_infokeys = ['nAntenna','nUBL','nBaseline']
 intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
+intarray_infokeys_optional = ['totalVisibilityId']
+
 float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 def read_redundantinfo_txt(infopath, verbose = False):
     METHODNAME = "read_redundantinfo_txt"
@@ -151,7 +154,7 @@ def write_redundantinfo_txt(info, infopath, overwrite = False, verbose = False):
     return
 
 
-def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
+def write_redundantinfo_old(info, infopath, overwrite = False, verbose = False):
     METHODNAME = "*write_redundantinfo*"
     timer = time.time()
     if (not overwrite) and os.path.isfile(infopath):
@@ -201,8 +204,73 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
         print FILENAME + "*" + METHODNAME + " MSG:", "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
     return
 
+def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
+    METHODNAME = "*write_redundantinfo*"
+    timer = time.time()
+    if (not overwrite) and os.path.isfile(infopath):
+        raise Exception("Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
+        return
+    if (overwrite) and os.path.isfile(infopath):
+        os.remove(infopath)
 
-def read_redundantinfo(infopath, verbose = False):
+    binaryinfokeysnew = binaryinfokeys[:]
+    threshold = 128
+    if info['nAntenna'] > threshold:
+        binaryinfokeysnew.extend(['AtAi','BtBi'])
+    if 'totalVisibilityId' in info:
+        binaryinfokeysnew.extend(['totalVisibilityId'])
+    else:
+        print "warning: info doesn't have the key 'totalVisibilityId'"
+    marker = 9999999
+    datachunk = [0 for i in range(len(binaryinfokeysnew)+1)]
+    count = 0
+    datachunk[count] = np.array([marker])         #start with a marker
+    count += 1
+    if verbose:
+                print "appending",
+    for key in binaryinfokeysnew:
+        if key in ['antloc', 'ubl','degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','totalVisibilityId']:  #'antloc',
+            add = np.append(np.array(info[key]).flatten(),[marker])
+            datachunk[count] = add
+            count += 1
+            if verbose:
+                print key,
+        elif key == 'ublindex':
+            add = np.append(np.vstack(info[key]).flatten(),[marker])
+            datachunk[count] = add
+            count += 1
+            if verbose:
+                print key,
+        elif key in ['A','B']:
+            if info['nAntenna'] > threshold:
+                row = info[key].nonzero()[0]           #row index of non zero entries
+                column = info[key].nonzero()[1]        #column index of non zero entries
+                nonzero = np.transpose(np.array([row,column]))       #a list of non zero entries
+                temp = np.array([np.array([row[i],column[i],info[key][nonzero[i,0],nonzero[i,1]]]) for i in range(len(nonzero))])
+                add = np.append(np.array(temp.flatten()),[marker])
+                datachunk[count] = add
+            else:
+                add = np.append(np.array(info[key].todense().flatten()).flatten(),[marker])
+                datachunk[count] = add
+            count += 1
+            if verbose:
+                print key,
+        else:
+            add = np.append(np.array(info[key]).flatten(),[marker])
+            datachunk[count] = add
+            count += 1
+            if verbose:
+                print key,
+    print ""
+    datachunkarray = array('d',np.concatenate(tuple(datachunk)))
+    outfile=open(infopath,'wb')
+    datachunkarray.tofile(outfile)
+    outfile.close()
+    if verbose:
+        print FILENAME + "*" + METHODNAME + " MSG:", "Info file successfully written to %s. Time taken: %f minutes."%(infopath, (time.time()-timer)/60.)
+    return
+
+def read_redundantinfo_old(infopath, verbose = False):
     METHODNAME = "read_redundantinfo"
     timer = time.time()
     if not os.path.isfile(infopath):
@@ -278,6 +346,116 @@ def read_redundantinfo(infopath, verbose = False):
         info['Bt'] = info['B'].transpose()
         info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
         info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
+        #info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
+        #info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
+        #info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
+        #info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
+        #info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
+        #info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
+    if verbose:
+        print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
+    return info
+
+
+def read_redundantinfo(infopath, verbose = False):
+    METHODNAME = "read_redundantinfo"
+    timer = time.time()
+    if not os.path.isfile(infopath):
+        raise Exception('Error: file path %s does not exist!'%infopath)
+    with open(infopath) as f:
+        farray = array('d')
+        farray.fromstring(f.read())
+        datachunk = np.array(farray)
+        marker = 9999999
+        markerindex = np.where(datachunk == marker)[0]
+        rawinfo = np.array([np.array(datachunk[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
+    if verbose:
+        print FILENAME + "*" + METHODNAME + " MSG:",  "Reading redundant info...",
+
+    info = {}
+    infocount = 0;
+    info['nAntenna'] = int(rawinfo[infocount][0]) #number of good antennas among all (64) antennas, same as the length of subsetant
+    infocount += 1
+    info['nUBL'] = int(rawinfo[infocount][0]) #number of unique baselines
+    infocount += 1
+    nbl = int(rawinfo[infocount][0])
+    info['nBaseline'] = nbl
+    infocount += 1
+    info['subsetant'] = rawinfo[infocount].astype(int) #the index of good antennas in all (64) antennas
+    infocount += 1
+    info['antloc'] = rawinfo[infocount].reshape((info['nAntenna'],3)) #the index of good antennas in all (64) antennas
+    infocount += 1
+    info['subsetbl'] = rawinfo[infocount].astype(int) #the index of good baselines (auto included) in all baselines
+    infocount += 1
+    info['ubl'] = rawinfo[infocount].reshape((info['nUBL'],3)) #unique baseline vectors
+    infocount += 1
+    info['bltoubl'] = rawinfo[infocount].astype(int) #cross bl number to ubl index
+    infocount += 1
+    info['reversed'] = rawinfo[infocount].astype(int) #cross only bl if reversed -1, otherwise 1
+    infocount += 1
+    info['reversedauto'] = rawinfo[infocount].astype(int) #the index of good baselines (auto included) in all baselines
+    infocount += 1
+    info['autoindex'] = rawinfo[infocount].astype(int)  #index of auto bls among good bls
+    infocount += 1
+    info['crossindex'] = rawinfo[infocount].astype(int)  #index of cross bls among good bls
+    infocount += 1
+    ncross = len(info['crossindex'])
+    info['ncross'] = ncross
+    info['bl2d'] = rawinfo[infocount].reshape(nbl, 2).astype(int) #from 1d bl index to a pair of antenna numbers
+    infocount += 1
+    info['ublcount'] = rawinfo[infocount].astype(int) #for each ubl, the number of good cross bls corresponding to it
+    infocount += 1
+    info['ublindex'] = range((info['nUBL'])) #//for each ubl, the vector<int> contains (ant1, ant2, crossbl)
+    tmp = rawinfo[infocount].reshape(ncross, 3).astype(int)
+    infocount += 1
+    cnter = 0
+    for i in range(info['nUBL']):
+        info['ublindex'][i] = np.zeros((info['ublcount'][i],3))
+        for j in range(len(info['ublindex'][i])):
+            info['ublindex'][i][j] = tmp[cnter]
+            cnter+=1
+    info['ublindex'] = np.asarray(info['ublindex'])
+
+    info['bl1dmatrix'] = rawinfo[infocount].reshape((info['nAntenna'], info['nAntenna'])).astype(int) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
+    infocount += 1
+    #matrices
+    info['degenM'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'], info['nAntenna']))
+    infocount += 1
+    threshold = 128
+    if info['nAntenna'] > threshold:
+        sparse_entries = rawinfo[infocount].reshape((len(rawinfo[infocount])/3,3))
+        row = sparse_entries[:,0]
+        column = sparse_entries[:,1]
+        value = sparse_entries[:,2]
+        info['A'] = sps.csr_matrix((value,(row,column)),shape=(ncross, info['nAntenna'] + info['nUBL']))
+    else:
+        info['A'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #A matrix for logcal amplitude
+    infocount += 1
+    if info['nAntenna'] > threshold:
+        sparse_entries = rawinfo[infocount].reshape((len(rawinfo[infocount])/3,3))
+        row = sparse_entries[:,0]
+        column = sparse_entries[:,1]
+        value = sparse_entries[:,2]
+        info['B'] = sps.csr_matrix((value,(row,column)),shape=(ncross, info['nAntenna'] + info['nUBL']))
+    else:
+        info['B'] = sps.csr_matrix(rawinfo[infocount].reshape((ncross, info['nAntenna'] + info['nUBL'])).astype(int)) #B matrix for logcal phase
+    infocount += 1
+    if info['nAntenna'] > threshold:
+        info['AtAi'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'],info['nAntenna'] + info['nUBL']))
+        infocount += 1
+        info['BtBi'] = rawinfo[infocount].reshape((info['nAntenna'] + info['nUBL'],info['nAntenna'] + info['nUBL']))
+        infocount += 1
+    if len(rawinfo) > infocount:     #make sure the code is compatible the old files (saved without totalVisibilityId)
+        info['totalVisibilityId'] = rawinfo[infocount].reshape(-1,2).astype(int)
+
+    ##The sparse matrices are treated a little differently because they are not rectangular
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore",category=DeprecationWarning)
+        info['At'] = info['A'].transpose()
+        info['Bt'] = info['B'].transpose()
+        if info['nAntenna'] <= threshold:
+            info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
+            info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
         #info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
         #info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
         #info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
@@ -597,7 +775,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
     ####load calpar from omnigain
     calpars = {}#bad antenna included
     for key in wantpols.keys():
-        calpars[key] = (1. + np.zeros((ttotal, nant, nfreq),dtype='complex64'))
+        calpars[key] = np.ones((ttotal, nant, nfreq),dtype='complex64')
         calpars[key][:,info[key]['subsetant'],:] = omnigains[key][:,:,4::2] + 1.j * omnigains[key][:,:,5::2]
 
 
@@ -607,10 +785,6 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
     #datapulled = False
     for uvfile in uvfilenames:
         uvi = ap.miriad.UV(uvfile)
-        if len(timing) > 0:
-            if verbose:
-                print FILENAME + METHODNAME + "MSG:", uvfile + ' after', timing[-1]#uv.nchan
-                sys.stdout.flush()
 
         if oppath is None:
             oppath = os.path.abspath(os.path.dirname(os.path.dirname(uvfile + '/'))) + '/'
@@ -626,16 +800,24 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
         uvo.init_from_uv(uvi)
         historystr = "Applied OMNICAL on %s: "%time.asctime(time.localtime(time.time()))
         uvo['history'] += historystr + comment + "\n"
-        for preamble, data, flag in uvi.all(raw=True):
-            uvo.copyvr(uvi)
-            if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
-                t += [preamble[1]]
 
-                if len(t) > ttotal:
-                    raise Exception(FILENAME + METHODNAME + " MSG: FATAL ERROR: omnigain input array has length", omnigains[0].shape, "but the total length is exceeded when processing " + uvfile + " Aborted!")
-            polwanted = False
-            for pol in wantpols.keys():
-                if wantpols[pol] == uvi['pol']:
+        for p, pol in enumerate(wantpols.keys()):
+            uvi.rewind()
+            uvi.select('clear', 0, 0)
+            uvi.select('polarization', wantpols[pol], 0, include=True)
+            current_t = None
+            if p == 0:#need time extracting shananigans
+                if len(timing) > 0:
+                    if verbose:
+                        print FILENAME + METHODNAME + "MSG:", uvfile + ' after', timing[-1]#uv.nchan
+                        sys.stdout.flush()
+                for preamble, data, flag in uvi.all(raw=True):
+                    uvo.copyvr(uvi)
+                    if len(t) < 1 or t[-1] != preamble[1]:#first bl of a timeslice
+                        t += [preamble[1]]
+
+                        if len(t) > ttotal:
+                            raise Exception(FILENAME + METHODNAME + " MSG: FATAL ERROR: omnigain input array has length", omnigains[0].shape, "but the total length is exceeded when processing " + uvfile + " Aborted!")
                     a1, a2 = preamble[2]
                     bl = bl1dmatrix[a1, a2]
                     if bl > 0:
@@ -647,16 +829,55 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
                         flag[:] = True
                     #print data.shape, additive.shape, calpars[pol][len(t) - 1, a1].shape
                     uvo.write(preamble, (data-additive)/calpars[pol][len(t) - 1, a1].conjugate()/calpars[pol][len(t) - 1, a2], flag|flags[pol][len(t) - 1])
-                    polwanted = True
-                    break
-            if not polwanted:
-                uvo.write(preamble, data, flag)
+            else:
+                for preamble, data, flag in uvi.all(raw=True):
+                    if current_t is None or t[current_t] != preamble[1]:
+                        try:
+                            current_t = t.index(preamble[1])
+                        except ValueError:
+                            raise ValueError("Julian date %f for %s does not exist in %s for file %s."%(preamble[1], pol, wantpols.keys()[0], uvfile))
+                    uvo.copyvr(uvi)
+                    a1, a2 = preamble[2]
+                    bl = bl1dmatrix[a1, a2]
+                    if bl > 0:
+                        additive = adds[pol][current_t, :, bl - 1]
+                    elif bl < 0:
+                        additive = adds[pol][current_t, :, - bl - 1].conjugate()
+                    else:
+                        additive = 0
+                        flag[:] = True
+                    #print data.shape, additive.shape, calpars[pol][len(t) - 1, a1].shape
+                    uvo.write(preamble, (data-additive)/calpars[pol][current_t, a1].conjugate()/calpars[pol][current_t, a2], flag|flags[pol][current_t])
 
+        ###apply to xy and yx
+        if 'xx' in wantpols.keys() and 'yy' in wantpols.keys():
+            calpars['x'] = calpars['xx']
+            calpars['y'] = calpars['yy']
+            for p, pol in enumerate(['xy', 'yx']):
+                uvi.rewind()
+                uvi.select('clear', 0, 0)
+                uvi.select('polarization', ap.miriad.str2pol[pol], 0, include=True)
+                for preamble, data, flag in uvi.all(raw=True):
+                    if current_t is None or t[current_t] != preamble[1]:
+                        try:
+                            current_t = t.index(preamble[1])
+                        except ValueError:
+                            raise ValueError("Julian date %f for %s does not exist in %s for file %s."%(preamble[1], pol, wantpols.keys()[0], uvfile))
+                    uvo.copyvr(uvi)
+                    a1, a2 = preamble[2]
+                    bl = bl1dmatrix[a1, a2]
+                    if bl > 0:
+                        additive = adds[pol][current_t, :, bl - 1]
+                    elif bl < 0:
+                        additive = adds[pol][current_t, :, - bl - 1].conjugate()
+                    else:
+                        additive = 0
+                        flag[:] = True
+                    #print data.shape, additive.shape, calpars[pol][len(t) - 1, a1].shape
+                    uvo.write(preamble, (data-additive)/calpars[pol[0]][current_t, a1].conjugate()/calpars[pol[1]][current_t, a2], flag|flags[pol][current_t])
         del(uvo)
         del(uvi)
-        #if not datapulled:
-            #print FILENAME + METHODNAME + " MSG:",  "FATAL ERROR: no data pulled from " + uvfile + ", check polarization information! Exiting."
-            #exit(1)
+
     return
 
 def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wantpols, oppath, ano, additivefilenames = None, nTotalAntenna = None, comment = '', overwrite= False):
@@ -905,6 +1126,11 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
                     self.__setattr__(key, int(info[key]))
                 elif key in intarray_infokeys and key != 'ublindex':
                     self.__setattr__(key, np.array(info[key]).astype('int32'))
+                elif key in intarray_infokeys_optional:
+                    try:
+                        self.__setattr__(key, np.array(info[key]).astype('int32'))
+                    except KeyError:
+                        pass
                 elif key in float_infokeys:
                     self.__setattr__(key, np.array(info[key]).astype('float32'))
             except:
@@ -944,30 +1170,14 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
         info = {}
         for key in infokeys:
             try:
-                #if key in ['A','B']:
-                    ##print key
-                    #info[key] = sps.csr_matrix(self.__getattribute__(key))
-                #elif key in ['At','Bt']:
-                    #tmp = self.__getattribute__(key+'sparse')
-                    #matrix = np.zeros((info['nAntenna'] + info['nUBL'], len(info['crossindex'])))
-                    #for i in tmp:
-                        #matrix[i[0],i[1]] = i[2]
-                    #info[key] = sps.csr_matrix(matrix)
-                #elif key in ['ublindex']:
-                    #ublindex = []
-                    #for i in self.__getattribute__(key):
-                        #while len(ublindex) < i[0] + 1:
-                            #ublindex.append(np.zeros((1,3)))
-                        #while len(ublindex[i[0]]) < i[1] + 1:
-                            #ublindex[i[0]] = np.array(ublindex[i[0]].tolist() + [[0,0,0]])
-                        #ublindex[i[0]][i[1]] = np.array(i[2:])
-                    #info[key] = ublindex
-
-                #else:
-                    ##print key
-                    info[key] = self.__getattribute__(key)
+                info[key] = self.__getattribute__(key)
             except:
                 raise Exception("Error retrieving %s item."%key)
+        for key in infokeys_optional:
+            try:
+                info[key] = self.__getattribute__(key)
+            except:
+                pass
         return info
 
 def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit = 1, trust_period = 1):#####same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container
@@ -1055,6 +1265,7 @@ class RedundantCalibrator:
 
     def read_redundantinfo(self, infopath, verbose = False):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
         info = read_redundantinfo(infopath, verbose = verbose)
+        self.totalVisibilityId = info['totalVisibilityId']
         self.Info = RedundantInfo(info, verbose = verbose)
 
     def write_redundantinfo(self, infoPath, overwrite = False, verbose = False):
@@ -1770,7 +1981,7 @@ class RedundantCalibrator:
                     #timer.tick('m')
                 #info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
                 #info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
-
+        info['totalVisibilityId'] = self.totalVisibilityId
         if verbose:
             timer.tick('m')
         self.Info = RedundantInfo(info)
@@ -2262,7 +2473,9 @@ class Coin:
             if attr == 'count':
                 return self.data[..., 0]
             elif attr == 'mean':
-                return (self.data[..., 1] + 1.j * self.data[..., 2]) / self.data[..., 0]
+                result = (self.data[..., 1] + 1.j * self.data[..., 2]) / self.data[..., 0]
+                result[np.isinf(result)|np.isnan(result)] = 0
+                return result
             elif attr == 'variance_re':
                 n = self.data[..., 0]
                 return (n * self.data[..., 3] - self.data[..., 1]**2) / n / (n-1) / n
@@ -2270,7 +2483,9 @@ class Coin:
                 n = self.data[..., 0]
                 return (n * self.data[..., 4] - self.data[..., 2]**2) / n / (n-1) / n
             elif attr == 'weighted_mean':
-                return (self.data[..., 5] + 1.j * self.data[..., 6]) / self.data[..., 7]
+                result = (self.data[..., 5] + 1.j * self.data[..., 6]) / self.data[..., 7]
+                result[np.isinf(result)|np.isnan(result)] = 0
+                return result
             elif attr == 'weighted_variance':
                 return 1/self.data[..., 7]
 
@@ -2632,7 +2847,7 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
 ##################           Timer             ###########################################
 ##########################################################################################
 ##########################################################################################
-class Timer():
+class Timer:
     def __init__(self):
         self.time = time.time()
         self.start_time = self.time
