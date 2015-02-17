@@ -1,26 +1,30 @@
 #$ -S /bin/bash
 #$ -V
 #$ -cwd
-#$ -o grid_output
+#$ -o /data4/paper/hz2ug/2015PSA64/grid_output/
+#$ -N JD6
 #$ -j y
 #$ -l paper
-#$ -l h_vmem=5G
-DIRS=`pull_args.py $*`
-CALFILE=psa6240_v003
+#$ -l h_vmem=1.5G
+
+
+DIRS=`/data4/paper/2013EoR/2456620_SAK/pull_args.py $*`
 EXT=uvcRREcAC
-source ~/.bashrc
-canopy-JZ_Omnical
+
+CALFILE=psa6240_v003
+INFO=/data2/home/hz2ug/omnical/doc/redundantinfo_first_cal_6285.57756.bin
+P=/data2/home/hz2ug/omnical/doc/calpar_first_cal_6285.57756.p
+BINDATADIR=/data4/paper/hz2ug/2015PSA64/binary_data/
+OPDIR=/data4/paper/hz2ug/2015PSA64/
+TREASURE=/data4/paper/hz2ug/2015PSA64/2015PSA64.treasure
+
+source /usr/global/paper/CanopyVirtualEnvs/JZ_Omnical/bin/activate
 for dir in ${DIRS}; do
     TAG1=`echo ${dir} | cut -d /  -f 6`
     TAG2=`echo ${dir} | cut -d /  -f 6 | cut -d a -f 2`
-    echo ==============================================================================================================================
-    echo TAG2 ${TAG2}
-    echo ==============================================================================================================================
-    for CHUNK in `seq 1 1 6`; do
-        echo python scripts/omnical_PSA128.py $dir/zen.*.${CHUNK}*.${EXT} -C ${CALFILE} -p xx,yy -t aug2014  -d ${TAG1}_245${TAG2}.${CHUNK} -i doc/redundantinfo_PSA64_7ba_7bu_08-15-2014.bin --datapath /data2/home/hz2ug/omnical_old/results  -o /data4/paper/2012EoR/psa_live/PSA64_omnical_results_Aug_2014  --health 3,4 -k --add --nadd 7 -u
+        echo omnical_PSA128.py ${dir} -C ${CALFILE} -p xx,yy -t feb2015  -d `echo ${dir} | cut -d /  -f 7` -i ${INFO} -r ${P} -o ${OPDIR}  --health 3 --flag -f --treasure ${TREASURE} --flagsigma 0.5 -s --mem 1e8
         echo ----------------------------------------------------------------------------------------------------------------------------
-        
-        python scripts/omnical_PSA128.py $dir/zen.*.${CHUNK}*.${EXT} -C ${CALFILE} -p xx,yy -t aug2014  -d ${TAG1}_245${TAG2}.${CHUNK} -i doc/redundantinfo_PSA64_7ba_7bu_08-15-2014.bin --datapath /data2/home/hz2ug/omnical_old/results  -o /data4/paper/2012EoR/psa_live/PSA64_omnical_results_Aug_2014  --health 3,4 -k --add --nadd 7 -u
-    done;
+        omnical_PSA128.py ${dir} -C ${CALFILE} -p xx,yy -t feb2015  -d `echo ${dir} | cut -d /  -f 7` -i ${INFO} -r ${P} -o ${OPDIR}  --health 3 --flag -f --treasure ${TREASURE} --flagsigma 0.5 -s --mem 1e8
+
 done;
 
