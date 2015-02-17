@@ -3749,3 +3749,26 @@ void runAverage(vector<vector<vector<vector<float> > > > *in, int dimension, int
 	}
 
 }
+
+
+//void clean1d(vector<float> re_in, vector<float> im_in, vector<float> *re_fil, vector<float> *im_fil, vector<float> *re_out, vector<float> *im_out, float step_size){//1d cyclic deconvolution
+	//string METHODNAME = "clean1d";
+	//uint l = re_in.>size();
+	//if(l != im_in.size() or l != re_fil.size() or l != im_fil.size() or l != re_out.size() or l != im_out.size()){
+		//printf("#!!#%s#!!#%s: FATAL ERROR: input and output arrays have different dimensions. ABORT!\n", FILENAME.c_str(), METHODNAME.c_str());
+		//return;
+
+	//uint fil_max_index = 0;
+	//float max_abs = 0;
+	//for (uint i = 0; i < l; i ++){
+		//float this_amp = amp(re_fil->at(i), (im_fil->at(i)));
+		//if (this_amp > max_abs){
+			//fil_max_index = i;
+			//max_abs = this_amp;
+		//}
+	//}
+
+
+
+
+	//}

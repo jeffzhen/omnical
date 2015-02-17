@@ -100,7 +100,10 @@ if dataano is None:
         dataano = dataano + os.path.basename(uvf)
 
 wantpols = {}
-for p in opts.pol.split(','): wantpols[p] = ap.miriad.str2pol[p]
+for p in opts.pol.split(','):
+    if len(p) != 2 or p[0] != p[1]:
+        raise ValueError("polarization type %s not supported."%p)
+    wantpols[p] = ap.miriad.str2pol[p]
 #wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo:
 
 print "Reading calfile %s"%opts.cal,
@@ -111,7 +114,7 @@ sys.stdout.flush()
 
 infopaths = {}
 for pol in wantpols.keys():
-    infopaths[pol]= opts.infopath
+    infopaths[pol]= os.path.expanduser(opts.infopath)
 
 
 removedegen = True
@@ -122,7 +125,7 @@ else:
     removeadditive = False
     removeadditiveperiod = -1
 
-crudecalpath = opts.rawcalpath
+crudecalpath = os.path.expanduser(opts.rawcalpath)
 needrawcal = False
 if os.path.isfile(crudecalpath):
     needrawcal = True
@@ -298,7 +301,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     print FILENAME + " MSG: saving calibration results on %s %s."%(dataano, pol),
     sys.stdout.flush()
     calibrators[pol].utctimes = timing
-    omnigains[pol] = calibrators[pol].get_omnigain()
+    omnigains[pol[0]] = calibrators[pol].get_omnigain()
     adds[pol] = additivein
 
 
@@ -309,7 +312,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     else:
         calibrators[pol].get_omnichisq().tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnichisq"%pol)
         calibrators[pol].get_omnifit().tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnifit"%pol)
-        omnigains[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnigain"%pol)
+        omnigains[pol[0]].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnigain"%pol)
     flags[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omniflag"%pol)
     calibrators[pol].write_redundantinfo(oppath + '/' + dataano + '_' + ano + "_%s.binfo"%pol, overwrite=True)
     diag_txt = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, ubl_healthbar = ubl_healthbar, ouput_txt = True)
@@ -330,8 +333,8 @@ if create_new_uvs:
     sys.stdout.flush()
     infos = {}
     for pol in wantpols.keys():
-        infos[pol] = omni.read_redundantinfo(infopaths[pol])
-    omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, wantpols, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), flags = flags, overwrite = overwrite_uvs)
+        infos[pol[0]] = omni.read_redundantinfo(infopaths[pol])
+    omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), flags = flags, overwrite = overwrite_uvs)
     print "Done."
     sys.stdout.flush()
 if make_plots:

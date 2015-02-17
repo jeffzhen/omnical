@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '3.3.2'
+__version__ = '3.4.0'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -207,6 +207,7 @@ def write_redundantinfo_old(info, infopath, overwrite = False, verbose = False):
 def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
     METHODNAME = "*write_redundantinfo*"
     timer = time.time()
+    infopath = os.path.expanduser(infopath)
     if (not overwrite) and os.path.isfile(infopath):
         raise Exception("Error: a file exists at " + infopath + ". Use overwrite = True to overwrite.")
         return
@@ -360,8 +361,9 @@ def read_redundantinfo_old(infopath, verbose = False):
 def read_redundantinfo(infopath, verbose = False):
     METHODNAME = "read_redundantinfo"
     timer = time.time()
+    infopath = os.path.expanduser(infopath)
     if not os.path.isfile(infopath):
-        raise Exception('Error: file path %s does not exist!'%infopath)
+        raise IOError('Error: file path %s does not exist!'%infopath)
     with open(infopath) as f:
         farray = array('d')
         farray.fromstring(f.read())
@@ -728,29 +730,47 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
     else:
         raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
-def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols, oppath, ano, adds=None, flags=None, nTotalAntenna = None, overwrite = False, comment = '', verbose = False):
+def get_uv_pols(uvi):
+    uvpols = []
+    npols = uvi['npol']
+    uvi.rewind()
+    uvi.select('clear', 0, 0)
+    for preamble, data in uvi.all():
+        if uvi['pol'] not in uvpols:
+            uvpols = uvpols + [uvi['pol']]
+            if len(uvpols) == npols:
+                break
+    uvi.rewind()
+    uvi.select('clear', 0, 0)
+    return [ap.miriad.pol2str[p] for p in uvpols]
+
+def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, oppath, ano, adds={}, flags=None, nTotalAntenna = None, overwrite = False, comment = '', verbose = False):
     METHODNAME = "*apply_omnigain_uvs*"
-    ttotal = len(omnigains[wantpols.keys()[0]])
-    ftotal = int(omnigains[wantpols.keys()[0]][0,0,3])
-    if flags is None:
-        flags = {}
-        for pol in wantpols.keys():
-            flags[pol] = np.zeros((ttotal, ftotal), dtype=bool)
-    else:
-        for pol in wantpols.keys():
+
+    for key in omnigains.keys():
+        if key not in ['x','y']:
+            raise KeyError("Unsupported key for omnigains: %s. Only 'x' and 'y' are supported."%key)
+
+    ttotal = len(omnigains[omnigains.keys()[0]])
+    ftotal = int(omnigains[omnigains.keys()[0]][0,0,3])
+
+    newflag = np.zeros((ttotal, ftotal), dtype=bool)
+    if flags is not None:
+        for pol in flags.keys():
             if flags[pol].shape != (ttotal, ftotal):
                 raise TypeError("flags file on %s shape %s does not agree with omnigains shape %s"%(pol, flags.shape, (ttotal, ftotal)))
-    if adds is None:
-        adds = {}
-        for key in wantpols.keys():
-            adds[key] = np.zeros((ttotal, ftotal, len(totalVisibilityId)))
-    if (ttotal != len(adds[wantpols.keys()[0]]) or ftotal != len(adds[wantpols.keys()[0]][0]) or len(totalVisibilityId) != len(adds[wantpols.keys()[0]][0,0])):
-        raise Exception("Error: additives have different nTime or nFrequency or number of baseline!")
-    if len(info) != len(omnigains) or len(info) != len(wantpols):
-        raise Exception("Error: info and calparfilenames have different number of polarizations!")
+            newflag = newflag|flags[pol]
+
+    if adds != {}:
+        if (ttotal != len(adds[adds.keys()[0]]) or ftotal != len(adds[adds.keys()[0]][0]) or len(totalVisibilityId) != len(adds[adds.keys()[0]][0,0])):
+            raise Exception("Error: additives have different nTime or nFrequency or number of baseline!")
+    if info.keys() != omnigains.keys():
+        raise Exception("Error: info and calparfilenames cannot have different sets of polarizations!")
 
     ####get some info from the first uvfile
     uv=ap.miriad.UV(uvfilenames[0])
+    uvpols = get_uv_pols(uv)
+    uvpols = [uvpol for uvpol in uvpols if uvpol in ['xx', 'yy', 'xy', 'yx']]
     nfreq = uv.nchan;
     if nfreq != ftotal:
         raise Exception("Error: uv file %s and omnigains have different nFrequency!"%uvfilenames[0])
@@ -774,9 +794,15 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
         bl1dmatrix[a2, a1] = - (bl + 1)
     ####load calpar from omnigain
     calpars = {}#bad antenna included
-    for key in wantpols.keys():
+    badants = {}
+    for key in ['x', 'y']:
         calpars[key] = np.ones((ttotal, nant, nfreq),dtype='complex64')
-        calpars[key][:,info[key]['subsetant'],:] = omnigains[key][:,:,4::2] + 1.j * omnigains[key][:,:,5::2]
+        badants[key] = np.zeros(nant, dtype='bool')
+        if key in omnigains.keys():
+            badants[key] = np.ones(nant, dtype='bool')
+            badants[key][info[key]['subsetant']] = False
+            calpars[key][:,info[key]['subsetant'],:] = omnigains[key][:,:,4::2] + 1.j * omnigains[key][:,:,5::2]
+
 
 
     #########start processing#######################
@@ -801,10 +827,10 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
         historystr = "Applied OMNICAL on %s: "%time.asctime(time.localtime(time.time()))
         uvo['history'] += historystr + comment + "\n"
 
-        for p, pol in enumerate(wantpols.keys()):
+        for p, pol in enumerate(uvpols):
             uvi.rewind()
             uvi.select('clear', 0, 0)
-            uvi.select('polarization', wantpols[pol], 0, include=True)
+            uvi.select('polarization', ap.miriad.str2pol[pol], 0, include=True)
             current_t = None
             if p == 0:#need time extracting shananigans
                 if len(timing) > 0:
@@ -819,16 +845,19 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
                         if len(t) > ttotal:
                             raise Exception(FILENAME + METHODNAME + " MSG: FATAL ERROR: omnigain input array has length", omnigains[0].shape, "but the total length is exceeded when processing " + uvfile + " Aborted!")
                     a1, a2 = preamble[2]
-                    bl = bl1dmatrix[a1, a2]
-                    if bl > 0:
-                        additive = adds[pol][len(t) - 1, :, bl - 1]
-                    elif bl < 0:
-                        additive = adds[pol][len(t) - 1, :, - bl - 1].conjugate()
+                    if pol in adds.keys():
+                        bl = bl1dmatrix[a1, a2]
+                        if bl > 0:
+                            additive = adds[pol][len(t) - 1, :, bl - 1]
+                        elif bl < 0:
+                            additive = adds[pol][len(t) - 1, :, - bl - 1].conjugate()
+                        else:
+                            additive = 0
+                            flag[:] = True
                     else:
                         additive = 0
-                        flag[:] = True
                     #print data.shape, additive.shape, calpars[pol][len(t) - 1, a1].shape
-                    uvo.write(preamble, (data-additive)/calpars[pol][len(t) - 1, a1].conjugate()/calpars[pol][len(t) - 1, a2], flag|flags[pol][len(t) - 1])
+                    uvo.write(preamble, (data-additive)/calpars[pol[0]][len(t) - 1, a1].conjugate()/calpars[pol[1]][len(t) - 1, a2], badants[pol[0]][a1]|badants[pol[1]][a2]|flag|newflag[len(t) - 1])
             else:
                 for preamble, data, flag in uvi.all(raw=True):
                     if current_t is None or t[current_t] != preamble[1]:
@@ -838,43 +867,20 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, wantpols
                             raise ValueError("Julian date %f for %s does not exist in %s for file %s."%(preamble[1], pol, wantpols.keys()[0], uvfile))
                     uvo.copyvr(uvi)
                     a1, a2 = preamble[2]
-                    bl = bl1dmatrix[a1, a2]
-                    if bl > 0:
-                        additive = adds[pol][current_t, :, bl - 1]
-                    elif bl < 0:
-                        additive = adds[pol][current_t, :, - bl - 1].conjugate()
+                    if pol in adds.keys():
+                        bl = bl1dmatrix[a1, a2]
+                        if bl > 0:
+                            additive = adds[pol][current_t, :, bl - 1]
+                        elif bl < 0:
+                            additive = adds[pol][current_t, :, - bl - 1].conjugate()
+                        else:
+                            additive = 0
+                            flag[:] = True
                     else:
                         additive = 0
-                        flag[:] = True
                     #print data.shape, additive.shape, calpars[pol][len(t) - 1, a1].shape
-                    uvo.write(preamble, (data-additive)/calpars[pol][current_t, a1].conjugate()/calpars[pol][current_t, a2], flag|flags[pol][current_t])
+                    uvo.write(preamble, (data-additive)/calpars[pol[0]][current_t, a1].conjugate()/calpars[pol[1]][current_t, a2], badants[pol[0]][a1]|badants[pol[1]][a2]|flag|newflag[current_t])
 
-        ###apply to xy and yx
-        if 'xx' in wantpols.keys() and 'yy' in wantpols.keys():
-            calpars['x'] = calpars['xx']
-            calpars['y'] = calpars['yy']
-            for p, pol in enumerate(['xy', 'yx']):
-                uvi.rewind()
-                uvi.select('clear', 0, 0)
-                uvi.select('polarization', ap.miriad.str2pol[pol], 0, include=True)
-                for preamble, data, flag in uvi.all(raw=True):
-                    if current_t is None or t[current_t] != preamble[1]:
-                        try:
-                            current_t = t.index(preamble[1])
-                        except ValueError:
-                            raise ValueError("Julian date %f for %s does not exist in %s for file %s."%(preamble[1], pol, wantpols.keys()[0], uvfile))
-                    uvo.copyvr(uvi)
-                    a1, a2 = preamble[2]
-                    bl = bl1dmatrix[a1, a2]
-                    if bl > 0:
-                        additive = adds[pol][current_t, :, bl - 1]
-                    elif bl < 0:
-                        additive = adds[pol][current_t, :, - bl - 1].conjugate()
-                    else:
-                        additive = 0
-                        flag[:] = True
-                    #print data.shape, additive.shape, calpars[pol][len(t) - 1, a1].shape
-                    uvo.write(preamble, (data-additive)/calpars[pol[0]][current_t, a1].conjugate()/calpars[pol[1]][current_t, a2], flag|flags[pol][current_t])
         del(uvo)
         del(uvi)
 
@@ -1265,7 +1271,10 @@ class RedundantCalibrator:
 
     def read_redundantinfo(self, infopath, verbose = False):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
         info = read_redundantinfo(infopath, verbose = verbose)
-        self.totalVisibilityId = info['totalVisibilityId']
+        try:
+            self.totalVisibilityId = info['totalVisibilityId']
+        except KeyError:
+            pass
         self.Info = RedundantInfo(info, verbose = verbose)
 
     def write_redundantinfo(self, infoPath, overwrite = False, verbose = False):
@@ -2533,6 +2542,18 @@ def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3)
         if not (data == read_ndarray(path, shape, dtype, ranges)).all():
             raise IOError("write_ndarray failed on %s"%path)
     return
+
+def load_omnigain(path, info):
+    if type(info) == type('a'):
+        info = read_redundantinfo(info)
+    path = os.path.expanduser(path)
+    if not os.path.isfile:
+        raise IOError("Path %s does not exist."%path)
+
+    omnigain = np.fromfile(path, dtype = 'float32')
+    omnigain.shape = (omnigain.shape[0] / (info['nAntenna']) / (2 + 1 + 1 + 2 * int(omnigain[3])), info['nAntenna'], 2 + 1 + 1 + 2 * int(omnigain[3]))
+    return omnigain
+
 
 def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False):
     import matplotlib.pyplot as plt
