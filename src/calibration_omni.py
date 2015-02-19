@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '3.4.0'
+__version__ = '3.4.1'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -1653,7 +1653,7 @@ class RedundantCalibrator:
             ubl_flag = np.zeros_like(nan_flag)
         return (nan_flag|spike_flag|ubl_flag)
 
-    def update_treasure(self, treasure, lsts, flags, pol, verbose = False):
+    def update_treasure(self, treasure, lsts, flags, pol, verbose = False):#lsts in radians
         if type(treasure) == type('aa'):
             treasure = Treasure(treasure)
         if len(lsts) != self.nTime:
@@ -1662,7 +1662,7 @@ class RedundantCalibrator:
             if verbose:
                 print ".",
                 sys.stdout.flush()
-            visibilities = self.rawCalpar[..., 3+2*self.nAntenna+i] + 1.j*self.rawCalpar[..., 4+2*self.nAntenna+i]
+            visibilities = self.rawCalpar[..., 3+2*self.nAntenna+2*i] + 1.j*self.rawCalpar[..., 4+2*self.nAntenna+2*i]
             visibilities[flags] = np.nan
             treasure.update_coin((pol, ublvec), lsts, visibilities, self.rawCalpar[..., 2]/2./(len(self.crossindex)-self.nAntenna-self.nUBL+2)/self.ublcount[i])#divide by 2 because epsilon^2 should be for real/imag separately
 
@@ -2426,6 +2426,14 @@ class Treasure:
 
     def get_coin(self, polvec):
         if self.seize_coin(polvec):
+            coin = Coin(self.coin_name(polvec), self.coinShape, self.coinDtype)
+            self.release_coin(polvec)
+            return coin
+        else:
+            return None
+
+    def get_coin_now(self, polvec):
+        if self.seize_coin(polvec, retry_wait = 0, max_wait = 0.01):
             coin = Coin(self.coin_name(polvec), self.coinShape, self.coinDtype)
             self.release_coin(polvec)
             return coin
