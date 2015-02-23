@@ -292,6 +292,7 @@ class TestUV(unittest.TestCase):
         np.testing.assert_almost_equal(correctresult[:,:,3:67][nanmask], newresult[:,:,3:67][nanmask], decimal = 5)
         np.testing.assert_almost_equal(np.sort(np.abs(correctresult[:,:,67:][nanmask])), np.sort(np.abs(newresult[:,:,67:][nanmask])), decimal = 5)
 
+
 class TestTreasure(unittest.TestCase):
     def test_IO(self):
         nTime = 3
@@ -313,6 +314,20 @@ class TestTreasure(unittest.TestCase):
         treasure2.burn()
 
     def test_math(self):
+        nTime = 4
+        nFrequency = 2
+        shutil.rmtree(os.path.dirname(os.path.realpath(__file__)) + '/test3.treasure', ignore_errors = True)
+        treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test3.treasure', nlst = nTime, nfreq = nFrequency)
+        treasure.add_coin(('xx', np.array([0,2,3])))
+        treasure.update_coin(('xx', np.array([0,2,3])), (treasure.lsts + treasure.lsts[1] * (nTime/2. + .5))%(2*np.pi), np.outer(np.arange(nTime), np.arange(nFrequency)), np.ones((nTime, nFrequency)))
+        predict_result = np.outer(np.roll(np.append([0], (np.arange(nTime - 1) + np.arange(1, nTime)) / 2.), nTime/2, axis = 0), np.arange(nFrequency))
+        #print (treasure.lsts + treasure.lsts[1] * (nTime/2. + .5))%(2*np.pi), np.outer(np.arange(nTime), np.arange(nFrequency))
+        #print treasure.get_coin(('xx', np.array([0,2,3]))).mean
+        #print predict_result
+        #print predict_result - treasure.get_coin(('xx', np.array([0,2,3]))).mean
+        np.testing.assert_almost_equal(predict_result, treasure.get_coin(('xx', np.array([0,2,3]))).mean, decimal = 14)
+
+    def test_probability(self):
         nTime = 10
         nFrequency = 1
         shutil.rmtree(os.path.dirname(os.path.realpath(__file__)) + '/test3.treasure', ignore_errors = True)

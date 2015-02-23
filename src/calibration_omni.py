@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '3.4.2'
+__version__ = '3.4.3'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -2347,8 +2347,8 @@ class Treasure:
             raise ValueError("visibilities array has wrong shape %s that does not agree with %s."%(visibilities.shape, (len(lsts), self.nFrequency)))
         if epsilonsqs.shape != (len(lsts), self.nFrequency):
             raise ValueError("epsilonsqs array has wrong shape %s that does not agree with %s."%(epsilonsqs.shape, (len(lsts), self.nFrequency)))
-        if np.max(lsts) > TPI or np.min(lsts) < 0:
-            raise ValueError("lsts range [%f, %f] is not inside the expected [0, 2pi)."%(np.max(lsts), np.min(lsts)))
+        if np.max(lsts) > TPI or np.min(lsts) < -TPI/self.nTime:
+            raise ValueError("lsts range [%f, %f] is not inside the expected [%.2f, 2pi)."%(np.max(lsts), np.min(lsts), -TPI/self.nTime))
         if np.max(np.array(lsts)[1:] - np.array(lsts)[:-1]) > TPI/self.nTime * 1.001:
             raise ValueError("lsts interval is %f, which is larger than desired grid size %f."%(np.max(np.array(lsts)[1:] - np.array(lsts)[:-1]), TPI/self.nTime))
         lsts = np.array(lsts)
@@ -2358,7 +2358,7 @@ class Treasure:
         elif n_wrap == 1:
             iwrap = int(np.argsort(lsts[1:] - lsts[:-1])[0]) + 1#wrappping happend between iwrap-1 and iwrap
             self.update_coin(polvec, lsts[:iwrap], visibilities[:iwrap], epsilonsqs[:iwrap])
-            self.update_coin(polvec, lsts[iwrap:], visibilities[iwrap:], epsilonsqs[iwrap:])
+            self.update_coin(polvec, np.append([lsts[iwrap-1] - TPI], lsts[iwrap:]), visibilities[iwrap-1:], epsilonsqs[iwrap-1:])
             return
         else:
             if not self.have_coin(polvec):
