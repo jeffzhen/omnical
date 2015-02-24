@@ -22,7 +22,7 @@ import os, glob, numpy
 #''',
        #ext_modules = [module])
 
-__version__ = '3.4.3'
+__version__ = '3.4.4'
 
 def indir(dir, files): return [dir+f for f in files]
 def globdir(dir, files):

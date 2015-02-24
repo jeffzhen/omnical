@@ -43,9 +43,9 @@ fbin_max = 170
 nf = fbin_max - fbin_min
 roll_t = 150
 tbin_min = 00
-tbin_max = len(coin.count)#1200#len(coin.count)
+tbin_max = 1500#len(coin.count)
 delay_width = 1 / (freqs[fbin_max] - freqs[fbin_min]) #in nanoseconds
-foreground_delay_thresh = la.norm(ubl) / Cspeed + delay_width * 20
+foreground_delay_thresh = la.norm(ubl) / Cspeed + delay_width * 2
 delays = delay_width * np.roll(np.arange(-np.floor((nf-1)/2.), np.ceil((nf+1)/2.)), -int(np.floor((nf-1)/2)))
 
 print "ubl is %s, %.2fns, delay bin width is %.2fns."%(ubl, la.norm(ubl) / Cspeed, delay_width)
@@ -95,23 +95,23 @@ residual[flag] = np.nan
 r = int(np.floor((nf-1)/2))
 r2 = len(full_deconv_fdata[0, abs(delays) <= foreground_delay_thresh]) / 2
 plt.subplot('251')
-plt.imshow(np.abs(data), aspect = 1/5., interpolation='none', vmax=2e3);plt.colorbar()
+plt.imshow(np.abs(data), aspect = 1/5., interpolation='none', vmax=2e3);plt.colorbar();plt.title('original data')
 plt.subplot('256')
-plt.imshow(np.abs(np.roll(fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=1e4);plt.colorbar()
+plt.imshow(np.abs(np.roll(fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=1e4);plt.colorbar();plt.title('data')
 plt.subplot('257')
-plt.imshow(np.abs(np.roll(fwindow, r, axis=1)), aspect = 1/5., interpolation='none', vmax=10)#;plt.colorbar()
+plt.imshow(np.abs(np.roll(fwindow, r, axis=1)), aspect = 1/5., interpolation='none', vmax=10);plt.colorbar();plt.title('windows function')
 plt.subplot('258')
-plt.imshow(np.abs(np.roll(full_deconv_fdata[:, abs(delays) <= foreground_delay_thresh], r2, axis=1)), aspect = 1/5.*r2/r, interpolation='none', vmax=np.percentile(abs(full_deconv_fdata[:, abs(delays) <= foreground_delay_thresh]), 95));plt.colorbar()
+plt.imshow(np.abs(np.roll(full_deconv_fdata[:, abs(delays) <= foreground_delay_thresh], r2, axis=1)), aspect = 1/5.*r2/r, interpolation='none', vmax=np.percentile(abs(full_deconv_fdata[:, abs(delays) <= foreground_delay_thresh]), 95));plt.colorbar();plt.title('deconvolved data')
 plt.subplot('259')
-plt.imshow(np.abs(np.roll(model_fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=1e4)#;plt.colorbar()
+plt.imshow(np.abs(np.roll(model_fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=1e4);plt.colorbar();plt.title('convolved deconvolved data')
 plt.subplot(2,5,10)
-plt.imshow(np.abs(np.roll(model_fdata-fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=5e2);plt.colorbar()
+plt.imshow(np.abs(np.roll(model_fdata-fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=5e2);plt.colorbar();plt.title('residual')
 plt.subplot('252')
-plt.imshow(np.abs(model_data), aspect = 1/5., interpolation='none', vmax=2e3)#;plt.colorbar()
+plt.imshow(np.abs(model_data), aspect = 1/5., interpolation='none', vmax=2e3);plt.colorbar();plt.title('convolved deconvolved data')
 plt.subplot('253')
-plt.imshow(np.log10(np.abs(residual)), aspect = 1/5., interpolation='none', vmin = 0, vmax=3);plt.colorbar()
+plt.imshow(np.log10(np.abs(residual)), aspect = 1/5., interpolation='none', vmin = 0, vmax=3);plt.colorbar();plt.title('residual amp')
 plt.subplot('254')
-plt.imshow(np.angle(residual), aspect = 1/5., interpolation='none', vmin = -np.pi, vmax=np.pi);plt.colorbar()
+plt.imshow(np.angle(residual), aspect = 1/5., interpolation='none', vmin = -np.pi, vmax=np.pi);plt.colorbar();plt.title('residual phase')
 plt.subplot('255')
 plt.imshow(np.log10(np.roll(coin.variance_re, roll_t, axis = 0)[tbin_min:tbin_max, fbin_min:fbin_max]**.5), aspect = 1/5., interpolation='none', vmin = 0, vmax=3);plt.colorbar()
 
