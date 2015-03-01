@@ -2,7 +2,7 @@
 #$ -V
 #$ -cwd
 #$ -o /data4/paper/hz2ug/2015PSA64/grid_output/
-#$ -N JD6
+#$ -N JD63
 #$ -j y
 #$ -l paper
 #$ -l h_vmem=1.5G
@@ -16,7 +16,7 @@ INFO=/data2/home/hz2ug/omnical/doc/redundantinfo_first_cal_6285.57756.bin
 P=/data2/home/hz2ug/omnical/doc/calpar_first_cal_6285.57756.p
 BINDATADIR=/data4/paper/hz2ug/2015PSA64/binary_data/
 OPDIR=/data4/paper/hz2ug/2015PSA64/
-TREASURE=/data4/paper/hz2ug/2015PSA64/2015PSA64.treasure
+TREASURE=/data4/paper/hz2ug/2015PSA64/2015PSA64_63.treasure
 
 source /usr/global/paper/CanopyVirtualEnvs/JZ_Omnical/bin/activate
 for dir in ${DIRS}; do
