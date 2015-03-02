@@ -44,8 +44,10 @@ nf = fbin_max - fbin_min
 roll_t = 150
 tbin_min = 00
 tbin_max = 1500#len(coin.count)
+vertical_cut_thresh = 350#number of time slices flags above which all times will be flagged
 delay_width = 1 / (freqs[fbin_max] - freqs[fbin_min]) #in nanoseconds
 foreground_delay_thresh = la.norm(ubl) / Cspeed + delay_width * 2
+foreground_deconvolve_delay_thresh = la.norm(ubl) / Cspeed + delay_width * 2
 delays = delay_width * np.roll(np.arange(-np.floor((nf-1)/2.), np.ceil((nf+1)/2.)), -int(np.floor((nf-1)/2)))
 
 print "ubl is %s, %.2fns, delay bin width is %.2fns."%(ubl, la.norm(ubl) / Cspeed, delay_width)
@@ -67,7 +69,18 @@ print "ubl is %s, %.2fns, delay bin width is %.2fns."%(ubl, la.norm(ubl) / Cspee
 data = np.roll(coin.weighted_mean, roll_t, axis = 0)[tbin_min:tbin_max, fbin_min:fbin_max]
 
 var = np.roll(coin.weighted_variance, roll_t, axis = 0)[tbin_min:tbin_max, fbin_min:fbin_max]
+
+
 flag = np.isnan(data*var)|np.isinf(data*var)|(var > 15)
+flag = flag | ((np.sum(flag[1200:1400], axis=0) > 50)[None,:])
+
+#plt.plot(np.sum(flag, axis=0))
+#plt.plot(np.sum(flag[1200:1400], axis=0))
+
+#plt.show()
+#exit()
+
+#flag = flag|(var > 15)
 #data = np.ones_like(data) * 1.e3 * 5e4 * np.arange(200.+fbin_min, 200+fbin_max)[None,:]**-2
 #data[flag] = np.nan
 #data = data - np.nanmean(data, axis = 0)[None,:]
@@ -76,24 +89,45 @@ bhfilter = ss.blackmanharris(nf)
 fdata = fft.fft(data * bhfilter[None, :], axis=1)
 fwindow = fft.fft((~flag) * bhfilter[None, :], axis=1)
 full_deconv_fdata = np.zeros_like(fdata)
+#qaz = np.zeros_like(fdata)
+#model_qaz = np.zeros_like(fdata)
 model_fdata = np.zeros_like(fdata)
+
+#i = 600
+#m = sla.toeplitz(fwindow[i], np.roll(fwindow[i][::-1], 1)).astype('complex128')[:, abs(delays) <= foreground_deconvolve_delay_thresh]
+#el, ec = sla.eigh(m.transpose().conjugate().dot(m))
+#plt.plot(np.log10(el))
+#plt.show();exit()
+
 for i in range(len(fdata)):
-	m = sla.toeplitz(fwindow[i], np.roll(fwindow[i][::-1], 1)).astype('complex128')[:, abs(delays) <= foreground_delay_thresh]
-	mmi = la.pinv(m.transpose().conjugate().dot(m) + np.identity(m.shape[1])*1e-2)
+	m = sla.toeplitz(fwindow[i], np.roll(fwindow[i][::-1], 1)).astype('complex128')[:, abs(delays) <= foreground_deconvolve_delay_thresh]
+	mmi = la.inv(m.transpose().conjugate().dot(m) + np.identity(m.shape[1])*1e-2)
 	deconv_fdata = mmi.dot(m.transpose().conjugate().dot(fdata[i]))
-	#m = sla.toeplitz(fwindow[i], np.roll(fwindow[i][::-1], 1)).astype('complex128')[abs(delays) <= foreground_delay_thresh][:, abs(delays) <= foreground_delay_thresh]
-	#mmi = la.pinv(m.transpose().conjugate().dot(m))
-	#deconv_fdata = mmi.dot(m.transpose().conjugate().dot(fdata[i, abs(delays) <= foreground_delay_thresh]))
-	full_deconv_fdata[i, abs(delays) <= foreground_delay_thresh] = deconv_fdata
-	model_fdata[i] = m.dot(deconv_fdata)
+	full_deconv_fdata[i, abs(delays) <= foreground_deconvolve_delay_thresh] = deconv_fdata
+	full_deconv_fdata[i, abs(delays) > foreground_delay_thresh] = 0
+	model_fdata[i] = m.dot(full_deconv_fdata[i, abs(delays) <= foreground_deconvolve_delay_thresh])#m.dot(deconv_fdata)
 model_data = fft.ifft(full_deconv_fdata,  axis=1) * (fbin_max - fbin_min)
 residual= data-model_data
 residual[flag] = np.nan
 
-#residual = residual - np.nanmean(residual, axis = 0)
+
+###r = int(np.floor((nf-1)/2))
+###r2 = len(full_deconv_fdata[0, abs(delays) <= foreground_deconvolve_delay_thresh]) / 2
+###plt.subplot('151')
+###plt.imshow(np.abs(np.roll(fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=1e4);plt.colorbar();plt.title('data')
+###plt.subplot('152')
+###plt.imshow(np.abs(np.roll(full_deconv_fdata[:, abs(delays) <= foreground_deconvolve_delay_thresh], r2, axis=1)), aspect = 1/5.*r2/r, interpolation='none', vmax=np.percentile(abs(full_deconv_fdata[:, abs(delays) <= foreground_delay_thresh]), 85));plt.colorbar();plt.title('deconvolved data')
+###plt.subplot('153')
+###plt.imshow(np.abs(np.roll(model_fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=1e4);plt.colorbar();plt.title('convolved (deconvolved data inside horizon)')
+###plt.subplot('154')
+###plt.imshow(np.abs(np.roll(model_fdata-fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=5e2);plt.colorbar();plt.title('residual')
+###plt.subplot('155')
+###plt.imshow(np.abs(np.roll(model_qaz, r, axis=1)), aspect = 1/5., interpolation='none', vmax=5e2);plt.colorbar();plt.title('residual')
+###plt.show();exit()
+
 
 r = int(np.floor((nf-1)/2))
-r2 = len(full_deconv_fdata[0, abs(delays) <= foreground_delay_thresh]) / 2
+r2 = len(full_deconv_fdata[0, abs(delays) <= foreground_deconvolve_delay_thresh]) / 2
 plt.subplot('251')
 plt.imshow(np.abs(data), aspect = 1/5., interpolation='none', vmax=2e3);plt.colorbar();plt.title('original data')
 plt.subplot('256')
@@ -101,13 +135,13 @@ plt.imshow(np.abs(np.roll(fdata, r, axis=1)), aspect = 1/5., interpolation='none
 plt.subplot('257')
 plt.imshow(np.abs(np.roll(fwindow, r, axis=1)), aspect = 1/5., interpolation='none', vmax=10);plt.colorbar();plt.title('windows function')
 plt.subplot('258')
-plt.imshow(np.abs(np.roll(full_deconv_fdata[:, abs(delays) <= foreground_delay_thresh], r2, axis=1)), aspect = 1/5.*r2/r, interpolation='none', vmax=np.percentile(abs(full_deconv_fdata[:, abs(delays) <= foreground_delay_thresh]), 95));plt.colorbar();plt.title('deconvolved data')
+plt.imshow(np.abs(np.roll(full_deconv_fdata[:, abs(delays) <= foreground_deconvolve_delay_thresh], r2, axis=1)), aspect = 1/5.*r2/r, interpolation='none', vmax=np.percentile(abs(full_deconv_fdata[:, abs(delays) <= foreground_delay_thresh]), 85));plt.colorbar();plt.title('deconvolved data')
 plt.subplot('259')
-plt.imshow(np.abs(np.roll(model_fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=1e4);plt.colorbar();plt.title('convolved deconvolved data')
+plt.imshow(np.abs(np.roll(model_fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=1e4);plt.colorbar();plt.title('convolved (deconvolved data inside horizon)')
 plt.subplot(2,5,10)
 plt.imshow(np.abs(np.roll(model_fdata-fdata, r, axis=1)), aspect = 1/5., interpolation='none', vmax=5e2);plt.colorbar();plt.title('residual')
 plt.subplot('252')
-plt.imshow(np.abs(model_data), aspect = 1/5., interpolation='none', vmax=2e3);plt.colorbar();plt.title('convolved deconvolved data')
+plt.imshow(np.abs(model_data), aspect = 1/5., interpolation='none', vmax=2e3);plt.colorbar();plt.title('deconvolved data')
 plt.subplot('253')
 plt.imshow(np.log10(np.abs(residual)), aspect = 1/5., interpolation='none', vmin = 0, vmax=3);plt.colorbar();plt.title('residual amp')
 plt.subplot('254')

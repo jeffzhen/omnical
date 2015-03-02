@@ -18,7 +18,7 @@ with warnings.catch_warnings():
     import scipy.ndimage.filters as sfil
     from scipy.stats import nanmedian
 
-__version__ = '3.4.4'
+__version__ = '3.4.5'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -758,7 +758,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, oppath, 
     if flags is not None:
         for pol in flags.keys():
             if flags[pol].shape != (ttotal, ftotal):
-                raise TypeError("flags file on %s shape %s does not agree with omnigains shape %s"%(pol, flags.shape, (ttotal, ftotal)))
+                raise TypeError("flags file on %s has shape %s which does not agree with omnigains shape %s."%(pol, flags[pol].shape, (ttotal, ftotal)))
             newflag = newflag|flags[pol]
 
     if adds != {}:
@@ -2424,21 +2424,19 @@ class Treasure:
                 f.write('%f %f %f %s\n'%(ublvec[0], ublvec[1], ublvec[2], pol))
         return
 
-    def get_coin(self, polvec):
-        if self.seize_coin(polvec):
-            coin = Coin(self.coin_name(polvec), self.coinShape, self.coinDtype)
+    def get_coin(self, polvec, ranges=None, retry_wait = 1, max_wait = 60):
+        if self.seize_coin(polvec, retry_wait = retry_wait, max_wait = max_wait):
+            if ranges is None:
+                coin = Coin(np.fromfile(self.coin_name(polvec), dtype = self.coinDtype).reshape(self.coinShape))
+            else:
+                coin = Coin(read_ndarray(self.coin_name(polvec), self.coinShape, self.coinDtype, ranges))
             self.release_coin(polvec)
             return coin
         else:
             return None
 
-    def get_coin_now(self, polvec):
-        if self.seize_coin(polvec, retry_wait = 0, max_wait = 0.01):
-            coin = Coin(self.coin_name(polvec), self.coinShape, self.coinDtype)
-            self.release_coin(polvec)
-            return coin
-        else:
-            return None
+    def get_coin_now(self, polvec, ranges=None):
+        return self.get_coin(self, polvec, ranges=ranges, retry_wait = 0, max_wait = .01 )
 
     def seize_coin(self, polvec, retry_wait = 1, max_wait = 60):
         if self.sealPosition is not None:
@@ -2476,10 +2474,16 @@ class Treasure:
         shutil.rmtree(self.folderPath)
 
 class Coin:
-    def __init__(self, path, shape, dtype):
-        if not os.path.isfile(path):
-            raise IOError("%s doesnt exist."%path)
-        self.data = np.fromfile(path, dtype=dtype).reshape(shape)
+    #def __init__(self, path, shape, dtype):
+        #if not os.path.isfile(path):
+            #raise IOError("%s doesnt exist."%path)
+        #self.data = np.fromfile(path, dtype=dtype).reshape(shape)
+        #self.attributes = ['count', 'mean', 'variance_re', 'variance_im', 'weighted_mean', 'weighted_variance']
+
+    def __init__(self, data):
+        if data.shape[-1] < 8:
+            raise TypeError("Data shape %s cannot be constructed as a Coin."%data.shape)
+        self.data = data
         self.attributes = ['count', 'mean', 'variance_re', 'variance_im', 'weighted_mean', 'weighted_variance']
 
     def __getattr__(self, attr):
