@@ -292,6 +292,13 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     #####################flag bad data according to chisq#########################
     if need_new_flag:
         flags[pol] = calibrators[pol].flag(nsigma = flag_thresh, twindow=flagt, fwindow=flagf)#True if bad and flagged
+        flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2,.4,1,.4,.2]],mode='same')>=1)
+        flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2],[.4],[1],[.4],[.2]],mode='same')>=1)
+        bad_freq = (np.sum(flags[pol], axis = 0) > (calibrators[pol].nTime/2.))
+        bad_time = (np.sum(flags[pol], axis = 1) > (calibrators[pol].nFrequency/2.))
+        flags[pol] = flags[pol]|bad_freq[None,:]|bad_time[:, None]
+        #if np.sum(flags[pol]) > flags[pol].shape[0] * flags[pol].shape[1] / 2.:
+            #flags[pol] = flags[pol]|True
         flags[pol] = flags[pol] | uvflags[pol]
     else:
         flags[pol] = uvflags[pol]

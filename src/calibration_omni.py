@@ -15,10 +15,12 @@ with warnings.catch_warnings():
     import scipy as sp
     import scipy.sparse as sps
     import scipy.linalg as la
+    import scipy.signal as ss
     import scipy.ndimage.filters as sfil
+    from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.4.5'
+__version__ = '3.5.0.alpha'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -218,7 +220,7 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
     threshold = 128
     if info['nAntenna'] > threshold:
         binaryinfokeysnew.extend(['AtAi','BtBi'])
-    if 'totalVisibilityId' in info:
+    if 'totalVisibilityId' in info.keys():
         binaryinfokeysnew.extend(['totalVisibilityId'])
     else:
         print "warning: info doesn't have the key 'totalVisibilityId'"
@@ -1274,7 +1276,7 @@ class RedundantCalibrator:
         try:
             self.totalVisibilityId = info['totalVisibilityId']
         except KeyError:
-            pass
+            info['totalVisibilityId'] = self.totalVisibilityId
         self.Info = RedundantInfo(info, verbose = verbose)
 
     def write_redundantinfo(self, infoPath, overwrite = False, verbose = False):
@@ -1651,7 +1653,68 @@ class RedundantCalibrator:
             ubl_flag[1:] = ubl_flag[1:] | ubl_flag_short
         else:
             ubl_flag = np.zeros_like(nan_flag)
-        return (nan_flag|spike_flag|ubl_flag)
+
+        return_flag = (nan_flag|spike_flag|ubl_flag)
+        return return_flag
+
+    def absolutecal_w_treasure(self, treasure_path, pol, lsts, tolerance = None, MIN_UBL_COUNT = 10):#phase not yet implemented
+        if self.nTime != len(lsts):
+            raise TypeError("Input lsts has wrong length of %i rather than expected %i."%(len(lsts), self.nTime))
+
+        treasure = Treasure(treasure_path)
+        if self.nFrequency != treasure.nFrequency:
+            raise TypeError("Treasure has %i frequency bins rather than expected %i in calibrator."%(treasure.nFrequency, self.nFrequency))
+        treasure_bls = treasure.ubls[pol]
+        if tolerance is None:
+            tolerance = treasure.tolerance
+        else:
+            treasure.tolerance = tolerance
+        ubl_overlap = np.zeros(self.nUBL, dtype='bool')
+        for i, ubl in enumerate(self.ubl):
+            ubl_overlap[i] = (np.min(np.linalg.norm(treasure_bls - ubl, axis = 1)) < tolerance)
+
+        if np.sum(ubl_overlap) > MIN_UBL_COUNT:
+
+            data = self.rawCalpar[..., 3 + 2 * self.nAntenna::2] + 1.j * self.rawCalpar[..., 3 + 2 * self.nAntenna + 1::2]
+            data = data[..., ubl_overlap]
+            model = np.zeros_like(data)
+            model_flag = np.zeros(data.shape, dtype='bool')
+
+            for i, ubl in enumerate(self.ubl[ubl_overlap]):
+                coin = treasure.get_interpolated_coin((pol, ubl), lsts)
+                if coin is None:
+                    model_flag[..., i] = True
+                else:
+                    model[..., i] = coin.weighted_mean
+                    model_flag[..., i] = coin.count < 1
+
+            ubl_valid = (np.sum(~model_flag, axis=(0,1)) > 0)#whether the ubl has any measurements in this entire lst range
+            if np.sum(ubl_valid) > MIN_UBL_COUNT:
+                data = data[..., ubl_valid]
+                model = model[..., ubl_valid]
+                model_flag = model_flag[..., ubl_valid]
+                ratio = data/model
+                model_flag = model_flag|np.isnan(ratio)|np.isinf(ratio)
+                #amplitude
+                amp_weights = ~model_flag
+                no_piror = (np.sum(amp_weights, axis = -1) <= MIN_UBL_COUNT)#not enough ubl coverage
+                ratio[model_flag] = 0
+                amp_weights[np.sum(amp_weights, axis = -1) ==0] = 1.#avoid all 0 weights
+                amp_cal = np.average(np.abs(ratio), axis = -1, weights = amp_weights)
+                amp_cal[no_piror] = 1.
+
+                #phase
+                #A = self.ubl[ubl_overlap][ubl_valid]
+
+                #apply results to rawCalpar
+                self.rawCalpar[..., 3 + 2 * self.nAntenna:] = self.rawCalpar[..., 3 + 2 * self.nAntenna:] / amp_cal[..., None]
+                self.rawCalpar[..., 3: 3 +  self.nAntenna] = self.rawCalpar[..., 3: 3 +  self.nAntenna] + np.log10(amp_cal[..., None])
+
+                return amp_cal
+            else:
+                return ubl_valid
+        else:
+            return ubl_overlap
 
     def update_treasure(self, treasure, lsts, flags, pol, verbose = False):#lsts in radians
         if type(treasure) == type('aa'):
@@ -2258,7 +2321,7 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
 ##########################################################################################
 
 class Treasure:
-    def __init__(self, folder_path, nlst = int(TPI/1e-3), nfreq = 1024, tolerance = 1e-3):
+    def __init__(self, folder_path, nlst = int(TPI/1e-3), nfreq = 1024, tolerance = .1):
         if os.path.isdir(folder_path):
             self.folderPath = folder_path
             with open(self.folderPath + '/header.txt', 'r') as f:
@@ -2424,7 +2487,11 @@ class Treasure:
                 f.write('%f %f %f %s\n'%(ublvec[0], ublvec[1], ublvec[2], pol))
         return
 
-    def get_coin(self, polvec, ranges=None, retry_wait = 1, max_wait = 60):
+    def get_coin(self, polvec, ranges=None, retry_wait = 1, max_wait = 60):#ranges is index range [incl, exc)
+        if ranges is not None:
+            if len(ranges) != 2 or ranges[0] < 0 or ranges[1] > self.nTime:
+                raise ValueError("range specification %s is not allowed."%ranges)
+            ranges = [int(ranges[0]), int(ranges[1])]
         if self.seize_coin(polvec, retry_wait = retry_wait, max_wait = max_wait):
             if ranges is None:
                 coin = Coin(np.fromfile(self.coin_name(polvec), dtype = self.coinDtype).reshape(self.coinShape))
@@ -2435,13 +2502,45 @@ class Treasure:
         else:
             return None
 
+    def get_interpolated_coin(self, polvec, lsts, retry_wait = 1, max_wait = 60):#lsts in [0, 2pi)
+        if not self.have_coin(polvec):
+            return None
+        lsts = np.array(lsts)
+        if np.min(lsts) <= 0 or np.max(lsts) > TPI:
+            raise ValueError("lsts is not inside [0, 2pi)")
+        if np.ceil(np.max(lsts)/(TPI/self.nTime)) >= self.nTime:
+            ranges = [int(np.floor(np.min(lsts)/(TPI/self.nTime))), int(np.ceil(np.max(lsts)/(TPI/self.nTime)))]
+            coin = self.get_coin(polvec, ranges = ranges, retry_wait = retry_wait, max_wait = max_wait)
+            coin2 = self.get_coin(polvec, ranges = [0,1], retry_wait = retry_wait, max_wait = max_wait)
+            if coin is None or coin2 is None:
+                return None
+            coin.data = np.concatenate((coin.data, coin2.data))
+            grid_lsts = np.append(self.lsts[ranges[0]:ranges[1]], TPI)
+        else:
+            ranges = [int(np.floor(np.min(lsts)/(TPI/self.nTime))), int(np.ceil(np.max(lsts)/(TPI/self.nTime))) + 1]
+            coin = self.get_coin(polvec, ranges = ranges, retry_wait = retry_wait, max_wait = max_wait)
+            if coin is None:
+                return None
+            grid_lsts = self.lsts[ranges[0]:ranges[1]]
+        interpolation = interpolate.interp1d(grid_lsts, coin.data, axis = 0)
+        new_coin_data = interpolation(lsts)
+        zero_count_flag = (coin.count[np.floor((lsts-np.min(lsts))/(TPI/self.nTime)).astype(int)] == 0) | (coin.count[np.ceil((lsts-np.min(lsts))/(TPI/self.nTime)).astype(int)] == 0)
+        new_coin_data[zero_count_flag] = 0
+        return Coin(new_coin_data)
+
+    def seal_all(self):
+        for pol in self.ubls.keys():
+            for u in self.ubls[pol]:
+                np.zeros(self.sealSize, dtype = self.sealDtype).tofile(self.seal_name((pol, u)))
+
     def get_coin_now(self, polvec, ranges=None):
         return self.get_coin(self, polvec, ranges=ranges, retry_wait = 0, max_wait = .01 )
 
     def seize_coin(self, polvec, retry_wait = 1, max_wait = 60):
         if self.sealPosition is not None:
             raise TypeError("Treasure class is trying to seize coin without properly release previous seizure.")
-
+        if not self.have_coin(polvec):
+            return False
 
         start_time = time.time()
         while not self.try_coin(polvec) and time.time()-start_time < max_wait:
