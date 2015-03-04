@@ -360,7 +360,7 @@ def read_redundantinfo_old(infopath, verbose = False):
     return info
 
 
-def read_redundantinfo(infopath, verbose = False):
+def read_redundantinfo(infopath, verbose = False, DoF_only = False):
     METHODNAME = "read_redundantinfo"
     timer = time.time()
     infopath = os.path.expanduser(infopath)
@@ -405,6 +405,9 @@ def read_redundantinfo(infopath, verbose = False):
     infocount += 1
     ncross = len(info['crossindex'])
     info['ncross'] = ncross
+    if DoF_only:
+        return ncross - info['nUBL'] - info['nAntenna'] + 2
+
     info['bl2d'] = rawinfo[infocount].reshape(nbl, 2).astype(int) #from 1d bl index to a pair of antenna numbers
     infocount += 1
     info['ublcount'] = rawinfo[infocount].astype(int) #for each ubl, the number of good cross bls corresponding to it
@@ -469,6 +472,8 @@ def read_redundantinfo(infopath, verbose = False):
     if verbose:
         print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
     return info
+
+
 
 def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files. return lst in sidereal hour
     METHODNAME = "*importuvs*"
@@ -2487,7 +2492,7 @@ class Treasure:
                 f.write('%f %f %f %s\n'%(ublvec[0], ublvec[1], ublvec[2], pol))
         return
 
-    def get_coin(self, polvec, ranges=None, retry_wait = 1, max_wait = 60):#ranges is index range [incl, exc)
+    def get_coin(self, polvec, ranges=None, retry_wait = 1, max_wait = 10):#ranges is index range [incl, exc)
         if ranges is not None:
             if len(ranges) != 2 or ranges[0] < 0 or ranges[1] > self.nTime:
                 raise ValueError("range specification %s is not allowed."%ranges)
@@ -2502,7 +2507,7 @@ class Treasure:
         else:
             return None
 
-    def get_interpolated_coin(self, polvec, lsts, retry_wait = 1, max_wait = 60):#lsts in [0, 2pi)
+    def get_interpolated_coin(self, polvec, lsts, retry_wait = 1, max_wait = 10):#lsts in [0, 2pi)
         if not self.have_coin(polvec):
             return None
         lsts = np.array(lsts)
@@ -2522,11 +2527,21 @@ class Treasure:
             if coin is None:
                 return None
             grid_lsts = self.lsts[ranges[0]:ranges[1]]
-        interpolation = interpolate.interp1d(grid_lsts, coin.data, axis = 0)
-        new_coin_data = interpolation(lsts)
+
+        interp_coin = FakeCoin()
+        interp_coin.count = interpolate.interp1d(grid_lsts, coin.count, axis = 0)(lsts)
+        interp_coin.weighted_mean = interpolate.interp1d(grid_lsts, coin.weighted_mean, axis = 0)(lsts)
+        interp_coin.mean = interpolate.interp1d(grid_lsts, coin.mean, axis = 0)(lsts)
+        interp_coin.variance_re = interpolate.interp1d(grid_lsts, coin.variance_re, axis = 0)(lsts)
+        interp_coin.variance_im = interpolate.interp1d(grid_lsts, coin.variance_im, axis = 0)(lsts)
+        interp_coin.weighted_variance = interpolate.interp1d(grid_lsts, coin.weighted_variance, axis = 0)(lsts)
+
         zero_count_flag = (coin.count[np.floor((lsts-np.min(lsts))/(TPI/self.nTime)).astype(int)] == 0) | (coin.count[np.ceil((lsts-np.min(lsts))/(TPI/self.nTime)).astype(int)] == 0)
-        new_coin_data[zero_count_flag] = 0
-        return Coin(new_coin_data)
+        interp_coin.count[zero_count_flag] = 0
+        interp_coin.variance_re[zero_count_flag] = np.inf
+        interp_coin.variance_im[zero_count_flag] = np.inf
+        interp_coin.weighted_variance[zero_count_flag] = np.inf
+        return interp_coin
 
     def seal_all(self):
         for pol in self.ubls.keys():
@@ -2534,9 +2549,9 @@ class Treasure:
                 np.zeros(self.sealSize, dtype = self.sealDtype).tofile(self.seal_name((pol, u)))
 
     def get_coin_now(self, polvec, ranges=None):
-        return self.get_coin(self, polvec, ranges=ranges, retry_wait = 0, max_wait = .01 )
+        return self.get_coin(polvec, ranges=ranges, retry_wait = 0, max_wait = .01 )
 
-    def seize_coin(self, polvec, retry_wait = 1, max_wait = 60):
+    def seize_coin(self, polvec, retry_wait = 1, max_wait = 10):
         if self.sealPosition is not None:
             raise TypeError("Treasure class is trying to seize coin without properly release previous seizure.")
         if not self.have_coin(polvec):
@@ -2608,6 +2623,9 @@ class Coin:
                 return result
             elif attr == 'weighted_variance':
                 return 1/self.data[..., 7]
+
+class FakeCoin:
+    pass
 
 def read_ndarray(path, shape, dtype, ranges):#read middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)
     if not os.path.isfile(path):
