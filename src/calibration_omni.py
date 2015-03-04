@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.5.0.alpha'
+__version__ = '3.5.0'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -1701,7 +1701,7 @@ class RedundantCalibrator:
                 ratio = data/model
                 model_flag = model_flag|np.isnan(ratio)|np.isinf(ratio)
                 #amplitude
-                amp_weights = ~model_flag
+                amp_weights = (~model_flag) * self.ublcount[ubl_overlap][None,None,ubl_valid]
                 no_piror = (np.sum(amp_weights, axis = -1) <= MIN_UBL_COUNT)#not enough ubl coverage
                 ratio[model_flag] = 0
                 amp_weights[np.sum(amp_weights, axis = -1) ==0] = 1.#avoid all 0 weights
