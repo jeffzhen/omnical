@@ -4,11 +4,8 @@ import struct, ephem, glob
 import aipy as ap
 from scipy import interpolate
 import scipy.ndimage.filters as sfil
+import omnical.calibration_omni as omni
 julDelta = 2415020.
-
-chisqfiles=sorted(glob.glob('/data4/paper/hz2ug/2015PSA64/*xx.omnichisq'))
-
-
 
 uv = ap.miriad.UV('/data4/paper/2012EoR/psa_live/psa6375/zen.2456375.59142.uvcRREcAC')
 sa = ephem.Observer()
@@ -20,55 +17,72 @@ del(uv)
 #get data for all freq and lst, only care abt first time slice of each file
 NT = 100
 NF = 203
-data = np.zeros((NT, NF)) + 1.e9
-for i, chisqfile in enumerate(chisqfiles):
-    rawd = np.fromfile(chisqfile,dtype='float32')
-    
-    sa.date = struct.unpack('d', struct.pack('ff', *rawd[:2].tolist()))[0] - julDelta
-    lst = sa.sidereal_time()
-    sun.compute(sa)
-    if sun.alt < -0.1:
-        nf = rawd[2]
-        d = rawd[3:3+nf:int(np.floor(nf/NF))][:NF]
-        flag = np.fromfile(chisqfile.replace('.omnichisq','.omniflag'),dtype='bool')[:nf:int(np.floor(nf/NF))][:NF]
-        #print flag.dtype, (d==0).dtype
-        flag = flag|(d==0)
-        update_t = int(np.floor(lst/(2*np.pi)*NT))
-        data[update_t, ~flag] = np.min([data[update_t, ~flag], d[~flag]], axis=0)
+CEILING = 2.e8
 
+for POL in ['xx', 'yy']:
+    chisqfiles=sorted(glob.glob('/data4/paper/hz2ug/2015PSA64/*%s.omnichisq'%POL))
 
-#model = np.outer(np.median(data, axis = 1), np.median(data, axis = 0))
-model = sfil.minimum_filter(data, size = 5)
+    data = np.zeros((NT, NF)) + CEILING
 
-model = model * np.median(data/model)
-plt.subplot('211');plt.imshow(np.log10(data), vmin = 7, vmax = 9);
-plt.subplot('212');plt.imshow(np.log10(model), vmin = 7, vmax = 9);
-model.tofile('/data4/paper/hz2ug/2015PSA64/chisq_model_t%i_f%i.bin'%(NT,NF))
-plt.show()
-
-#plotting for one frequency
-for j,wantbin in enumerate([40, 80, 110, 165]):
-    data = np.zeros(len(chisqfiles), dtype='float32')
-    lst = np.zeros(len(chisqfiles), dtype='float32')
-    sundown = np.zeros(len(chisqfiles), dtype='bool')
+    print "WARNING! assuming same dof for all chisqs"
+    dof = omni.read_redundantinfo(chisqfiles[0].replace('.omnichisq','.binfo'), DoF_only=True)
     for i, chisqfile in enumerate(chisqfiles):
         rawd = np.fromfile(chisqfile,dtype='float32')
-        nf = rawd[2]
-        flag = np.fromfile(chisqfile.replace('.omnichisq','.omniflag'),dtype='bool')
         
         sa.date = struct.unpack('d', struct.pack('ff', *rawd[:2].tolist()))[0] - julDelta
-        lst[i] = sa.sidereal_time()
+        lst = sa.sidereal_time()
         sun.compute(sa)
-        sundown[i] = sun.alt < -0.1
-        d = rawd[wantbin + 3::nf+3]
-        try:
-            data[i] = np.min(d[~flag[wantbin::nf]])
-        except:
-            data[i] = np.nan
+        if sun.alt < -0.1:
+            nf = rawd[2]
+            
+            d = rawd[3:3+nf:int(np.floor(nf/NF))][:NF]/dof
+            flag = np.fromfile(chisqfile.replace('.omnichisq','.omniflag'),dtype='bool')[:nf:int(np.floor(nf/NF))][:NF]
+            
+            
+            #print flag.dtype, (d==0).dtype
+            flag = flag|(d==0)
+            update_t = int(np.floor(lst/(2*np.pi)*NT))
+            data[update_t, ~flag] = np.min([data[update_t, ~flag], d[~flag]], axis=0)
 
-    plt.subplot('14%i'%(j+1));plt.scatter(lst[sundown], data[sundown]);plt.ylim([0,1e8]);plt.scatter(np.arange(0,2*np.pi,2*np.pi/NT), 1.7 * model[:,wantbin]);plt.ylim([0,1e8]);plt.title(wantbin)
 
-plt.show()
+    #model = np.outer(np.median(data, axis = 1), np.median(data, axis = 0))
+    model = sfil.minimum_filter(data, size = 3)
+
+    model = model * np.median(data/model)
+    plt.subplot('211');plt.imshow(np.log10(data), vmin = 4, vmax = 5);
+    plt.subplot('212');plt.imshow(np.log10(model), vmin = 4, vmax = 5);
+    opmodel = np.zeros((len(model), NF + 3), dtype='float32')
+
+    for i in range(NT):
+        opmodel[i, 0:2] = struct.unpack('ff', struct.pack('d', i * 2*np.pi/NT))
+    opmodel[:, 2] = NF
+    opmodel[:, 3:] = model
+    opmodel.tofile('/data4/paper/hz2ug/2015PSA64/PSA64_chisq_model_%s.omnichisq'%POL)
+    plt.show()
+
+    #plotting for one frequency
+    for j,wantbin in enumerate([40, 80, 110, 165]):
+        data = np.zeros(len(chisqfiles), dtype='float32')
+        lst = np.zeros(len(chisqfiles), dtype='float32')
+        sundown = np.zeros(len(chisqfiles), dtype='bool')
+        for i, chisqfile in enumerate(chisqfiles):
+            rawd = np.fromfile(chisqfile,dtype='float32')
+            nf = rawd[2]
+            flag = np.fromfile(chisqfile.replace('.omnichisq','.omniflag'),dtype='bool')
+            
+            sa.date = struct.unpack('d', struct.pack('ff', *rawd[:2].tolist()))[0] - julDelta
+            lst[i] = sa.sidereal_time()
+            sun.compute(sa)
+            sundown[i] = sun.alt < -0.1
+            d = rawd[wantbin + 3::nf+3]/dof
+            try:
+                data[i] = np.min(d[~flag[wantbin::nf]])
+            except:
+                data[i] = np.nan
+
+        plt.subplot('14%i'%(j+1));plt.scatter(lst[sundown], data[sundown]);plt.scatter(np.arange(0,2*np.pi,2*np.pi/NT), model[:,wantbin], color='green');plt.scatter(np.arange(0,2*np.pi,2*np.pi/NT), 4.e3 + 1.2*model[:,wantbin], color='cyan');plt.ylim([0,1e5]);plt.title(wantbin)
+
+    plt.show()
 exit()
 
 ###Zaki's noise model##
