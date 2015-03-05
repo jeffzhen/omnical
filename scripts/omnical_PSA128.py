@@ -7,6 +7,7 @@ import omnical.calibration_omni as omni
 import cPickle as pickle
 import scipy.signal as ss
 import scipy.ndimage.filters as sfil
+from scipy import interpolate
 FILENAME = "omnical_PSA128.py"
 print "#Omnical Version %s#"%omni.__version__
 PI = np.pi
@@ -35,8 +36,11 @@ o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create n
 o.add_option('--flag', action = 'store_true', help = 'whether to create new flagging')
 o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
 o.add_option('-s', '--singlethread', action = 'store_true', help = 'whether to disable multiprocessing for calibration and use only one thread. May need this option for things like grid engine.')
+o.add_option('--chemo', action = 'store_true', help = 'whether to apply chemotherapy when flagging.')
 o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
 o.add_option('--mem', action = 'store', type = 'float', default = 4e9, help = 'Amount of initial memory to reserve when parsing uv files in number of bytes.')
+o.add_option('--model_noise', action = 'store', default = None, help = 'A model .omnichisq file that contains the noise model (sigma^2) with the first two columns being lst in range [0,2pi). Separate by , the same order as -p. Need to be the same unit with data or model_treasure.')
+o.add_option('--model_treasure', action = 'store', default = None, help = 'A treasure file that contains good foreground visibilities. ')
 
 opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
@@ -48,6 +52,7 @@ ano = opts.tag##This is the file name difference for final calibration parameter
 dataano = opts.datatag#ano for existing data and lst.dat
 sourcepath = os.path.expanduser(opts.datapath)
 oppath = os.path.expanduser(opts.outputpath)
+chemo = opts.chemo
 if opts.treasure is not None:
     if not os.path.isdir(os.path.expanduser(opts.treasure)):
         raise IOError("Treasure path %s does not exist."%opts.treasure)
@@ -105,6 +110,33 @@ for p in opts.pol.split(','):
         raise ValueError("polarization type %s not supported."%p)
     wantpols[p] = ap.miriad.str2pol[p]
 #wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo:
+
+have_model_noises = False
+if opts.model_noise is not None:
+    if not need_new_flag:
+        raise IOError("--noise_model supplied without --flag. Noise model is only useful when doing new flagging.")
+    if len(opts.model_noise.split(',')) != len(opts.pol.split(',')):
+        raise ValueError("--model_noise got argument %s that does not have the same number of polarizations as -p argument %s."%(opts.model_noise, opts.pol))
+    model_noises = {}
+    for p, pol in enumerate(opts.pol.split(',')):
+        model_noise_file = os.path.expanduser(opts.model_noise.split(',')[p])
+        if not os.path.isfile(model_noise_file):
+            raise IOError("model noise file %s does not exist"%model_noise_file)
+        model_noises[pol] = omni.load_omnichisq(model_noise_file)
+        if np.max(omni.get_omnitime(model_noises[pol])) >= TPI or np.min(omni.get_omnitime(model_noises[pol])) < 0:
+            raise ValueError("Times stored in noise model %s is outside the range [0, 2pi)."%model_noise_file)
+    have_model_noises = True
+
+have_model_treasure = False
+if opts.model_treasure is not None:
+    if os.path.isdir(os.path.expanduser(opts.model_treasure)):
+        model_treasure = omni.Treasure(os.path.expanduser(opts.model_treasure))
+        for pol in opts.pol.split(','):
+            if pol not in model_treasure.ubls.keys():
+                raise ValueError("Polarization %s not found in the model treasure file %s."%(pol, os.path.expanduser(opts.model_treasure)))
+    else:
+        raise IOError("Model treasure folder not found: %s."%os.path.expanduser(opts.model_treasure))
+    have_model_treasure = True
 
 print "Reading calfile %s"%opts.cal,
 sys.stdout.flush()
@@ -289,16 +321,28 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
         additivein = omni.apply_calpar(additivein, np.exp(-1j * np.angle(crude_calpar[pol])), calibrators[pol].totalVisibilityId)
         #del original_data
 
+    #omni.omniview([data[0,0,110], calibrators['xx'].get_calibrated_data(data[0])[0,110]], info = calibrators['xx'].get_info())
+    if have_model_treasure:
+        calibrators[pol].absolutecal_w_treasure(model_treasure, pol, np.array(lst)*TPI/24., tolerance = 2.)
+    #omni.omniview([data[0,0,110], calibrators['xx'].get_calibrated_data(data[0])[0,110]/5e4], info = calibrators['xx'].get_info())
     #####################flag bad data according to chisq#########################
     if need_new_flag:
         flags[pol] = calibrators[pol].flag(nsigma = flag_thresh, twindow=flagt, fwindow=flagf)#True if bad and flagged
-        flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2,.4,1,.4,.2]],mode='same')>=1)
-        flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2],[.4],[1],[.4],[.2]],mode='same')>=1)
-        bad_freq = (np.sum(flags[pol], axis = 0) > (calibrators[pol].nTime/2.))
-        bad_time = (np.sum(flags[pol], axis = 1) > (calibrators[pol].nFrequency/2.))
-        flags[pol] = flags[pol]|bad_freq[None,:]|bad_time[:, None]
-        #if np.sum(flags[pol]) > flags[pol].shape[0] * flags[pol].shape[1] / 2.:
-            #flags[pol] = flags[pol]|True
+
+
+        if have_model_noises:
+            if model_noises[pol][0,2] != calibrators[pol].nFrequency:
+                raise ValueError('Model noise on %pol has nFrequency %i that differs from calibrators %i.'%(pol, model_noises[pol][0,2], calibrators[pol].nFrequency))
+            interp_model = interpolate.interp1d(omni.get_omnitime(model_noises[pol]), model_noises[pol][..., 3:], axis = 0)
+            model_chisq = 2 * interp_model(np.array(lst)*TPI/24.) * (len(calibrators[pol].crossindex) - calibrators[pol].nAntenna - calibrators[pol].nUBL + 2) * 10**(4 * np.median(calibrators[pol].rawCalpar[..., 3:3+calibrators[pol].nAntenna], axis = -1))#leniency factor * model * DOF * gain correction
+            flags[pol] = flags[pol]| (calibrators[pol].rawCalpar[..., 2] > model_chisq)
+
+        if chemo:
+            flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2,.4,1,.4,.2]],mode='same')>=1)
+            flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2],[.4],[1],[.4],[.2]],mode='same')>=1)
+            bad_freq = (np.sum(flags[pol], axis = 0) > (calibrators[pol].nTime / 4.))
+            bad_time = (np.sum(flags[pol][:, ~bad_freq], axis = 1) > (np.sum(~bad_freq) / 4.))
+            flags[pol] = flags[pol]|bad_freq[None,:]|bad_time[:, None]
         flags[pol] = flags[pol] | uvflags[pol]
     else:
         flags[pol] = uvflags[pol]

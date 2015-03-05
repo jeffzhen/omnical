@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.5.0'
+__version__ = '3.5.1'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -1662,64 +1662,69 @@ class RedundantCalibrator:
         return_flag = (nan_flag|spike_flag|ubl_flag)
         return return_flag
 
-    def absolutecal_w_treasure(self, treasure_path, pol, lsts, tolerance = None, MIN_UBL_COUNT = 10):#phase not yet implemented
-        if self.nTime != len(lsts):
-            raise TypeError("Input lsts has wrong length of %i rather than expected %i."%(len(lsts), self.nTime))
+    def absolutecal_w_treasure(self, treasure, pol, lsts, tolerance = None, MIN_UBL_COUNT = 10):#phase not yet implemented
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore",category=RuntimeWarning)
 
-        treasure = Treasure(treasure_path)
-        if self.nFrequency != treasure.nFrequency:
-            raise TypeError("Treasure has %i frequency bins rather than expected %i in calibrator."%(treasure.nFrequency, self.nFrequency))
-        treasure_bls = treasure.ubls[pol]
-        if tolerance is None:
-            tolerance = treasure.tolerance
-        else:
-            treasure.tolerance = tolerance
-        ubl_overlap = np.zeros(self.nUBL, dtype='bool')
-        for i, ubl in enumerate(self.ubl):
-            ubl_overlap[i] = (np.min(np.linalg.norm(treasure_bls - ubl, axis = 1)) < tolerance)
+            if self.nTime != len(lsts):
+                raise TypeError("Input lsts has wrong length of %i rather than expected %i."%(len(lsts), self.nTime))
 
-        if np.sum(ubl_overlap) > MIN_UBL_COUNT:
-
-            data = self.rawCalpar[..., 3 + 2 * self.nAntenna::2] + 1.j * self.rawCalpar[..., 3 + 2 * self.nAntenna + 1::2]
-            data = data[..., ubl_overlap]
-            model = np.zeros_like(data)
-            model_flag = np.zeros(data.shape, dtype='bool')
-
-            for i, ubl in enumerate(self.ubl[ubl_overlap]):
-                coin = treasure.get_interpolated_coin((pol, ubl), lsts)
-                if coin is None:
-                    model_flag[..., i] = True
-                else:
-                    model[..., i] = coin.weighted_mean
-                    model_flag[..., i] = coin.count < 1
-
-            ubl_valid = (np.sum(~model_flag, axis=(0,1)) > 0)#whether the ubl has any measurements in this entire lst range
-            if np.sum(ubl_valid) > MIN_UBL_COUNT:
-                data = data[..., ubl_valid]
-                model = model[..., ubl_valid]
-                model_flag = model_flag[..., ubl_valid]
-                ratio = data/model
-                model_flag = model_flag|np.isnan(ratio)|np.isinf(ratio)
-                #amplitude
-                amp_weights = (~model_flag) * self.ublcount[ubl_overlap][None,None,ubl_valid]
-                no_piror = (np.sum(amp_weights, axis = -1) <= MIN_UBL_COUNT)#not enough ubl coverage
-                ratio[model_flag] = 0
-                amp_weights[np.sum(amp_weights, axis = -1) ==0] = 1.#avoid all 0 weights
-                amp_cal = np.average(np.abs(ratio), axis = -1, weights = amp_weights)
-                amp_cal[no_piror] = 1.
-
-                #phase
-                #A = self.ubl[ubl_overlap][ubl_valid]
-
-                #apply results to rawCalpar
-                self.rawCalpar[..., 3 + 2 * self.nAntenna:] = self.rawCalpar[..., 3 + 2 * self.nAntenna:] / amp_cal[..., None]
-                self.rawCalpar[..., 3: 3 +  self.nAntenna] = self.rawCalpar[..., 3: 3 +  self.nAntenna] + np.log10(amp_cal[..., None])
-
-                return amp_cal
+            if type(treasure) == type('aa'):
+                treasure = Treasure(treasure)
+            if self.nFrequency != treasure.nFrequency:
+                raise TypeError("Treasure has %i frequency bins rather than expected %i in calibrator."%(treasure.nFrequency, self.nFrequency))
+            treasure_bls = treasure.ubls[pol]
+            if tolerance is None:
+                tolerance = treasure.tolerance
             else:
-                return ubl_valid
-        else:
-            return ubl_overlap
+                treasure.tolerance = tolerance
+            ubl_overlap = np.zeros(self.nUBL, dtype='bool')
+            for i, ubl in enumerate(self.ubl):
+                ubl_overlap[i] = (np.min(np.linalg.norm(treasure_bls - ubl, axis = 1)) < tolerance)
+
+            if np.sum(ubl_overlap) > MIN_UBL_COUNT:
+
+                data = self.rawCalpar[..., 3 + 2 * self.nAntenna::2] + 1.j * self.rawCalpar[..., 3 + 2 * self.nAntenna + 1::2]
+                data = data[..., ubl_overlap]
+                model = np.zeros_like(data)
+                model_flag = np.zeros(data.shape, dtype='bool')
+
+                for i, ubl in enumerate(self.ubl[ubl_overlap]):
+                    coin = treasure.get_interpolated_coin((pol, ubl), lsts)
+                    if coin is None:
+                        model_flag[..., i] = True
+                    else:
+                        model[..., i] = coin.weighted_mean
+                        model_flag[..., i] = coin.count < 1
+
+                ubl_valid = (np.sum(~model_flag, axis=(0,1)) > 0)#whether the ubl has any measurements in this entire lst range
+                if np.sum(ubl_valid) > MIN_UBL_COUNT:
+                    data = data[..., ubl_valid]
+                    model = model[..., ubl_valid]
+                    model_flag = model_flag[..., ubl_valid]
+                    ratio = data/model
+                    model_flag = model_flag|np.isnan(ratio)|np.isinf(ratio)
+                    #amplitude
+                    amp_weights = (~model_flag) * self.ublcount[ubl_overlap][None,None,ubl_valid]
+                    no_piror = (np.sum(amp_weights, axis = -1) <= MIN_UBL_COUNT)#not enough ubl coverage
+                    ratio[model_flag] = 0
+                    amp_weights[np.sum(amp_weights, axis = -1) ==0] = 1.#avoid all 0 weights
+                    amp_cal = np.average(np.abs(ratio), axis = -1, weights = amp_weights)
+                    amp_cal[no_piror] = 1.
+
+                    #phase
+                    #A = self.ubl[ubl_overlap][ubl_valid]
+
+                    #apply results to rawCalpar
+                    self.rawCalpar[..., 3 + 2 * self.nAntenna:] = self.rawCalpar[..., 3 + 2 * self.nAntenna:] / amp_cal[..., None]
+                    self.rawCalpar[..., 3: 3 +  self.nAntenna] = self.rawCalpar[..., 3: 3 +  self.nAntenna] + np.log10(amp_cal[..., None]) / 2.
+                    self.rawCalpar[..., 1] = 1
+                    self.rawCalpar[no_piror, 1] = -1
+                    return amp_cal
+                else:
+                    return ubl_valid
+            else:
+                return ubl_overlap
 
     def update_treasure(self, treasure, lsts, flags, pol, verbose = False):#lsts in radians
         if type(treasure) == type('aa'):
@@ -2672,17 +2677,37 @@ def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3)
             raise IOError("write_ndarray failed on %s"%path)
     return
 
-def load_omnigain(path, info):
+def load_omnichisq(path):
+    path = os.path.expanduser(path)
+    if not os.path.isfile(path):
+        raise IOError("Path %s does not exist."%path)
+
+    omnichisq = np.fromfile(path, dtype = 'float32')
+    NF = int(omnichisq[2])
+    omnichisq.shape = (len(omnichisq) / (NF + 3), (NF + 3))
+    return omnichisq
+
+def load_omnigain(path, info=None):
+    path = os.path.expanduser(path)
+    if not os.path.isfile(path):
+        raise IOError("Path %s does not exist."%path)
+    if info is None:
+        info = path.replace('.omnigain', '.binfo')
     if type(info) == type('a'):
         info = read_redundantinfo(info)
-    path = os.path.expanduser(path)
-    if not os.path.isfile:
-        raise IOError("Path %s does not exist."%path)
+
 
     omnigain = np.fromfile(path, dtype = 'float32')
     omnigain.shape = (omnigain.shape[0] / (info['nAntenna']) / (2 + 1 + 1 + 2 * int(omnigain[3])), info['nAntenna'], 2 + 1 + 1 + 2 * int(omnigain[3]))
     return omnigain
 
+def get_omnitime(omnistuff):
+    if len(omnistuff.shape) == 2:
+        return np.array([struct.unpack('d', struct.pack('ff', *(pair.tolist())))[0] for pair in omnistuff[:, :2]])
+    elif len(omnistuff.shape) == 3:
+        return np.array([struct.unpack('d', struct.pack('ff', *(pair.tolist())))[0] for pair in omnistuff[:, 0, :2]])
+    else:
+        raise ValueError('get_omnitime does not know how to deal with array of shape %s.'%omnistuff.shape)
 
 def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False):
     import matplotlib.pyplot as plt
