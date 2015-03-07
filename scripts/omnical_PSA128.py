@@ -333,7 +333,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
         if have_model_noises:
             if model_noises[pol][0,2] != calibrators[pol].nFrequency:
                 raise ValueError('Model noise on %pol has nFrequency %i that differs from calibrators %i.'%(pol, model_noises[pol][0,2], calibrators[pol].nFrequency))
-            interp_model = interpolate.interp1d(omni.get_omnitime(model_noises[pol]), model_noises[pol][..., 3:], axis = 0)
+            interp_model = interpolate.interp1d(np.append(omni.get_omnitime(model_noises[pol]), [TPI]), np.append(model_noises[pol][..., 3:], [model_noises[pol][0, ..., 3:]], axis=0), axis = 0)
             model_chisq = 2 * interp_model(np.array(lst)*TPI/24.) * (len(calibrators[pol].crossindex) - calibrators[pol].nAntenna - calibrators[pol].nUBL + 2) * 10**(4 * np.median(calibrators[pol].rawCalpar[..., 3:3+calibrators[pol].nAntenna], axis = -1))#leniency factor * model * DOF * gain correction
             flags[pol] = flags[pol]| (calibrators[pol].rawCalpar[..., 2] > model_chisq)
 
