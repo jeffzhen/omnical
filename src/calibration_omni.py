@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.5.1'
+__version__ = '3.5.2'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -2416,15 +2416,16 @@ class Treasure:
         return new_treasure
 
     def update_coin(self, polvec, lsts, visibilities, epsilonsqs, verbose=False):#lsts should be [0,TPI); visibilities should be 2D np array nTime by nFrequency, epsilonsqs should be for real/imag parts seperately (should be same though); to flag any data point make either visibilities or epsilonsqs np.nan, or make epsilonsqs 0
+        lsts = np.array(lsts)
         if visibilities.shape != (len(lsts), self.nFrequency):
             raise ValueError("visibilities array has wrong shape %s that does not agree with %s."%(visibilities.shape, (len(lsts), self.nFrequency)))
         if epsilonsqs.shape != (len(lsts), self.nFrequency):
             raise ValueError("epsilonsqs array has wrong shape %s that does not agree with %s."%(epsilonsqs.shape, (len(lsts), self.nFrequency)))
         if np.max(lsts) > TPI or np.min(lsts) < -TPI/self.nTime:
             raise ValueError("lsts range [%f, %f] is not inside the expected [%.2f, 2pi)."%(np.max(lsts), np.min(lsts), -TPI/self.nTime))
-        if np.max(np.array(lsts)[1:] - np.array(lsts)[:-1]) > TPI/self.nTime * 1.001:
-            raise ValueError("lsts interval is %f, which is larger than desired grid size %f."%(np.max(np.array(lsts)[1:] - np.array(lsts)[:-1]), TPI/self.nTime))
-        lsts = np.array(lsts)
+        if len(lsts) > 1 and (np.max(lsts[1:] - lsts[:-1]) > TPI/self.nTime * 1.001):
+            raise ValueError("lsts interval is %f, which is larger than desired grid size %f."%(np.max(lsts[1:] - lsts[:-1]), TPI/self.nTime))
+
         n_wrap = np.sum(lsts[1:] - lsts[:-1] < 0)
         if n_wrap > 1:
             raise ValueError("lsts is not a continuous list of times. Only one wrap around from 2pi to 0 allowed.")
