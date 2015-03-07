@@ -1737,7 +1737,7 @@ class RedundantCalibrator:
                 sys.stdout.flush()
             visibilities = self.rawCalpar[..., 3+2*self.nAntenna+2*i] + 1.j*self.rawCalpar[..., 4+2*self.nAntenna+2*i]
             visibilities[flags] = np.nan
-            treasure.update_coin((pol, ublvec), lsts, visibilities, self.rawCalpar[..., 2]/2./(len(self.crossindex)-self.nAntenna-self.nUBL+2)/self.ublcount[i])#divide by 2 because epsilon^2 should be for real/imag separately
+            treasure.update_coin((pol, ublvec), lsts, visibilities, self.rawCalpar[..., 2]/2./(len(self.crossindex)-self.nAntenna-self.nUBL+2)/self.ublcount[i], verbose=verbose)#divide by 2 because epsilon^2 should be for real/imag separately
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
         if arrayinfoPath is not None and os.path.isfile(arrayinfoPath):
@@ -2415,7 +2415,7 @@ class Treasure:
         new_treasure = Treasure(folder_path)
         return new_treasure
 
-    def update_coin(self, polvec, lsts, visibilities, epsilonsqs):#lsts should be [0,TPI); visibilities should be 2D np array nTime by nFrequency, epsilonsqs should be for real/imag parts seperately (should be same though); to flag any data point make either visibilities or epsilonsqs np.nan, or make epsilonsqs 0
+    def update_coin(self, polvec, lsts, visibilities, epsilonsqs, verbose=False):#lsts should be [0,TPI); visibilities should be 2D np array nTime by nFrequency, epsilonsqs should be for real/imag parts seperately (should be same though); to flag any data point make either visibilities or epsilonsqs np.nan, or make epsilonsqs 0
         if visibilities.shape != (len(lsts), self.nFrequency):
             raise ValueError("visibilities array has wrong shape %s that does not agree with %s."%(visibilities.shape, (len(lsts), self.nFrequency)))
         if epsilonsqs.shape != (len(lsts), self.nFrequency):
@@ -2430,11 +2430,13 @@ class Treasure:
             raise ValueError("lsts is not a continuous list of times. Only one wrap around from 2pi to 0 allowed.")
         elif n_wrap == 1:
             iwrap = int(np.argsort(lsts[1:] - lsts[:-1])[0]) + 1#wrappping happend between iwrap-1 and iwrap
-            self.update_coin(polvec, lsts[:iwrap], visibilities[:iwrap], epsilonsqs[:iwrap])
-            self.update_coin(polvec, np.append([lsts[iwrap-1] - TPI], lsts[iwrap:]), visibilities[iwrap-1:], epsilonsqs[iwrap-1:])
+            self.update_coin(polvec, lsts[:iwrap], visibilities[:iwrap], epsilonsqs[:iwrap], verbose=verbose)
+            self.update_coin(polvec, np.append([lsts[iwrap-1] - TPI], lsts[iwrap:]), visibilities[iwrap-1:], epsilonsqs[iwrap-1:], verbose=verbose)
             return
         else:
             if not self.have_coin(polvec):
+                if verbose:
+                    print "Adding new coin %s"%polvec
                 self.add_coin(polvec)
 
             update_range = np.array([np.ceil(lsts[0]/(TPI/self.nTime)), np.ceil(lsts[-1]/(TPI/self.nTime))], dtype = 'int32') # [inclusive, exclusive)

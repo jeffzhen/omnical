@@ -71,7 +71,7 @@ data = np.roll(coin.weighted_mean, roll_t, axis = 0)[tbin_min:tbin_max, fbin_min
 var = np.roll(coin.weighted_variance, roll_t, axis = 0)[tbin_min:tbin_max, fbin_min:fbin_max]
 
 
-flag = np.isnan(data*var)|np.isinf(data*var)|(var > 15)
+flag = np.isnan(data)|np.isinf(data)|np.isnan(var)|np.isinf(var)|(var > 15)
 flag = flag | ((np.sum(flag[1200:1400], axis=0) > 50)[None,:])
 
 #plt.plot(np.sum(flag, axis=0))
