@@ -2431,7 +2431,8 @@ class Treasure:
             raise ValueError("lsts is not a continuous list of times. Only one wrap around from 2pi to 0 allowed.")
         elif n_wrap == 1:
             iwrap = int(np.argsort(lsts[1:] - lsts[:-1])[0]) + 1#wrappping happend between iwrap-1 and iwrap
-            self.update_coin(polvec, lsts[:iwrap], visibilities[:iwrap], epsilonsqs[:iwrap], verbose=verbose)
+            if iwrap > 1:
+                self.update_coin(polvec, lsts[:iwrap], visibilities[:iwrap], epsilonsqs[:iwrap], verbose=verbose)
             self.update_coin(polvec, np.append([lsts[iwrap-1] - TPI], lsts[iwrap:]), visibilities[iwrap-1:], epsilonsqs[iwrap-1:], verbose=verbose)
             return
         else:
