@@ -2558,7 +2558,7 @@ class Treasure:
                 np.zeros(self.sealSize, dtype = self.sealDtype).tofile(self.seal_name((pol, u)))
 
     def get_coin_now(self, polvec, ranges=None):
-        return self.get_coin(polvec, ranges=ranges, retry_wait = 0, max_wait = .01 )
+        return self.get_coin(polvec, ranges=ranges, retry_wait = 0.1, max_wait = .5 )
 
     def seize_coin(self, polvec, retry_wait = 1, max_wait = 10):
         if self.sealPosition is not None:
