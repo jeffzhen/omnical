@@ -368,7 +368,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     calibrators[pol].write_redundantinfo(oppath + '/' + dataano + '_' + ano + "_%s.binfo"%pol, overwrite=True)
     diag_txt = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, ubl_healthbar = ubl_healthbar, ouput_txt = True)
     text_file = open(oppath + '/' + dataano + '_' + ano + "_%s.diagtxt"%pol, "a")
-    text_file.write(diag_txt)
+    text_file.write(str(sys.argv)+'\n'+diag_txt)
     text_file.close()
 
     print "Done."
