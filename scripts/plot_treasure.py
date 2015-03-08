@@ -10,7 +10,7 @@ item = sys.argv[2]
 if item not in ['count', 'variance_re', 'variance_im', 'weighted_mean', 'mean', 'weighted_variance']:
 	print "%s not recognized."%item
 for p, pol in enumerate(treasure.ubls.keys()):
-	c = treasure.get_coin_now((pol,treasure.ubls[pol][np.argsort(np.linalg.norm(treasure.ubls[pol], axis=1))]))
+	c = treasure.get_coin_now((pol,treasure.ubls[pol][np.argsort(np.linalg.norm(treasure.ubls[pol], axis=1))[0]]))
 
 	plt.subplot('1%i%i'%(len(treasure.ubls.keys()), p+1))
 	plt.imshow(c.__getattr__(item), aspect = 1/5., interpolation='none');plt.colorbar();plt.title(pol)
