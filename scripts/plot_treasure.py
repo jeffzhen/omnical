@@ -14,6 +14,7 @@ for p, pol in enumerate(treasure.ubls.keys()):
 
 	plt.subplot('1%i%i'%(len(treasure.ubls.keys()), p+1))
 	data = c.__getattr__(item)
-	plt.imshow(data, aspect = 1/5., interpolation='none', vmin = np.percentile(data, 5), vmax = np.percentile(data, 95));plt.colorbar();plt.title(pol)
+	flag = np.isnan(data)|np.isinf(data)
+	plt.imshow(data, aspect = 1/5., interpolation='none', vmin = np.percentile(data[~flag], 5), vmax = np.percentile(data[~flag], 95));plt.colorbar();plt.title(pol)
 
 plt.show()
