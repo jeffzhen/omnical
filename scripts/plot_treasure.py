@@ -13,6 +13,7 @@ for p, pol in enumerate(treasure.ubls.keys()):
 	c = treasure.get_coin_now((pol,treasure.ubls[pol][np.argsort(np.linalg.norm(treasure.ubls[pol], axis=1))[0]]))
 
 	plt.subplot('1%i%i'%(len(treasure.ubls.keys()), p+1))
-	plt.imshow(c.__getattr__(item), aspect = 1/5., interpolation='none');plt.colorbar();plt.title(pol)
+	data = c.__getattr__(item)
+	plt.imshow(data, aspect = 1/5., interpolation='none', vmin = np.percentile(data, 5), vmax = np.percentile(data, 95));plt.colorbar();plt.title(pol)
 
 plt.show()
