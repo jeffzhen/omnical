@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.5.3'
+__version__ = '3.5.4'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -475,7 +475,7 @@ def read_redundantinfo(infopath, verbose = False, DoF_only = False):
 
 
 
-def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files. return lst in sidereal hour
+def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, lat=None, lon=None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files. return lst in sidereal hour
     METHODNAME = "*importuvs*"
 
     ###############sanitize inputs################################
@@ -503,8 +503,14 @@ def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = N
     dfreq = uv['sdf']
 
     sa = ephem.Observer()
-    sa.lon = uv['longitu']
-    sa.lat = uv['latitud']
+    if lon is None:
+        sa.lon = uv['longitu']
+    else:
+        sa.lon = lon
+    if lat is None:
+        sa.lat = uv['latitud']
+    else:
+        sa.lat = lat
 
     del(uv)
 

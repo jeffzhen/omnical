@@ -188,8 +188,8 @@ uv=ap.miriad.UV(uvfiles[0])
 nfreq = uv.nchan;
 nant = uv['nants']
 sa = ephem.Observer()
-sa.lon = uv['longitu']
-sa.lat = uv['latitud']
+sa.lon = aa.lon
+sa.lat = aa.lat
 #startfreq = uv['sfreq']
 #dfreq = uv['sdf']
 del(uv)
@@ -216,7 +216,7 @@ if skip:
 else:
     print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
     sys.stdout.flush()
-    data, t, timing, lst, rawflag = omni.importuvs(uvfiles, wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100, init_mem=init_mem)#, nTotalAntenna = len(aa))
+    data, t, timing, lst, rawflag = omni.importuvs(uvfiles, wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100, init_mem=init_mem, lat = sa.lat, lon=sa.lon)#, nTotalAntenna = len(aa))
     print FILENAME + " MSG:",  len(t), "slices read. data shape: ", data.shape
     sys.stdout.flush()
 
