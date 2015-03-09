@@ -475,7 +475,8 @@ def read_redundantinfo(infopath, verbose = False, DoF_only = False):
 
 
 
-def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, lat=None, lon=None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files. return lst in sidereal hour
+def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, lat = None, lon = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files. return lst in sidereal hour
+
     METHODNAME = "*importuvs*"
 
     ###############sanitize inputs################################
