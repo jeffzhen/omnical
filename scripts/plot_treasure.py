@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import numpy as np
 import commands, os, time, math, ephem
 import omnical.calibration_omni as omni
