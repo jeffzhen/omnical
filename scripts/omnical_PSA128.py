@@ -149,7 +149,7 @@ for pol in wantpols.keys():
     infopaths[pol]= os.path.expanduser(opts.infopath)
 
 
-removedegen = True
+removedegen = 5
 if opts.add and opts.nadd > 0:
     removeadditive = True
     removeadditiveperiod = opts.nadd
@@ -322,15 +322,17 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
         #del original_data
 
     #omni.omniview([data[0,0,110], calibrators['xx'].get_calibrated_data(data[0])[0,110]], info = calibrators['xx'].get_info())
-    if have_model_treasure:
-        calibrators[pol].absolutecal_w_treasure(model_treasure, pol, np.array(lst)*TPI/24., tolerance = 2.)
+    if have_model_treasure and (sunpos[:,0] < -.1).all():
+        #print np.nanmean(np.linalg.norm((data[0]-calibrators[pol].get_modeled_data())[..., calibrators[pol].subsetbl[calibrators[pol].crossindex]], axis = -1)**2 / calibrators[pol].rawCalpar[...,2])
+        abs_cal, phs_cal = calibrators[pol].absolutecal_w_treasure(model_treasure, pol, np.array(lst)*TPI/24., tolerance = 2.)
+        #print np.nanmean(np.linalg.norm((data[0]-calibrators[pol].get_modeled_data())[..., calibrators[pol].subsetbl[calibrators[pol].crossindex]], axis = -1)**2 / calibrators[pol].rawCalpar[...,2])
     #omni.omniview([data[0,0,110], calibrators['xx'].get_calibrated_data(data[0])[0,110]/5e4], info = calibrators['xx'].get_info())
     #####################flag bad data according to chisq#########################
     if need_new_flag:
         flags[pol] = calibrators[pol].flag(nsigma = flag_thresh, twindow=flagt, fwindow=flagf)#True if bad and flagged
 
 
-        if have_model_noises:
+        if have_model_noises and (sunpos[:,0] < -.1).all():
             if model_noises[pol][0,2] != calibrators[pol].nFrequency:
                 raise ValueError('Model noise on %pol has nFrequency %i that differs from calibrators %i.'%(pol, model_noises[pol][0,2], calibrators[pol].nFrequency))
             interp_model = interpolate.interp1d(np.append(omni.get_omnitime(model_noises[pol]), [TPI]), np.append(model_noises[pol][..., 3:], [model_noises[pol][0, ..., 3:]], axis=0), axis = 0)

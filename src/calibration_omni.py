@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.5.4'
+__version__ = '3.6.0'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -1691,43 +1691,95 @@ class RedundantCalibrator:
 
             if np.sum(ubl_overlap) > MIN_UBL_COUNT:
 
-                data = self.rawCalpar[..., 3 + 2 * self.nAntenna::2] + 1.j * self.rawCalpar[..., 3 + 2 * self.nAntenna + 1::2]
-                data = data[..., ubl_overlap]
+                original_data = self.rawCalpar[..., 3 + 2 * self.nAntenna::2] + 1.j * self.rawCalpar[..., 3 + 2 * self.nAntenna + 1::2]
+                data = original_data[..., ubl_overlap]
                 model = np.zeros_like(data)
                 model_flag = np.zeros(data.shape, dtype='bool')
 
-                for i, ubl in enumerate(self.ubl[ubl_overlap]):
+                iterants = zip(range(np.sum(ubl_overlap)), self.ubl[ubl_overlap])
+                np.random.shuffle(iterants)
+                for i, ubl in iterants:
                     coin = treasure.get_interpolated_coin((pol, ubl), lsts)
                     if coin is None:
-                        model_flag[..., i] = True
+                        coin = treasure.get_interpolated_coin((pol, -ubl), lsts)
+                        if coin is None:
+                            model_flag[..., i] = True
+                        else:
+                            model[..., i] = np.conjugate(coin.weighted_mean)
+                            model_flag[..., i] = coin.count < 1
+
                     else:
                         model[..., i] = coin.weighted_mean
                         model_flag[..., i] = coin.count < 1
 
-                ubl_valid = (np.sum(~model_flag, axis=(0,1)) > 0)#whether the ubl has any measurements in this entire lst range
+                #flatten the first 2 t/f axes
+                data.shape = (data.shape[0]*data.shape[1], data.shape[2])
+                model.shape = (model.shape[0]*model.shape[1], model.shape[2])
+                model_flag.shape = (model_flag.shape[0]*model_flag.shape[1], model_flag.shape[2])
+
+
+                #now try to find two types of time/freqs: not enough model or have enough model; then, among the time/freqs that have enough model, find the ubl models that is valid on all of them
+                good_slot = (np.sum(~model_flag, axis=-1) > MIN_UBL_COUNT)
+                ubl_valid = (np.sum(~model_flag[good_slot], axis=0) == np.sum(good_slot))#whether the ubl has any measurements in this entire lst range
+
                 if np.sum(ubl_valid) > MIN_UBL_COUNT:
-                    data = data[..., ubl_valid]
-                    model = model[..., ubl_valid]
-                    model_flag = model_flag[..., ubl_valid]
-                    ratio = data/model
-                    model_flag = model_flag|np.isnan(ratio)|np.isinf(ratio)
+                    #now it's safe to assume that on good_slot and ubl_valid, all model_flag is False
+                    if np.sum(model_flag[good_slot][:,ubl_valid]) > 0:
+                        raise ValueError('Logic error: the flag here should be all False.')
+                    ##data = data[..., ubl_valid]
+                    ##model = model[..., ubl_valid]
+                    ##model_flag = model_flag[..., ubl_valid]
+                    N = 1. / self.ublcount[ubl_overlap][ubl_valid]
+
                     #amplitude
-                    amp_weights = (~model_flag) * self.ublcount[ubl_overlap][None,None,ubl_valid]
-                    no_piror = (np.sum(amp_weights, axis = -1) <= MIN_UBL_COUNT)#not enough ubl coverage
-                    ratio[model_flag] = 0
-                    amp_weights[np.sum(amp_weights, axis = -1) ==0] = 1.#avoid all 0 weights
-                    amp_cal = np.average(np.abs(ratio), axis = -1, weights = amp_weights)
-                    amp_cal[no_piror] = 1.
+                    damp = np.abs(data[good_slot][:, ubl_valid])
+                    mamp = np.abs(model[good_slot][:, ubl_valid])
+                    amp_cal = np.ones(self.nTime*self.nFrequency, dtype='float32')
+                    amp_cal[good_slot] = np.sum(mamp * damp / N[None, :], axis = -1) / np.sum(mamp**2 / N[None, :], axis = -1)
+                    #print damp[30], mamp[30], amp_cal[good_slot][30]
+                    ###ratio = data/model
+                    ###model_flag = model_flag|np.isnan(ratio)|np.isinf(ratio)
+                    ####amplitude
+                    ###amp_weights = (~model_flag) * self.ublcount[ubl_overlap][None,None,ubl_valid]
+                    ###no_piror = (np.sum(amp_weights, axis = -1) <= MIN_UBL_COUNT)#not enough ubl coverage
+                    ###ratio[model_flag] = 0
+                    ###amp_weights[np.sum(amp_weights, axis = -1) ==0] = 1.#avoid all 0 weights
+                    ###amp_cal = np.average(np.abs(ratio), axis = -1, weights = amp_weights)
+                    ###amp_cal[no_piror] = 1.
 
                     #phase
-                    #A = self.ubl[ubl_overlap][ubl_valid]
+                    A = self.ubl[ubl_overlap][ubl_valid]
+                    A = A - np.mean(A, axis = 0)[None, :]
+                    AtNiAiAtNi = la.pinv((A.transpose()/N[None,:]).dot(A)).dot((A.transpose()/N[None,:]))
+
+                    phs_sol = np.zeros((np.sum(good_slot), A.shape[1]), dtype='float32')
+                    Del = np.angle(data[good_slot][:, ubl_valid]) - np.angle(model[good_slot][:, ubl_valid])
+                    for i in range(5):
+                        delphs = (Del - phs_sol.dot(A.transpose()) + PI)%TPI - PI
+                        phs_sol = phs_sol + delphs.dot(AtNiAiAtNi.transpose())
+
+                    phs_cal = np.zeros((self.nTime*self.nFrequency, A.shape[1]), dtype='float32')
+                    phs_cal[good_slot] = phs_sol
 
                     #apply results to rawCalpar
-                    self.rawCalpar[..., 3 + 2 * self.nAntenna:] = self.rawCalpar[..., 3 + 2 * self.nAntenna:] / amp_cal[..., None]
-                    self.rawCalpar[..., 3: 3 +  self.nAntenna] = self.rawCalpar[..., 3: 3 +  self.nAntenna] + np.log10(amp_cal[..., None]) / 2.
-                    self.rawCalpar[..., 1] = 1
-                    self.rawCalpar[no_piror, 1] = -1
-                    return amp_cal
+                    amp_cal = amp_cal.reshape((self.nTime, self.nFrequency))
+                    phs_cal = phs_cal.reshape((self.nTime, self.nFrequency, phs_cal.shape[1]))
+                    good_slot = good_slot.reshape((self.nTime, self.nFrequency))
+
+                    #antenna stuff
+                    self.rawCalpar[..., 3: 3 + self.nAntenna] = self.rawCalpar[..., 3: 3 +  self.nAntenna] + np.log10(amp_cal[..., None]) / 2.
+                    self.rawCalpar[..., 3 + self.nAntenna: 3 + 2 * self.nAntenna] = self.rawCalpar[..., 3 + self.nAntenna: 3 + 2 * self.nAntenna] + phs_cal.dot(self.antloc.transpose())
+
+                    #ubl stuff
+                    calibrated_data = original_data / amp_cal[..., None] / np.exp(1.j * phs_cal.dot(self.ubl.transpose()))
+                    self.rawCalpar[..., 3 + 2 * self.nAntenna::2] = np.real(calibrated_data)
+                    self.rawCalpar[..., 3 + 2 * self.nAntenna + 1::2] = np.imag(calibrated_data)
+
+
+
+                    self.rawCalpar[..., 1] = self.rawCalpar[..., 2] / amp_cal
+                    self.rawCalpar[~good_slot, 1] = -1
+                    return amp_cal, phs_cal
                 else:
                     return ubl_valid
             else:
@@ -1738,7 +1790,9 @@ class RedundantCalibrator:
             treasure = Treasure(treasure)
         if len(lsts) != self.nTime:
             raise TypeError("lsts has length %i which disagrees with RedundantCalibrator's nTime of %i."%(len(lsts), nTime))
-        for i, ublvec in enumerate(self.Info.ubl):
+        iterants = zip(range(self.nUBL), self.ubl)
+        numpy.random.shuffle(iterants)
+        for i, ublvec in iterants:
             if verbose:
                 print ".",
                 sys.stdout.flush()

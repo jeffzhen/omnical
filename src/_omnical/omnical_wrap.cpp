@@ -1316,7 +1316,9 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//return 
                 );
             }
             //if (removedegen) removeDegen((vector<float> *) PyArray_GETPTR3(calpar,t,f,0), &(redinfo->info), &module);
-            if (removedegen) removeDegen(&calpar_v, &(redinfo->info), &module);
+            for (int i = 0; i < removedegen; i++){
+                removeDegen(&calpar_v, &(redinfo->info), &module);
+            }
             // copy to output arrays
             for (int b = 0; b < nbls; b++) {
                 ((float *) PyArray_GETPTR3(additiveout,t,f,b))[0] = additiveout_v[b][0];
@@ -1443,7 +1445,9 @@ PyObject *redcal2_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in pla
                 );
             }
             //if (removedegen) removeDegen((vector<float> *) PyArray_GETPTR3(calpar,t,f,0), &(redinfo->info), &module);
-            if (removedegen) removeDegen(&calpar_v, &(redinfo->info), &module);
+            for (int i = 0; i < removedegen; i++){
+                removeDegen(&calpar_v, &(redinfo->info), &module);
+            }
             // copy to output arrays
             for (int b = 0; b < nbls; b++) {
                 ((float *) PyArray_GETPTR3(additiveout,t,f,b))[0] = additiveout_v[b][0];
@@ -1632,7 +1636,7 @@ static PyMethodDef omnical_methods[] = {
     {"redcal", (PyCFunction)redcal_wrap, METH_VARARGS | METH_KEYWORDS,
         "redcal(data,calpar,info,additivein,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,conv=.001)\nRun redundant calibration on data (3D array of complex floats)."},
     {"redcal2", (PyCFunction)redcal2_wrap, METH_VARARGS | METH_KEYWORDS,
-        "redcal(data,calpar,info,additivein,additiveout,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,conv=.001)\nRun redundant calibration on data (3D array of complex floats)."},
+        "redcal2(data,calpar,info,additivein,additiveout,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,conv=.001)\nRun redundant calibration on data (3D array of complex floats)."},
     {"gaincal", (PyCFunction)gaincal_wrap, METH_VARARGS | METH_KEYWORDS,
         "gaincal(data,calpar,info,additivein,additiveout,maxiter=20,stepsize=.3,conv=.001)\nRun gain calibration on data (3D array of complex floats)."},
     {"unwrap_phase", (PyCFunction)unwrap_phase, METH_VARARGS | METH_KEYWORDS,
