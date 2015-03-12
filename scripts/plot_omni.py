@@ -28,6 +28,7 @@ o.add_option('-i', '--infopath', action = 'store', default = None, help = 'Manua
 o.add_option('-m', '--mode', action = 'store', default = 'phs', help = 'Specify plot mode for omnigain or omnifit: amp, phs, real, imag')
 o.add_option('--overwrite', action = 'store_true', help = 'whether to overwrite output file.')
 o.add_option('-s', '--suppress', action = 'store_true', help = 'whether to suppress pop-out plot for scripting purpose.')
+o.add_option('-u', '--unflag', action = 'store_true', help = 'whether to suppress flagging.')
 
 
 
@@ -66,6 +67,7 @@ else:
 pol = opts.pol
 antenna = opts.antenna
 mode = opts.mode
+unflag = opts.unflag
 plotrange = opts.range
 if plotrange is not None:
     try:
@@ -192,7 +194,7 @@ if plottype == 'omnigain':
             data = np.imag(data[:, antennas, nprefix:])
 
         flagpath = datafile.replace(plottype, 'omniflag')
-        if os.path.isfile(flagpath):
+        if os.path.isfile(flagpath) and not unflag:
             flag = np.fromfile(flagpath, dtype='bool').reshape((nt, nf))
         else:
             flag = np.zeros((nt, nf), dtype='bool')
@@ -260,7 +262,7 @@ if plottype == 'omnifit':
             data[:,reverse] = -data[:,reverse]
 
         flagpath = datafile.replace(plottype, 'omniflag')
-        if os.path.isfile(flagpath):
+        if os.path.isfile(flagpath) and not unflag:
             flag = np.fromfile(flagpath, dtype='bool').reshape((nt, nf))
         else:
             flag = np.zeros((nt, nf), dtype='bool')
@@ -317,7 +319,7 @@ if plottype == 'omnichisq':
         data = data[:, nprefix:]
 
         flagpath = datafile.replace(plottype, 'omniflag')
-        if os.path.isfile(flagpath):
+        if os.path.isfile(flagpath) and not unflag:
             flag = np.fromfile(flagpath, dtype='bool').reshape((nt, nf))
         else:
             flag = np.zeros((nt, nf), dtype='bool')
