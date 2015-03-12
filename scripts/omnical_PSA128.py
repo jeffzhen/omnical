@@ -350,10 +350,15 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
         if chemo:
             flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2,.4,1,.4,.2]],mode='same')>=1)
             flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2],[.4],[1],[.4],[.2]],mode='same')>=1)
+
             bad_freq = (np.sum(flags[pol], axis = 0) > (calibrators[pol].nTime / 4.))
             bad_time = (np.sum(flags[pol][:, ~bad_freq], axis = 1) > (np.sum(~bad_freq) / 4.))
+            bad_freq = bad_freq | (ss.convolve(bad_freq, [1,1,1],mode='same')>=1)
+            bad_time = bad_time | (ss.convolve(bad_time, [1,1,1],mode='same')>=1)
             flags[pol] = flags[pol]|bad_freq[None,:]|bad_time[:, None]
         flags[pol] = flags[pol] | uvflags[pol]
+        if np.sum(flags[pol]) > flags[pol].shape[0] * flags[pol].shape[1] / 2:
+            flags[pol] = flags[pol] | True
     else:
         flags[pol] = uvflags[pol]
     print "Done. %fmin"%(float(time.time()-timer)/60.)
