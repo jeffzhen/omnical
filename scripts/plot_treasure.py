@@ -24,15 +24,20 @@ treasure = omni.Treasure(args[0])
 item = args[1]
 if item not in ['count', 'variance_re', 'variance_im', 'weighted_mean', 'mean', 'weighted_variance']:
 	print "%s not recognized."%item
+	exit()
 if item in ['mean', 'weighted_mean']:
 	if len(args) < 3 or args[2] not in ['amp', 'phs']:
 		print "Please specify amp or phs"
+		exit()
 
 for p, pol in enumerate(treasure.ubls.keys()):
 	c = treasure.get_coin_now((pol,treasure.ubls[pol][np.argsort(np.linalg.norm(treasure.ubls[pol], axis=1))[0]]))
 
 	plt.subplot('1%i%i'%(len(treasure.ubls.keys()), p+1))
 	data = c.__getattr__(item)
+	if item != 'count':
+		flag = c.count==0
+		data[flag] = np.nan
 	if item in ['mean', 'weighted_mean']:
 		if args[2] == 'amp':
 			data = np.abs(data)

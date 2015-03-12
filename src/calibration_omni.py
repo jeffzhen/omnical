@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.6.0'
+__version__ = '3.6.1'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -1631,8 +1631,15 @@ class RedundantCalibrator:
             thresh = nsigma * (2. / (len(self.subsetbl) - self.nAntenna - self.nUBL))**.5 # relative sigma is sqrt(2/k)
             chisq[nan_flag] = 1e6 * median_level
 
-            filtered_tdir = sfil.minimum_filter(np.median(chisq, axis = 1), size = twindow, mode='reflect')
-            filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
+            if twindow >= self.nTime:
+                filtered_tdir = np.ones(self.nTime) * np.min(np.median(chisq, axis = 1))
+            else:
+                filtered_tdir = sfil.minimum_filter(np.median(chisq, axis = 1), size = twindow, mode='reflect')
+
+            if fwindow >= self.nFrequency:
+                filtered_fdir = np.ones(self.nFrequency) * np.min(np.median(chisq, axis = 0))
+            else:
+                filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
 
             smoothed_chisq = np.outer(filtered_tdir, filtered_fdir)
             with warnings.catch_warnings():
@@ -1754,7 +1761,7 @@ class RedundantCalibrator:
 
                     phs_sol = np.zeros((np.sum(good_slot), A.shape[1]), dtype='float32')
                     Del = np.angle(data[good_slot][:, ubl_valid]) - np.angle(model[good_slot][:, ubl_valid])
-                    for i in range(5):
+                    for i in range(25):
                         delphs = (Del - phs_sol.dot(A.transpose()) + PI)%TPI - PI
                         phs_sol = phs_sol + delphs.dot(AtNiAiAtNi.transpose())
 
@@ -1777,7 +1784,7 @@ class RedundantCalibrator:
 
 
 
-                    self.rawCalpar[..., 1] = self.rawCalpar[..., 2] / amp_cal
+                    self.rawCalpar[..., 1] = self.rawCalpar[..., 2] / amp_cal**2
                     self.rawCalpar[~good_slot, 1] = -1
                     return amp_cal, phs_cal
                 else:
@@ -1798,7 +1805,9 @@ class RedundantCalibrator:
                 sys.stdout.flush()
             visibilities = self.rawCalpar[..., 3+2*self.nAntenna+2*i] + 1.j*self.rawCalpar[..., 4+2*self.nAntenna+2*i]
             visibilities[flags] = np.nan
-            treasure.update_coin((pol, ublvec), lsts, visibilities, self.rawCalpar[..., 2]/2./(len(self.crossindex)-self.nAntenna-self.nUBL+2)/self.ublcount[i], verbose=verbose)#divide by 2 because epsilon^2 should be for real/imag separately
+            abscal_factor = 10**(4 * np.median(self.rawCalpar[..., 3:3+self.nAntenna], axis = -1))
+            dof = (len(self.crossindex)-self.nAntenna-self.nUBL+2)
+            treasure.update_coin((pol, ublvec), lsts, visibilities, self.rawCalpar[..., 2]/2./abscal_factor/dof/self.ublcount[i], verbose=verbose)#divide by 2 because epsilon^2 should be for real/imag separately
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
         if arrayinfoPath is not None and os.path.isfile(arrayinfoPath):
@@ -2393,6 +2402,7 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
 
 class Treasure:
     def __init__(self, folder_path, nlst = int(TPI/1e-3), nfreq = 1024, tolerance = .1):
+        folder_path = os.path.expanduser(folder_path) + '/'
         if os.path.isdir(folder_path):
             self.folderPath = folder_path
             with open(self.folderPath + '/header.txt', 'r') as f:
@@ -2449,6 +2459,7 @@ class Treasure:
         return (self.coin_name(polvec) is not None)
 
     def duplicate_treasure(self, folder_path):
+        folder_path = os.path.expanduser(folder_path)
         if os.path.exists(folder_path):
             raise IOError("Requested folder path %s already exists."%folder_path)
         os.makedirs(folder_path)
@@ -2547,16 +2558,24 @@ class Treasure:
         #else:
             #return None
 
-    def add_coin(self, polvec):
+    def add_coin(self, polvec, coin_data=None):
         pol, ublvec = polvec
         if len(ublvec) != 3:
             raise ValueError("ublvec %s is not a 3D vector."%ublvec)
+        if coin_data is not None:
+            if coin_data.shape != self.coinShape or coin_data.dtype != self.coinDtype:
+                raise TypeError("Input coin data %s %s does not agree with treasure's %s %s."%(coin_data.shape, coin_data.dtype, self.coinShape, self.coinDtype))
+            if self.have_coin(polvec):
+                raise IOError("Treasure already has coin %s."%polvec)
         if not self.have_coin(polvec):
             if pol not in self.ubls.keys():
                 self.ubls[pol] = np.array([ublvec], dtype= 'float64')
             else:
                 self.ubls[pol] = np.append(self.ubls[pol], [ublvec] ,axis = 0)
-            np.zeros(self.coinShape, dtype = self.coinDtype).tofile(self.coin_name(polvec))
+            if coin_data is None:
+                np.zeros(self.coinShape, dtype = self.coinDtype).tofile(self.coin_name(polvec))
+            else:
+                coin_data.tofile(self.coin_name(polvec))
             np.zeros(self.sealSize, dtype = self.sealDtype).tofile(self.seal_name(polvec))
             with open(self.folderPath + '/header.txt', 'a') as f:
                 f.write('%f %f %f %s\n'%(ublvec[0], ublvec[1], ublvec[2], pol))
