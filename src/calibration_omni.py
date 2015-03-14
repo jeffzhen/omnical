@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.6.1'
+__version__ = '3.6.2'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -567,7 +567,7 @@ def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = N
                         else:
                             lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
                         if len(t) > len(data):
-                            print FILENAME + METHODNAME + " MSG:",  "expanding number of time slices from", len(data), "to", len(data) + deftime
+                            print FILENAME + METHODNAME + "MSG:",  "expanding number of time slices from", len(data), "to", len(data) + deftime
                             data = np.concatenate((data, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')))
                             flags = np.concatenate((flags, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'bool')))
                             #sunpos = np.concatenate((sunpos, np.zeros((deftime, 2))))
@@ -1617,38 +1617,41 @@ class RedundantCalibrator:
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
             return txt
 
-    def flag(self, mode = '12', twindow = 5, fwindow = 5, nsigma = 4):#return true if flagged False if good and unflagged
+    def flag(self, mode = '12', twindow = 5, fwindow = 5, nsigma = 4, _dbg_plotter = None, _niter = 3):#return true if flagged False if good and unflagged
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
 
-        chisq = self.rawCalpar[:,:,2]
+        chisq = np.copy(self.rawCalpar[:,:,2])
         nan_flag = np.isnan(chisq)|np.isinf(chisq)
 
         #chisq flag: spike_flag
+        spike_flag = np.zeros_like(nan_flag)
         if '1' in mode:
             median_level = nanmedian(nanmedian(chisq))
 
-            thresh = nsigma * (2. / (len(self.subsetbl) - self.nAntenna - self.nUBL))**.5 # relative sigma is sqrt(2/k)
-            chisq[nan_flag] = 1e6 * median_level
+            thresh = nsigma * (2. / (len(self.subsetbl) - self.nAntenna - self.nUBL + 2))**.5 # relative sigma is sqrt(2/k)
 
-            if twindow >= self.nTime:
-                filtered_tdir = np.ones(self.nTime) * np.min(np.median(chisq, axis = 1))
-            else:
-                filtered_tdir = sfil.minimum_filter(np.median(chisq, axis = 1), size = twindow, mode='reflect')
+            for i in range(_niter):
+                chisq[nan_flag|spike_flag] = 1e6 * median_level
 
-            if fwindow >= self.nFrequency:
-                filtered_fdir = np.ones(self.nFrequency) * np.min(np.median(chisq, axis = 0))
-            else:
-                filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
+                if twindow >= self.nTime:
+                    filtered_tdir = np.ones(self.nTime)#will rescale anyways * np.min(np.median(chisq, axis = 1))
+                else:
+                    filtered_tdir = sfil.minimum_filter(np.median(chisq, axis = 1), size = twindow, mode='reflect')
 
-            smoothed_chisq = np.outer(filtered_tdir, filtered_fdir)
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore",category=RuntimeWarning)
-                smoothed_chisq = smoothed_chisq * np.median(chisq[~nan_flag] / smoothed_chisq[~nan_flag])
-            spike_flag = ((chisq - smoothed_chisq) >= smoothed_chisq * thresh) | (chisq == 0)
-        else:
-            spike_flag = np.zeros_like(nan_flag)
+                if fwindow >= self.nFrequency:
+                    filtered_fdir = np.ones(self.nFrequency)#will rescale anyways * np.min(np.median(chisq, axis = 0))
+                else:
+                    filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
 
+                smoothed_chisq = np.outer(filtered_tdir, filtered_fdir)
+
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore",category=RuntimeWarning)
+                    smoothed_chisq = smoothed_chisq * np.median(chisq[~(nan_flag|spike_flag)] / smoothed_chisq[~(nan_flag|spike_flag)])
+                spike_flag = spike_flag | (np.abs(chisq - smoothed_chisq) >= smoothed_chisq * thresh) | (chisq == 0)
+            if _dbg_plotter is not None:
+                _dbg_plotter.imshow(np.abs(chisq - smoothed_chisq)/smoothed_chisq, vmin=-thresh, vmax=thresh, interpolation='none')
         #baseline fit flag
         if '2' in mode:
             nubl = 10
@@ -1658,8 +1661,15 @@ class RedundantCalibrator:
             nan_mask2 = np.isnan(change_rate)|np.isinf(change_rate)
             change_rate[nan_mask2] = 0
 
-            filtered_tdir = sfil.minimum_filter(np.median(change_rate, axis = 1), size = twindow, mode='reflect')
-            filtered_fdir = sfil.minimum_filter(np.median(change_rate, axis = 0), size = fwindow, mode='reflect')
+            if twindow >= self.nTime:
+                filtered_tdir = np.ones(self.nTime - 1)#will rescale anyways * np.min(np.median(chisq, axis = 1))
+            else:
+                filtered_tdir = sfil.minimum_filter(np.median(change_rate, axis = 1), size = twindow, mode='reflect')
+
+            if fwindow >= self.nFrequency:
+                filtered_fdir = np.ones(self.nFrequency)#will rescale anyways * np.min(np.median(chisq, axis = 0))
+            else:
+                filtered_fdir = sfil.minimum_filter(np.median(change_rate, axis = 0), size = fwindow, mode='reflect')
 
             smoothed_change_rate = np.outer(filtered_tdir, filtered_fdir)
             with warnings.catch_warnings():
