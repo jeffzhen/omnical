@@ -302,14 +302,14 @@ class TestTreasure(unittest.TestCase):
         treasure = omni.Treasure(os.path.dirname(os.path.realpath(__file__)) + '/test.treasure', nlst = nTime, nfreq = nFrequency)
         treasure.add_coin(('xx', np.array([0,2,3])))
         treasure.add_coin(('xx', np.array([1,2,3])))
-        self.assertEqual(treasure.coin_name(('xx', np.array([1,2,3]))), os.path.dirname(os.path.realpath(__file__)) + '/test.treasure/xx1.coin')
+        self.assertEqual(treasure.coin_name(('xx', np.array([1,2,3]))), os.path.dirname(os.path.realpath(__file__)) + '/test.treasure//xx1.coin')
 
         treasure2 = treasure.duplicate_treasure(os.path.dirname(os.path.realpath(__file__)) + '/test2.treasure')
         treasure.burn()
 
         treasure2.add_coin(('xx', np.array([1,2,3])))
         treasure2.add_coin(('xx', np.array([1,2,4])))
-        self.assertEqual(treasure2.coin_name(('xx', np.array([1,2,4]))), os.path.dirname(os.path.realpath(__file__)) + '/test2.treasure/xx2.coin')
+        self.assertEqual(treasure2.coin_name(('xx', np.array([1,2,4]))), os.path.dirname(os.path.realpath(__file__)) + '/test2.treasure//xx2.coin')
         self.assertEqual(treasure2.coinShape, (nTime, nFrequency, 10))
         treasure2.burn()
 

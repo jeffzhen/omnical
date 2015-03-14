@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.6.3'
+__version__ = '3.6.4'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -1808,7 +1808,7 @@ class RedundantCalibrator:
         if len(lsts) != self.nTime:
             raise TypeError("lsts has length %i which disagrees with RedundantCalibrator's nTime of %i."%(len(lsts), nTime))
         iterants = zip(range(self.nUBL), self.ubl)
-        numpy.random.shuffle(iterants)
+        np.random.shuffle(iterants)
         for i, ublvec in iterants:
             if verbose:
                 print ".",
