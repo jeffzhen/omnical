@@ -38,6 +38,7 @@ o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to over
 o.add_option('-s', '--singlethread', action = 'store_true', help = 'whether to disable multiprocessing for calibration and use only one thread. May need this option for things like grid engine.')
 o.add_option('--chemo', action = 'store_true', help = 'whether to apply chemotherapy when flagging.')
 o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
+o.add_option('--skip_sun', action = 'store_true', help = 'whether to calibrate data set with sun up.')
 o.add_option('--mem', action = 'store', type = 'float', default = 4e9, help = 'Amount of initial memory to reserve when parsing uv files in number of bytes.')
 o.add_option('--chisq_leniency', action = 'store', type = 'float', default = 1.5, help = 'Factor to multiply noise-model by to serve as one of the flagging thresholds.')
 o.add_option('--model_noise', action = 'store', default = None, help = 'A model .omnichisq file that contains the noise model (sigma^2) with the first two columns being lst in range [0,2pi). Separate by , the same order as -p. Need to be the same unit with data or model_treasure.')
@@ -47,6 +48,7 @@ opts,args = o.parse_args(sys.argv[1:])
 skip = opts.skip
 create_new_uvs = opts.newuv
 need_new_flag = opts.flag
+calibrate_sun = not opts.skip_sun
 overwrite_uvs = opts.overwrite
 make_plots = opts.plot
 ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
@@ -257,6 +259,10 @@ for nt,tm in zip(range(len(timing)),timing):
     cenApos[nt] = cenA.alt, cenA.az
 print FILENAME + " MSG: data time range UTC: %s to %s, sun altaz from (%f,%f) to (%f,%f)"%(timing[0], timing[-1], sunpos[0,0], sunpos[0,1], sunpos[-1,0], sunpos[-1,1])#, "CentaurusA altaz from (%f,%f) to (%f,%f)"%(cenApos[0,0], cenApos[0,1], cenApos[-1,0], cenApos[-1,1])
 sys.stdout.flush()
+
+if (not calibrate_sun) and (not (sunpos[:,0] < -.1).all()):
+    print "Sun up", sunpos[:,0]
+    exit()
 
 ###########initialize stuff
 calibrators = {}
