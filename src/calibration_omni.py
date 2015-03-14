@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.6.2'
+__version__ = '3.6.3'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -568,8 +568,8 @@ def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = N
                             lst += [(float(sa.sidereal_time()) * 24./2./math.pi)]
                         if len(t) > len(data):
                             print FILENAME + METHODNAME + "MSG:",  "expanding number of time slices from", len(data), "to", len(data) + deftime
-                            data = np.concatenate((data, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'complex64')))
-                            flags = np.concatenate((flags, np.zeros((deftime, len(wantpols), nant * (nant + 1) / 2, nfreq), dtype = 'bool')))
+                            data = np.concatenate((data, np.zeros((deftime, data.shape[1], data.shape[2], data.shape[3]), dtype = 'complex64')))
+                            flags = np.concatenate((flags, np.zeros((deftime, flags.shape[1], flags.shape[2], flags.shape[3]), dtype = 'bool')))
                             #sunpos = np.concatenate((sunpos, np.zeros((deftime, 2))))
                             #sunpos[len(t) - 1] = np.asarray([[sun.alt, sun.az]])
                     current_t = len(t) - 1
