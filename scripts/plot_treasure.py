@@ -17,6 +17,7 @@ o = optparse.OptionParser()
 
 o.add_option('--max', action = 'store', type = 'float', default = None, help = 'Max value of plotting.')
 o.add_option('--min', action = 'store', type = 'float', default = None, help = 'Min value of plotting.')
+o.add_option('-u', '--ubl_order', action = 'store', type = 'int', default = 0, help = 'Which baseline to plot starting from shortest as 0.')
 
 opts,args = o.parse_args(sys.argv[1:])
 
@@ -31,8 +32,10 @@ if item in ['mean', 'weighted_mean']:
 		exit()
 
 for p, pol in enumerate(treasure.ubls.keys()):
-	c = treasure.get_coin_now((pol,treasure.ubls[pol][np.argsort(np.linalg.norm(treasure.ubls[pol], axis=1))[0]]))
-
+	c = treasure.get_coin_now((pol,treasure.ubls[pol][np.argsort(np.linalg.norm(treasure.ubls[pol], axis=1))[opts.ubl_order]]))
+	if c is None:
+		print "Failed to get coin."
+		exit()
 	plt.subplot('1%i%i'%(len(treasure.ubls.keys()), p+1))
 	data = c.__getattr__(item)
 	if item != 'count':
