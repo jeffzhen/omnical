@@ -418,7 +418,7 @@ if make_plots:
         #plt.title('RMS fitting error per baseline')
         #plt.colorbar()
 
-        plt.subplot(3, len(wantpols), 1 * len(wantpols) + p)
+        plt.subplot(3, len(wantpols), 0 * len(wantpols) + p + 1)
         flag_plot_data = (calibrators[pol].rawCalpar[:,:,2]/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5
         vmax = np.percentile(flag_plot_data, 95)
         vmin = np.percentile(flag_plot_data, 5)
@@ -427,7 +427,7 @@ if make_plots:
         plt.title('flagged RMS fitting error per baseline %s'%pol)
         plt.colorbar()
 
-        plt.subplot(3, len(wantpols), 2 * len(wantpols) + p)
+        plt.subplot(3, len(wantpols), 1 * len(wantpols) + p + 1)
         shortest_ubli = np.argsort(np.linalg.norm(calibrators[pol].ubl, axis = 1))[0]
         shortest_vis = np.angle(calibrators[pol].rawCalpar[:,:,3+2*calibrators[pol].nAntenna+2*shortest_ubli] + 1.j * (calibrators[pol].rawCalpar[:,:,3+2*calibrators[pol].nAntenna+2*shortest_ubli+1]))
         #shortest_vis[flags[pol]] = np.nan
@@ -435,7 +435,7 @@ if make_plots:
         plt.title('phase of visibility fit on [%.1f, %.1f, %.1f] baseline %s'%(calibrators[pol].ubl[shortest_ubli][0], calibrators[pol].ubl[shortest_ubli][1], calibrators[pol].ubl[shortest_ubli][2], pol))
         plt.colorbar()
 
-        plt.subplot(3, len(wantpols), 3 * len(wantpols) + p)
+        plt.subplot(3, len(wantpols), 2 * len(wantpols) + p + 1)
         shortest_vis_flag = np.copy(shortest_vis)
         shortest_vis_flag[flags[pol]] = np.nan
         plt.imshow(shortest_vis_flag, interpolation='nearest', vmin = -PI, vmax = PI)
