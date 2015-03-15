@@ -2675,7 +2675,7 @@ class Treasure:
         if self.sealPosition is None:
             raise TypeError("Treasure class is trying to release coin without a previous seizure.")
 
-        write_ndarray(self.seal_name(polvec), (self.sealSize,), self.sealDtype, [self.sealPosition, self.sealPosition + 1], np.array([0], dtype=self.sealDtype), check = True)
+        write_ndarray(self.seal_name(polvec), (self.sealSize,), self.sealDtype, [self.sealPosition, self.sealPosition + 1], np.array([0], dtype=self.sealDtype), check = False)
         self.sealPosition = None
 
     def try_coin(self, polvec):
