@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.6.4'
+__version__ = '3.6.5'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -2444,7 +2444,7 @@ class Treasure:
             self.coinShape = (self.nTime, self.nFrequency, 10)#N, real(v), imag(v), real(v)^2, imag(v)^2, epsilon^-2, real(v)epsilon^-2, imag(v)epsilon^-2, placeholder1, placeholder2; epsilon^2 should be for only real part/imag part, and should be same for both
             self.coinDtype = 'float64'
             self.sealDtype = 'bool'
-            self.sealSize = 1024
+            self.sealSize = 4096
             self.tolerance = tolerance
             self.sealPosition = None
             self.ubls = {}
@@ -2553,7 +2553,7 @@ class Treasure:
             coin_content[good_flag, 6] = coin_content[good_flag, 6] + np.imag(update_visibilities[good_flag])/update_epsilonsqs[good_flag]
             coin_content[good_flag, 7] = coin_content[good_flag, 7] + update_epsilonsqs[good_flag]**-1
             #print coin_content[good_flag, 7]
-            write_ndarray(coin_name, self.coinShape, self.coinDtype, update_range, coin_content, check=True)
+            write_ndarray(coin_name, self.coinShape, self.coinDtype, update_range, coin_content, check=True, task = 'update_coin')
             self.release_coin(polvec)
             return True
 
@@ -2591,7 +2591,7 @@ class Treasure:
                 f.write('%f %f %f %s\n'%(ublvec[0], ublvec[1], ublvec[2], pol))
         return
 
-    def get_coin(self, polvec, ranges=None, retry_wait = 1, max_wait = 10):#ranges is index range [incl, exc)
+    def get_coin(self, polvec, ranges=None, retry_wait = 1, max_wait = 30):#ranges is index range [incl, exc)
         if ranges is not None:
             if len(ranges) != 2 or ranges[0] < 0 or ranges[1] > self.nTime:
                 raise ValueError("range specification %s is not allowed."%ranges)
@@ -2650,7 +2650,7 @@ class Treasure:
     def get_coin_now(self, polvec, ranges=None):
         return self.get_coin(polvec, ranges=ranges, retry_wait = 0.1, max_wait = .5 )
 
-    def seize_coin(self, polvec, retry_wait = 1, max_wait = 10):
+    def seize_coin(self, polvec, retry_wait = 1, max_wait = 30):
         if self.sealPosition is not None:
             raise TypeError("Treasure class is trying to seize coin without properly release previous seizure.")
         if not self.have_coin(polvec):
@@ -2663,19 +2663,19 @@ class Treasure:
             return False
         seal_position = np.random.random_integers(self.sealSize) - 1
         seal_name = self.seal_name(polvec)
-        write_ndarray(seal_name, (self.sealSize,), self.sealDtype, [seal_position, seal_position + 1], np.array([1], dtype=self.sealDtype), check = True)
+        write_ndarray(seal_name, (self.sealSize,), self.sealDtype, [seal_position, seal_position + 1], np.array([1], dtype=self.sealDtype), check = True, max_retry = max_wait, task = 'seize_coin')
         if np.sum(np.fromfile(seal_name, dtype=self.sealDtype)) == 1:
             self.sealPosition = seal_position
             return True
         else:
-            write_ndarray(seal_name, (self.sealSize,), self.sealDtype, [seal_position, seal_position + 1], np.array([0], dtype=self.sealDtype), check = True)
+            write_ndarray(seal_name, (self.sealSize,), self.sealDtype, [seal_position, seal_position + 1], np.array([0], dtype=self.sealDtype), check = True, max_retry = max_wait, task = 'abort_seize_coin')
             return False
 
     def release_coin(self, polvec):
         if self.sealPosition is None:
             raise TypeError("Treasure class is trying to release coin without a previous seizure.")
 
-        write_ndarray(self.seal_name(polvec), (self.sealSize,), self.sealDtype, [self.sealPosition, self.sealPosition + 1], np.array([0], dtype=self.sealDtype), check = False)
+        write_ndarray(self.seal_name(polvec), (self.sealSize,), self.sealDtype, [self.sealPosition, self.sealPosition + 1], np.array([0], dtype=self.sealDtype), check = True, max_retry = 60, task = 'release_coin')
         self.sealPosition = None
 
     def try_coin(self, polvec):
@@ -2746,7 +2746,7 @@ def read_ndarray(path, shape, dtype, ranges):#read middle part of binary file of
     #print result.shape,tuple(new_shape)
     return result.reshape(tuple(new_shape))
 
-def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3):#write middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)
+def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3, task = 'unkown'):#write middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)
     if not os.path.isfile(path):
         raise IOError(path + 'doesnt exist.')
     if len(ranges) != 2 or ranges[0] < 0 or ranges[0] >= ranges[1] or ranges[1] > shape[0]:
@@ -2763,12 +2763,14 @@ def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3)
     if check:
         tries = 0
         while not (data == read_ndarray(path, shape, dtype, ranges)).all() and tries < max_retry:
+
+            time.sleep(1)
             tries = tries + 1
             with open(path, 'r+') as f:
                 f.seek(higher_dim_chunks * nbytes * ranges[0])
                 data.tofile(f)
         if not (data == read_ndarray(path, shape, dtype, ranges)).all():
-            raise IOError("write_ndarray failed on %s"%path)
+            raise IOError("write_ndarray failed on %s with shape %s between %s with task %s."%(path, shape, ranges, task))
     return
 
 def load_omnichisq(path):
