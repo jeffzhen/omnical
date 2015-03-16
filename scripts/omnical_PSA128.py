@@ -36,7 +36,7 @@ o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create n
 o.add_option('--flag', action = 'store_true', help = 'whether to create new flagging')
 o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
 o.add_option('-s', '--singlethread', action = 'store_true', help = 'whether to disable multiprocessing for calibration and use only one thread. May need this option for things like grid engine.')
-o.add_option('--chemo', action = 'store', default = 1, help = 'whether to apply chemotherapy when flagging. >= 1 enables. The larger the number, the stricter the chemo is. A 10 means all will be flagged if more than 1/10 of the data is flagged')
+o.add_option('--chemo', action = 'store', type='float', default = 1, help = 'whether to apply chemotherapy when flagging. >= 1 enables. The larger the number, the stricter the chemo is. A 10 means all will be flagged if more than 1/10 of the data is flagged')
 o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
 o.add_option('--skip_sun', action = 'store_true', help = 'whether to calibrate data set with sun up.')
 o.add_option('--mem', action = 'store', type = 'float', default = 4e9, help = 'Amount of initial memory to reserve when parsing uv files in number of bytes.')
