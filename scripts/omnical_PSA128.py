@@ -399,7 +399,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
 
     print "Done."
     sys.stdout.flush()
-    if treasurePath is not None and (sunpos[:,0] < -.1).all():
+    if (treasurePath is not None) and (np.sum(flags[pol]) < calibrators[pol].nTime * calibrators[pol].nFrequency) and (sunpos[:,0] < -.1).all():
         print FILENAME + " MSG: updating treasure on %s %s in %s."%(dataano, pol, treasurePath),
         sys.stdout.flush()
         calibrators[pol].update_treasure(treasurePath, np.array(lst)*TPI/24., flags[pol], pol, verbose = True)
