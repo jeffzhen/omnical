@@ -36,13 +36,13 @@ o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create n
 o.add_option('--flag', action = 'store_true', help = 'whether to create new flagging')
 o.add_option('-f', '--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
 o.add_option('-s', '--singlethread', action = 'store_true', help = 'whether to disable multiprocessing for calibration and use only one thread. May need this option for things like grid engine.')
-o.add_option('--chemo', action = 'store_true', help = 'whether to apply chemotherapy when flagging.')
+o.add_option('--chemo', action = 'store', default = 1, help = 'whether to apply chemotherapy when flagging. >= 1 enables. The larger the number, the stricter the chemo is. A 10 means all will be flagged if more than 1/10 of the data is flagged')
 o.add_option('--plot', action = 'store_true', help = 'whether to make plots in the end')
 o.add_option('--skip_sun', action = 'store_true', help = 'whether to calibrate data set with sun up.')
 o.add_option('--mem', action = 'store', type = 'float', default = 4e9, help = 'Amount of initial memory to reserve when parsing uv files in number of bytes.')
 o.add_option('--chisq_leniency', action = 'store', type = 'float', default = 1.5, help = 'Factor to multiply noise-model by to serve as one of the flagging thresholds.')
 o.add_option('--chemof', action = 'store', type = 'float', default = 4, help = 'Fraction threshold of time in a frequency bin, above which that frequency will be flagged. If set to 4, more than 1/4 of time being bad will flag all time in a frequency bin.')
-o.add_option('--chemot', action = 'store', type = 'float', default = 2, help = 'Fraction threshold of frequency in a time stamp, above which that time will be flagged. If set to 4, more than 1/4 of frequency being bad will flag all frequency in a time stamp.')
+o.add_option('--chemot', action = 'store', type = 'float', default = 4, help = 'Fraction threshold of frequency in a time stamp, above which that time will be flagged. If set to 4, more than 1/4 of frequency being bad will flag all frequency in a time stamp.')
 o.add_option('--model_noise', action = 'store', default = None, help = 'A model .omnichisq file that contains the noise model (sigma^2) with the first two columns being lst in range [0,2pi). Separate by , the same order as -p. Need to be the same unit with data or model_treasure.')
 o.add_option('--model_treasure', action = 'store', default = None, help = 'A treasure file that contains good foreground visibilities. ')
 
@@ -358,7 +358,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
             model_chisq = chisq_leniency * interp_model(np.array(lst)*TPI/24.) * (len(calibrators[pol].crossindex) - calibrators[pol].nAntenna - calibrators[pol].nUBL + 2) * 10**(4 * np.median(calibrators[pol].rawCalpar[..., 3:3+calibrators[pol].nAntenna], axis = -1))#leniency factor * model * DOF * gain correction
             flags[pol] = flags[pol]| (calibrators[pol].rawCalpar[..., 2] > model_chisq)
 
-        if chemo:
+        if chemo >= 1:
             flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2,.4,1,.4,.2]],mode='same')>=1)
             flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2],[.4],[1],[.4],[.2]],mode='same')>=1)
 
@@ -368,7 +368,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
             bad_time = bad_time | (ss.convolve(bad_time, [1,1,1],mode='same')>=1)
             flags[pol] = flags[pol]|bad_freq[None,:]|bad_time[:, None]
         flags[pol] = flags[pol] | uvflags[pol]
-        if np.sum(flags[pol]) > flags[pol].shape[0] * flags[pol].shape[1] / 2:
+        if np.sum(flags[pol]) > flags[pol].shape[0] * flags[pol].shape[1] / chemo:
             flags[pol] = flags[pol] | True
     else:
         flags[pol] = uvflags[pol]
