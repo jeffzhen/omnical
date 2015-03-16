@@ -41,6 +41,8 @@ o.add_option('--plot', action = 'store_true', help = 'whether to make plots in t
 o.add_option('--skip_sun', action = 'store_true', help = 'whether to calibrate data set with sun up.')
 o.add_option('--mem', action = 'store', type = 'float', default = 4e9, help = 'Amount of initial memory to reserve when parsing uv files in number of bytes.')
 o.add_option('--chisq_leniency', action = 'store', type = 'float', default = 1.5, help = 'Factor to multiply noise-model by to serve as one of the flagging thresholds.')
+o.add_option('--chemof', action = 'store', type = 'float', default = 4, help = 'Fraction threshold of time in a frequency bin, above which that frequency will be flagged. If set to 4, more than 1/4 of time being bad will flag all time in a frequency bin.')
+o.add_option('--chemot', action = 'store', type = 'float', default = 2, help = 'Fraction threshold of frequency in a time stamp, above which that time will be flagged. If set to 4, more than 1/4 of frequency being bad will flag all frequency in a time stamp.')
 o.add_option('--model_noise', action = 'store', default = None, help = 'A model .omnichisq file that contains the noise model (sigma^2) with the first two columns being lst in range [0,2pi). Separate by , the same order as -p. Need to be the same unit with data or model_treasure.')
 o.add_option('--model_treasure', action = 'store', default = None, help = 'A treasure file that contains good foreground visibilities. ')
 
@@ -56,6 +58,9 @@ dataano = opts.datatag#ano for existing data and lst.dat
 sourcepath = os.path.expanduser(opts.datapath)
 oppath = os.path.expanduser(opts.outputpath)
 chemo = opts.chemo
+chemof = opts.chemof
+chemot = opts.chemot
+
 if opts.treasure is not None:
     if not os.path.isdir(os.path.expanduser(opts.treasure)):
         raise IOError("Treasure path %s does not exist."%opts.treasure)
@@ -357,8 +362,8 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
             flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2,.4,1,.4,.2]],mode='same')>=1)
             flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2],[.4],[1],[.4],[.2]],mode='same')>=1)
 
-            bad_freq = (np.sum(flags[pol], axis = 0) > (calibrators[pol].nTime / 4.))
-            bad_time = (np.sum(flags[pol][:, ~bad_freq], axis = 1) > (np.sum(~bad_freq) / 4.))
+            bad_freq = (np.sum(flags[pol], axis = 0) > (calibrators[pol].nTime / chemof))
+            bad_time = (np.sum(flags[pol][:, ~bad_freq], axis = 1) > (np.sum(~bad_freq) / chemot))
             bad_freq = bad_freq | (ss.convolve(bad_freq, [1,1,1],mode='same')>=1)
             bad_time = bad_time | (ss.convolve(bad_time, [1,1,1],mode='same')>=1)
             flags[pol] = flags[pol]|bad_freq[None,:]|bad_time[:, None]
