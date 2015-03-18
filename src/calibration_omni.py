@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.6.8'
+__version__ = '3.7.0'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -473,7 +473,33 @@ def read_redundantinfo(infopath, verbose = False, DoF_only = False):
         print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
     return info
 
+def get_xy_AB(info):#return xyA, xyB, yxA, yxB for logcal cross polarizations
+    na = info['nAntenna']
+    nu = info['nUBL']
+    A = info['A'].todense()
+    B = info['B'].todense()
+    bl2dcross = info['bl2d'][info['crossindex']]
+    #print na, nu, B.shape wesdcxaz
 
+    xyA = np.zeros((len(info['crossindex']), 2*na+nu), dtype='int8')
+    yxA = np.zeros_like(xyA)
+    xyB = np.zeros_like(xyA)
+    yxB = np.zeros_like(xyA)
+    xyA[:, 2*na:] = A[:, na:]
+    xyB[:, 2*na:] = B[:, na:]
+    for i in range(len(xyA)):
+        xyA[i, bl2dcross[i,0]] = A[i, bl2dcross[i,0]]
+        xyA[i, na + bl2dcross[i,1]] = A[i, bl2dcross[i,1]]
+        xyB[i, bl2dcross[i,0]] = B[i, bl2dcross[i,0]]
+        xyB[i, na + bl2dcross[i,1]] = B[i, bl2dcross[i,1]]
+    yxA[:, :na] = xyA[:, na:2*na]
+    yxA[:, na:2*na] = xyA[:, :na]
+    yxA[:, 2*na:] = xyA[:, 2*na:]
+    yxB[:, :na] = xyB[:, na:2*na]
+    yxB[:, na:2*na] = xyB[:, :na]
+    yxB[:, 2*na:] = xyB[:, 2*na:]
+
+    return xyA, xyB, yxA, yxB
 
 def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, lat = None, lon = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files. return lst in sidereal hour
 
@@ -1686,7 +1712,7 @@ class RedundantCalibrator:
         return_flag = (nan_flag|spike_flag|ubl_flag)
         return return_flag
 
-    def absolutecal_w_treasure(self, treasure, pol, lsts, tolerance = None, MIN_UBL_COUNT = 10):#phase not yet implemented
+    def absolutecal_w_treasure(self, treasure, pol, lsts, tolerance = None, MIN_UBL_COUNT = 50, static_treasure = True):#phase not yet implemented
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore",category=RuntimeWarning)
 
@@ -1716,9 +1742,9 @@ class RedundantCalibrator:
                 iterants = zip(range(np.sum(ubl_overlap)), self.ubl[ubl_overlap])
                 np.random.shuffle(iterants)
                 for i, ubl in iterants:
-                    coin = treasure.get_interpolated_coin((pol, ubl), lsts)
+                    coin = treasure.get_interpolated_coin((pol, ubl), lsts, static_treasure=static_treasure)
                     if coin is None:
-                        coin = treasure.get_interpolated_coin((pol, -ubl), lsts)
+                        coin = treasure.get_interpolated_coin((pol, -ubl), lsts, static_treasure=static_treasure)
                         if coin is None:
                             model_flag[..., i] = True
                         else:
@@ -1802,7 +1828,7 @@ class RedundantCalibrator:
             else:
                 return ubl_overlap
 
-    def update_treasure(self, treasure, lsts, flags, pol, verbose = False):#lsts in radians
+    def update_treasure(self, treasure, lsts, flags, pol, nsigma_cut = 5, verbose = False):#lsts in radians
         if type(treasure) == type('aa'):
             treasure = Treasure(treasure)
         if len(lsts) != self.nTime:
@@ -1817,7 +1843,7 @@ class RedundantCalibrator:
             visibilities[flags] = np.nan
             abscal_factor = 10**(4 * np.median(self.rawCalpar[..., 3:3+self.nAntenna], axis = -1))
             dof = (len(self.crossindex)-self.nAntenna-self.nUBL+2)
-            treasure.update_coin((pol, ublvec), lsts, visibilities, self.rawCalpar[..., 2]/2./abscal_factor/dof/self.ublcount[i], verbose=verbose)#divide by 2 because epsilon^2 should be for real/imag separately
+            treasure.update_coin((pol, ublvec), lsts, visibilities, self.rawCalpar[..., 2]/2./abscal_factor/dof/self.ublcount[i], nsigma_cut = nsigma_cut,verbose=verbose)#divide by 2 because epsilon^2 should be for real/imag separately
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
         if arrayinfoPath is not None and os.path.isfile(arrayinfoPath):
@@ -2497,7 +2523,7 @@ class Treasure:
         new_treasure = Treasure(folder_path)
         return new_treasure
 
-    def update_coin(self, polvec, lsts, visibilities, epsilonsqs, verbose=False):#lsts should be [0,TPI); visibilities should be 2D np array nTime by nFrequency, epsilonsqs should be for real/imag parts seperately (should be same though); to flag any data point make either visibilities or epsilonsqs np.nan, or make epsilonsqs 0
+    def update_coin(self, polvec, lsts, visibilities, epsilonsqs, nsigma_cut = None, verbose=False):#lsts should be [0,TPI); visibilities should be 2D np array nTime by nFrequency, epsilonsqs should be for real/imag parts seperately (should be same though); to flag any data point make either visibilities or epsilonsqs np.nan, or make epsilonsqs 0
         lsts = np.array(lsts)
         if visibilities.shape != (len(lsts), self.nFrequency):
             raise ValueError("visibilities array has wrong shape %s that does not agree with %s."%(visibilities.shape, (len(lsts), self.nFrequency)))
@@ -2540,10 +2566,17 @@ class Treasure:
             #print weight_left, weight_right
             good_flag = ~(np.isnan(update_epsilonsqs) | np.isnan(update_visibilities) | np.isinf(update_epsilonsqs) | np.isinf(update_visibilities) | (update_epsilonsqs == 0))
 
+
             if not self.seize_coin(polvec):
                 return False
             coin_name = self.coin_name(polvec)
             coin_content = read_ndarray(coin_name, self.coinShape, self.coinDtype, update_range)
+
+            if nsigma_cut is not None and nsigma_cut > 0:#only update data within a certain nsigma range of existing weighted mean and weighted variance
+                coin = Coin(coin_content)
+                nsigma_flag = coin.count > 0 and np.abs(coin.weighted_mean - update_visibilities) > nsigma_cut * (coin.weighted_variance * coin.count)**.5
+                good_flag = good_flag & (~nsigma_flag)
+
             coin_content[..., 0] = coin_content[..., 0] + good_flag
             coin_content[good_flag, 1] = coin_content[good_flag, 1] + np.real(update_visibilities[good_flag])
             coin_content[good_flag, 2] = coin_content[good_flag, 2] + np.imag(update_visibilities[good_flag])
@@ -2591,22 +2624,23 @@ class Treasure:
                 f.write('%f %f %f %s\n'%(ublvec[0], ublvec[1], ublvec[2], pol))
         return
 
-    def get_coin(self, polvec, ranges=None, retry_wait = 1, max_wait = 30):#ranges is index range [incl, exc)
+    def get_coin(self, polvec, ranges=None, retry_wait = 1, max_wait = 30, static_treasure=False):#ranges is index range [incl, exc)
         if ranges is not None:
             if len(ranges) != 2 or ranges[0] < 0 or ranges[1] > self.nTime:
                 raise ValueError("range specification %s is not allowed."%ranges)
             ranges = [int(ranges[0]), int(ranges[1])]
-        if self.seize_coin(polvec, retry_wait = retry_wait, max_wait = max_wait):
+        if static_treasure or self.seize_coin(polvec, retry_wait = retry_wait, max_wait = max_wait):
             if ranges is None:
                 coin = Coin(np.fromfile(self.coin_name(polvec), dtype = self.coinDtype).reshape(self.coinShape))
             else:
                 coin = Coin(read_ndarray(self.coin_name(polvec), self.coinShape, self.coinDtype, ranges))
-            self.release_coin(polvec)
+            if not static_treasure:
+                self.release_coin(polvec)
             return coin
         else:
             return None
 
-    def get_interpolated_coin(self, polvec, lsts, retry_wait = 1, max_wait = 10):#lsts in [0, 2pi)
+    def get_interpolated_coin(self, polvec, lsts, retry_wait = 1, max_wait = 10, static_treasure = False):#lsts in [0, 2pi)
         if not self.have_coin(polvec):
             return None
         lsts = np.array(lsts)
@@ -2614,15 +2648,15 @@ class Treasure:
             raise ValueError("lsts is not inside [0, 2pi)")
         if np.ceil(np.max(lsts)/(TPI/self.nTime)) >= self.nTime:
             ranges = [int(np.floor(np.min(lsts)/(TPI/self.nTime))), int(np.ceil(np.max(lsts)/(TPI/self.nTime)))]
-            coin = self.get_coin(polvec, ranges = ranges, retry_wait = retry_wait, max_wait = max_wait)
-            coin2 = self.get_coin(polvec, ranges = [0,1], retry_wait = retry_wait, max_wait = max_wait)
+            coin = self.get_coin(polvec, ranges = ranges, retry_wait = retry_wait, max_wait = max_wait, static_treasure=static_treasure)
+            coin2 = self.get_coin(polvec, ranges = [0,1], retry_wait = retry_wait, max_wait = max_wait, static_treasure=static_treasure)
             if coin is None or coin2 is None:
                 return None
             coin.data = np.concatenate((coin.data, coin2.data))
             grid_lsts = np.append(self.lsts[ranges[0]:ranges[1]], TPI)
         else:
             ranges = [int(np.floor(np.min(lsts)/(TPI/self.nTime))), int(np.ceil(np.max(lsts)/(TPI/self.nTime))) + 1]
-            coin = self.get_coin(polvec, ranges = ranges, retry_wait = retry_wait, max_wait = max_wait)
+            coin = self.get_coin(polvec, ranges = ranges, retry_wait = retry_wait, max_wait = max_wait, static_treasure=static_treasure)
             if coin is None:
                 return None
             grid_lsts = self.lsts[ranges[0]:ranges[1]]
@@ -2668,7 +2702,7 @@ class Treasure:
             self.sealPosition = seal_position
             return True
         else:
-            write_ndarray(seal_name, (self.sealSize,), self.sealDtype, [seal_position, seal_position + 1], np.array([0], dtype=self.sealDtype), check = True, max_retry = max_wait, task = 'abort_seize_coin')
+            write_ndarray(seal_name, (self.sealSize,), self.sealDtype, [seal_position, seal_position + 1], np.array([0], dtype=self.sealDtype), check = True, max_retry = 10 * max_wait, task = 'abort_seize_coin')
             return False
 
     def release_coin(self, polvec):
