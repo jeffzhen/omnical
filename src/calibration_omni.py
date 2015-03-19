@@ -2574,7 +2574,9 @@ class Treasure:
 
             if nsigma_cut is not None and nsigma_cut > 0:#only update data within a certain nsigma range of existing weighted mean and weighted variance
                 coin = Coin(coin_content)
-                nsigma_flag = (coin.count > 0) & (np.abs(coin.weighted_mean - update_visibilities) > nsigma_cut * (coin.weighted_variance * coin.count)**.5)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore",category=RuntimeWarning)
+                    nsigma_flag = (coin.count > 0) & (np.abs(coin.weighted_mean - update_visibilities) > nsigma_cut * (coin.weighted_variance * coin.count)**.5)
                 good_flag = good_flag & (~nsigma_flag)
 
             coin_content[..., 0] = coin_content[..., 0] + good_flag
