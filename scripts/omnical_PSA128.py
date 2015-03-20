@@ -387,9 +387,18 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     if keep_binary_calpar:
         calibrators[pol].rawCalpar.tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnical"%pol)
     else:
-        calibrators[pol].get_omnichisq().tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnichisq"%pol)
+        omnichisq = calibrators[pol].get_omnichisq()
+        omnichisq.tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnichisq"%pol)
         calibrators[pol].get_omnifit().tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnifit"%pol)
         omnigains[pol[0]].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnigain"%pol)
+        if have_model_treasure and (sunpos[:,0] < -.1).all():
+            amp_cal, phs_cal
+            omnichisq[:, 3:] = amp_cal
+            omnichisq.tofile(oppath + '/' + dataano + '_' + ano + "_%s.absa.omnichisq"%pol)
+            for i in range(phs_cal.shape[-1]):
+                omnichisq[:, 3:] = phs_cal[...,i]
+                omnichisq.tofile(oppath + '/' + dataano + '_' + ano + "_%s.absp%i.omnichisq"%(pol,i))
+
     flags[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omniflag"%pol)
     calibrators[pol].write_redundantinfo(oppath + '/' + dataano + '_' + ano + "_%s.binfo"%pol, overwrite=True)
     diag_txt = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, ubl_healthbar = ubl_healthbar, ouput_txt = True)
