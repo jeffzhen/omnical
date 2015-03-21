@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.7.1'
+__version__ = '3.7.2'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -2476,6 +2476,12 @@ class Treasure:
             self.ubls = {}
             self.duplicate_treasure(folder_path)
 
+    def __repr__(self):
+        return "Treasure instance at %s with %i time slices and %i frequency slices on %s polarizations."%(self.folderPath, self.nTime, self.nFrequency, self.ubls.keys())
+
+    def __str__(self):
+        return self.__repr__()
+
     def coin_name(self, polvec):
         pol, ublvec = polvec
         if pol in self.ubls.keys():
@@ -2758,6 +2764,12 @@ class Coin:
                 return result
             elif attr == 'weighted_variance':
                 return 1/self.data[..., 7]
+
+    def __repr__(self):
+        return "Coin instance with shape %s and type %s."%(self.data.shape, self.data.dtype)
+
+    def __str__(self):
+        return self.__repr__()
 
 class FakeCoin:
     pass

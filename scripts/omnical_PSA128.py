@@ -12,6 +12,7 @@ FILENAME = "omnical_PSA128.py"
 print "#Omnical Version %s#"%omni.__version__
 PI = np.pi
 TPI = 2 * np.pi
+TIMER = omni.Timer()
 ######################################################################
 ##############Config parameters###################################
 ######################################################################
@@ -423,6 +424,9 @@ if create_new_uvs:
     omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), flags = flags, overwrite = overwrite_uvs)
     print "Done."
     sys.stdout.flush()
+
+TIMER.tick()
+
 if make_plots:
     import matplotlib.pyplot as plt
     for p,pol in zip(range(len(wantpols)), wantpols.keys()):
