@@ -110,7 +110,7 @@ removeadditiveperiod = -1
 
 need_crude_cal = True
 
-converge_percent = 0.01
+converge_percent = 0.0001
 max_iter = 50
 step_size = .3
 
@@ -132,8 +132,8 @@ if fend == 0:#arbitrary range
 
 nant = uv['nants']
 sa = ephem.Observer()
-sa.lon = uv['longitu']
-sa.lat = uv['latitud']
+sa.lon = aa.lon
+sa.lat = aa.lat
 sa.pressure = 0
 startfreq = uv['sfreq']
 dfreq = uv['sdf']
