@@ -325,9 +325,11 @@ if plottype == 'omnichisq':
             flag = np.zeros((nt, nf), dtype='bool')
 
         if time is not None:
-            plotdata = data[time]
+            plotdata = np.copy(data[time])
+            flag = np.copy(flag[time])
         elif frequency is not None:
-            plotdata = data[:, frequency]
+            plotdata = np.copy(data[:, frequency])
+            flag = np.copy(flag[:, frequency])
         else:
             plotdata = np.copy(data)
         p = p + 1
