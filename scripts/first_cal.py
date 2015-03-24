@@ -46,6 +46,7 @@ o.add_option('--plot', action = 'store_true', help = 'Whether to make plots in t
 o.add_option('-e', '--tol', action = 'store', type = 'float', default = 1e-2, help = 'tolerance of antenna location deviation when computing unique baselines.')
 o.add_option('--ba', action = 'store', default = '', help = 'bad antenna number indices seperated by commas')
 o.add_option('--bu', action = 'store', default = '', help = 'bad unique baseline indicated by ant pairs (seperated by .) seperated by commas: 1.2,3.4,10.11')
+o.add_option('--flagsigma', action = 'store', type = 'float', default = 4, help = 'Number of sigmas to flag on chi^2 distribution. 4 sigma by default. For full cadence data, 3 is recommended.')
 
 
 
@@ -65,6 +66,7 @@ uvfiles = args
 healthbar = opts.healthbar
 bad_ant_suppress = opts.suppress
 max_try = opts.max
+nsigma = opts.flagsigma
 
 try:
 	badAntenna = [int(i) for i in opts.ba.split(',')]
@@ -313,8 +315,10 @@ while new_bad_ant != [] and trials < max_try:
 			linearcalpar[pol][np.isnan(linearcalpar[pol])] = 1
 			linearcalpar[pol] = linearcalpar[pol] * crude_calpar[pol][:, calibrators[pol].Info.subsetant]
 
-			freq_flag = (np.sum(calibrators[pol].flag(mode="1", fwindow=calibrators[pol].nFrequency/100), axis = 0) > .4 * calibrators[pol].nTime)|np.isnan(np.sum(linearcalpar[pol], axis=1))
+			freq_flag = (np.sum(calibrators[pol].flag(mode="1", nsigma = nsigma, fwindow=calibrators[pol].nFrequency/100), axis = 0) > .4 * calibrators[pol].nTime)|np.isnan(np.sum(linearcalpar[pol], axis=1))
 			freq_flag = freq_flag|(ss.convolve(freq_flag,[.2,.4,1,.4,.2],mode='same')>=1)
+			if freq_flag.all():
+				raise ValueError("Entire %s data is flagged. Try to make --flagsigma larger to have less aggressive flagging."%pol)
 			antlocs = np.array(calibrators[pol].antloc)
 			antlocs = antlocs - np.mean(antlocs, axis = 0)#move origin to center of array
 			A = np.array([list(a) + [1] for a in antlocs])
