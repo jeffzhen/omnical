@@ -163,7 +163,7 @@ else:
 
 	for p, pol in enumerate(wantpols.keys()):
 		if p == 0:
-			rawdata, t, timing, lst, rawflag = omni.importuvs([uvfiles_dic[pol]], {pol:wantpols[pol]}, , totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)
+			rawdata, t, timing, lst, rawflag = omni.importuvs([uvfiles_dic[pol]], {pol:wantpols[pol]}, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)
 		else:
 			tmpdata, t, timing, lst, tmpflag = omni.importuvs([uvfiles_dic[pol]], {pol:wantpols[pol]}, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)
 			rawdata = np.concatenate((rawdata, tmpdata))
