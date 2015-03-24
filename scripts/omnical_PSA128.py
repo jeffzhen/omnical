@@ -338,8 +338,10 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     #####################flag bad data part 1#########################
     #####################need to flag before absolute calibration, bc absolutecal supresses high chisq caused by rfi
     if need_new_flag:
+        print "%s flagged percentage in uv: "%(pol), float(np.sum(uvflags[pol]))/uvflags[pol].shape[0]/uvflags[pol].shape[1]
         flags[pol] = calibrators[pol].flag(nsigma = flag_thresh, twindow=flagt, fwindow=flagf)#True if bad and flagged
-
+        flags[pol] = flags[pol] | uvflags[pol]
+        print "%s flagged percentage pre-chemo: "%(pol), float(np.sum(flags[pol]))/uvflags[pol].shape[0]/uvflags[pol].shape[1]
 
     #omni.omniview([data[0,0,110], calibrators['xx'].get_calibrated_data(data[0])[0,110]], info = calibrators['xx'].get_info())
     if have_model_treasure and (sunpos[:,0] < -.1).all():
@@ -360,6 +362,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
             flags[pol] = flags[pol]| (calibrators[pol].rawCalpar[..., 2] > model_chisq)
 
         if chemo >= 1:
+
             flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2,.4,1,.4,.2]],mode='same')>=1)
             flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2],[.4],[1],[.4],[.2]],mode='same')>=1)
 
@@ -368,7 +371,8 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
             bad_freq = bad_freq | (ss.convolve(bad_freq, [1,1,1],mode='same')>=1)
             bad_time = bad_time | (ss.convolve(bad_time, [1,1,1],mode='same')>=1)
             flags[pol] = flags[pol]|bad_freq[None,:]|bad_time[:, None]
-        flags[pol] = flags[pol] | uvflags[pol]
+            print "%s flagged percentage post-chemo: "%(pol), float(np.sum(flags[pol]))/uvflags[pol].shape[0]/uvflags[pol].shape[1]
+
         if np.sum(flags[pol]) > flags[pol].shape[0] * flags[pol].shape[1] / chemo:
             flags[pol] = flags[pol] | True
     else:
