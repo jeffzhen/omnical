@@ -92,8 +92,7 @@ for uvf in uvfiles:
 		print "WARNING: uv file path %s does not exist!"%uvf
 if len(uvfiles) == 0:
 	raise IOError("ERROR: No valid uv files detected in input. Exiting!")
-elif:
-	len(uvfiles) > 1:
+elif len(uvfiles) > 1:
 		if len(uvfiles)!= len(wantpols):
 			raise IOError("ERROR: %i uvfiles are inputed and assumed to be corresponding to different polarizations, but only %s polarizations specified. Exiting!"%(len(uvfiles), len(wantpols)))
 		else:
