@@ -80,16 +80,27 @@ except:
 redundancy_tol = opts.tol
 
 [fstart,fend] = [int(x) for x in opts.freq_range.split('_')]
+
+wantpols = {}
+for p in opts.pol.split(','):
+	wantpols[p] = ap.miriad.str2pol[p]
+#wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo:
+
 for uvf in uvfiles:
 	if not os.path.isdir(uvf):
 		uvfiles.remove(uvf)
 		print "WARNING: uv file path %s does not exist!"%uvf
 if len(uvfiles) == 0:
-	raise Exception("ERROR: No valid uv files detected in input. Exiting!")
+	raise IOError("ERROR: No valid uv files detected in input. Exiting!")
+elif:
+	len(uvfiles) > 1:
+		if len(uvfiles)!= len(wantpols):
+			raise IOError("ERROR: %i uvfiles are inputed and assumed to be corresponding to different polarizations, but only %s polarizations specified. Exiting!"%(len(uvfiles), len(wantpols)))
+		else:
+			uvfiles_dic = {}
+			for i, p in enumerate(opts.pol.split(',')):
+				uvfiles_dic[p] = uvfiles[i]
 
-wantpols = {}
-for p in opts.pol.split(','): wantpols[p] = ap.miriad.str2pol[p]
-#wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo:
 
 print "Reading calfile %s..."%opts.cal,
 sys.stdout.flush()
@@ -147,7 +158,17 @@ sys.stdout.flush()
 ###start reading miriads################
 print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed"
 sys.stdout.flush()
-rawdata, t, timing, lst, rawflag = omni.importuvs(uvfiles, wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)#, nTotalAntenna = len(aa))
+if len(uvfiles) == 1:
+	rawdata, t, timing, lst, rawflag = omni.importuvs(uvfiles, wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)#, nTotalAntenna = len(aa))
+else:
+
+	for p, pol in enumerate(wantpols.keys()):
+		if p == 0:
+			rawdata, t, timing, lst, rawflag = omni.importuvs(uvfiles_dic[pol], wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)
+
+		else:
+			tmpdata, t, timing, lst, tmpflag = omni.importuvs(uvfiles_dic[pol], {pol:wantpols[pol]}, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)
+			rawdata = np.concatenate((rawdata, tmpdata))
 print FILENAME + " MSG:",  len(t), "slices read."
 sys.stdout.flush()
 
