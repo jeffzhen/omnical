@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.7.4'
+__version__ = '3.7.5'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -1845,7 +1845,11 @@ class RedundantCalibrator:
             dof = (len(self.crossindex)-self.nAntenna-self.nUBL+2)
             treasure.update_coin((pol, ublvec), lsts, visibilities, self.rawCalpar[..., 2]/2./abscal_factor/dof/self.ublcount[i], nsigma_cut = nsigma_cut,verbose=verbose)#divide by 2 because epsilon^2 should be for real/imag separately
 
-    def compute_redundantinfo(self, arrayinfoPath = None, verbose = False):
+    def compute_redundantinfo(self, arrayinfoPath = None, verbose = False, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
+        self.antennaLocationTolerance = antennaLocationTolerance
+        self.badAntenna += badAntenna
+        self.badUBLpair += badUBLpair
+
         if arrayinfoPath is not None and os.path.isfile(arrayinfoPath):
             self.read_arrayinfo(arrayinfoPath)
         if np.linalg.norm(self.antennaLocation) == 0:
@@ -2424,11 +2428,14 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
         self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
         self.antennaLocation[self._goodAntenna, ::2] = self.antennaLocation[self._goodAntenna, ::2].dot(np.array([[np.cos(PI/2+aa.lat), np.sin(PI/2+aa.lat)],[-np.sin(PI/2+aa.lat), np.cos(PI/2+aa.lat)]]).transpose())###rotate into local coordinates
 
-    def compute_redundantinfo(self, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
-        self.antennaLocationTolerance = antennaLocationTolerance
-        self.badAntenna += badAntenna
-        self.badUBLpair += badUBLpair
-        RedundantCalibrator.compute_redundantinfo(self)
+class RedundantCalibrator_X5(RedundantCalibrator):
+    def __init__(self, antennaLocation):
+        nant = len(antennaLocation)
+        RedundantCalibrator.__init__(self, nant)
+        self.antennaLocation = antennaLocation
+        self.totalVisibilityId = np.concatenate([[[i,j] for j in range(i, nant)] for i in range(nant)])
+
+        self.badAntenna = range(16) + range(56,60) + [16,19,50]
 
 ##########################################################################################
 ##########################################################################################
@@ -3159,8 +3166,22 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
     return result
 
 
+def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error
+        if len(spectra) != len(window):
+            raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
+        #if np.sum(window) <= 2* band_limit - 1:
+            #return np.zeros(2*band_limit - 1, dtype=np.array(spectra).dtype), np.inf
+        fwindow = np.fft.fft(window) / len(window)
+        band_limit_pass = np.zeros(len(fwindow), dtype='bool')
+        band_limit_pass[:band_limit] = True
+        if band_limit > 1:
+            band_limit_pass[-(band_limit-1):] = True
 
-
+        m = la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass]
+        mmi = la.inv(m.transpose().conjugate().dot(m) + np.identity(m.shape[1])*correction_weight)
+        deconv_fdata = mmi.dot(m.transpose().conjugate().dot(spectra))
+        model_fdata = m.dot(deconv_fdata)
+        return deconv_fdata, np.linalg.norm(model_fdata-spectra)
 ##########################################################################################
 ##########################################################################################
 ##################           Timer             ###########################################
