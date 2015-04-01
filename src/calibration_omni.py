@@ -3166,7 +3166,7 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
     return result
 
 
-def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error
+def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error. All fft will be along first axis of spectra
         if len(spectra) != len(window):
             raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
         #if np.sum(window) <= 2* band_limit - 1:
