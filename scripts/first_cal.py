@@ -34,7 +34,7 @@ o.add_option('--max', action = 'store', type = 'int', default = 5, help = 'Max n
 #o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
 #o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
 o.add_option('--healthbar', action = 'store', type = 'float', default = 2, help = 'Health threshold (0-100) over which an antenna is marked bad. 2 by default.')
-o.add_option('--suppress', action = 'store', type = 'float', default = 1, help = 'Amplitude of the gains for the bad antennas. Larger means more suppressed.')
+o.add_option('--suppress', action = 'store', type = 'float', default = 1, help = 'Amplitude of the gains for the bad antennas. Larger means more suppressed. Only useful if you dont want to use flagging.')
 o.add_option('-f', '--freq_range', action = 'store', default = '0_0', help = 'Frequency bin number range to use for fitting amp and delay seperated by underscore. 0_0 by default and will process all frequencies.')
 o.add_option('-o', '--outputpath', action = 'store', default = "DONT_WRITE", help = 'Output folder. No output by default.')
 o.add_option('-t', '--info_tag', action = 'store', default = "DEFAULT", help = 'Name tag for output redundantinfo file.')
@@ -231,8 +231,10 @@ southern_points = {'hyd':{'ra': '09:18:05.7', 'dec': '-12:05:44'},
 'cyg':{'ra': '19:59:28.3', 'dec': '40:44:02'},
 'pic':{'ra': '05:19:49.7', 'dec': '-45:46:44'},
 'vir':{'ra': '12:30:49.4', 'dec': '12:23:28'},
-'for':{'ra': '03:22:41.7', 'dec': '-37:12:30'}}
-
+'for':{'ra': '03:22:41.7', 'dec': '-37:12:30'},
+'sag':{'ra': '17:45:40.045', 'dec': '-29:0:27.9'},
+'cas':{'ra': '23:23:26', 'dec': '58:48:00'},
+'crab':{'ra': '5:34:31.97', 'dec': '22:00:52.1'}}
 for source in southern_points.keys():
     southern_points[source]['body'] = ephem.FixedBody()
     southern_points[source]['body']._ra = southern_points[source]['ra']
@@ -256,6 +258,7 @@ new_bad_ant = ["Just to get while loop started"]
 trials = 0
 calibrators = {}
 data = {}
+flags = {}
 while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) < nant / 2:
     trials = trials + 1
     if trials > 1:
@@ -317,6 +320,9 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
         print "Done. %fmin"%(float(time.time()-timer)/60.)
         sys.stdout.flush()
 
+        flags[pol] = calibrators[pol].flag(nsigma = nsigma, fwindow=3, twindow=99999)
+        if input_type == 'odf' and .137 > startfreq and .137 < endfreq:
+            flags[pol][:, int((.137-startfreq)/dfreq):int((.138-startfreq)/dfreq)] = True
         #################degeneracy removal on 3 antennas [initant, degen[0], degen[1]]######################################
         print FILENAME + " MSG: Performing additional degeneracy removal on %s"%pol,
         sys.stdout.flush()
@@ -333,7 +339,7 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
         sys.stdout.flush()
 
         #######################diagnose###############################
-        ant_bad_meter[pol], ubl_bad_meter[pol] = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, healthbar = healthbar, verbose = False)
+        ant_bad_meter[pol], ubl_bad_meter[pol] = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, flag = flags[pol], healthbar = healthbar, verbose = False)
         nbad = 0
         for ab in ant_bad_meter[pol]:
             if ab > healthbar:
@@ -362,19 +368,24 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
         worst_delay_ant = {}
         n_bad_delay = {}
         linearcalpar = {}#combine lincal results averaged over time and the initial crude_calpar results
+        linearcalpar_model = {}
         solution = {}
         delay = {}
         delay_error = {}
+        delay_fit_count = {}
+        freq_flag = np.zeros(nfreq, dtype='bool')
         for pol in wantpols.keys():
             linearcalpar[pol] = 10.**(calibrators[pol].rawCalpar[:,:,3:3+calibrators[pol].Info.nAntenna]) * np.exp(1j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna])
+            linearcalpar[pol][flags[pol]] = np.nan
             linearcalpar[pol] = nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * nanmedian(np.imag(linearcalpar[pol]), axis = 0)
             linearcalpar[pol][np.isnan(linearcalpar[pol])] = 1
             linearcalpar[pol] = linearcalpar[pol] * crude_calpar[pol][:, calibrators[pol].Info.subsetant]
 
-            freq_flag = (np.sum(calibrators[pol].flag(mode="1", nsigma = nsigma, fwindow=calibrators[pol].nFrequency/100), axis = 0) > .4 * calibrators[pol].nTime)|np.isnan(np.sum(linearcalpar[pol], axis=1))
+            freq_flag = freq_flag|(np.sum(flags[pol], axis = 0) > .4 * calibrators[pol].nTime)|np.isnan(np.sum(linearcalpar[pol], axis=1))
             freq_flag = freq_flag|(ss.convolve(freq_flag,[.2,.4,1,.4,.2],mode='same')>=1)
             if freq_flag.all():
                 raise ValueError("Entire %s data is flagged. Try to make --flagsigma larger to have less aggressive flagging."%pol)
+        for pol in wantpols.keys():
             antlocs = np.array(calibrators[pol].antloc)
             antlocs = antlocs - np.mean(antlocs, axis = 0)#move origin to center of array
             A = np.array([list(a) + [1] for a in antlocs])
@@ -384,7 +395,7 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
             ####delay fitting and fancy degeneracy removal####
             ################################################
 
-            count = 0
+            delay_fit_count[pol] = 0
             MAX_DELAY_ITER = 10 #rarely need more than 1 iteration;
             DELAY_ERROR_THRESH = .1 #RMS error in radians for delay fitting
             #solution1_history = []
@@ -394,8 +405,8 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
             #subant49_history = []
             delay[pol] = np.zeros(calibrators[pol].nTotalAnt, dtype='float')
             delay_error[pol] = np.zeros(calibrators[pol].nTotalAnt, dtype='float')+np.inf
-            while (count == 0) or (np.max(delay_error[pol][calibrators[pol].Info.subsetant]) > DELAY_ERROR_THRESH and count < MAX_DELAY_ITER):
-                count = count + 1
+            while (delay_fit_count[pol] == 0) or (np.max(delay_error[pol][calibrators[pol].Info.subsetant]) > DELAY_ERROR_THRESH and delay_fit_count[pol] < MAX_DELAY_ITER):
+                delay_fit_count[pol] = delay_fit_count[pol] + 1
                 if fend <= fstart:
                     fend = nfreq
                 sub_freq_flag = freq_flag[fstart:fend]
@@ -455,18 +466,27 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
                     #print la.norm(solution[pol][1])
                 linearcalpar[pol] = linearcalpar[pol] / np.exp(1.j* (np.outer(np.arange(nfreq) * dfreq + startfreq, solution_degen[0]) + solution_degen[1]))
 
+                #for flagged frequencies, use the phase model
+                model_phase = np.array([(np.arange(nfreq)*dfreq + startfreq) * solution[pol][0, a] + solution[pol][1, a] for a in range(linearcalpar[pol].shape[1])]).transpose()
+                linearcalpar[pol][freq_flag] = np.exp(1.j * model_phase[freq_flag])
+                linearcalpar[pol][np.isnan(linearcalpar[pol])] = np.exp(1.j * model_phase[np.isnan(linearcalpar[pol])])
 
+                #also create linearcalpar counter part that is purely the model phase and unity amp
+                linearcalpar_model[pol] = np.exp(1.j * model_phase)
+
+                #error terms
                 delay_error[pol][calibrators[pol].Info.subsetant] = np.linalg.norm(avg_angle_error[fstart:fend][~sub_freq_flag,:], axis = 0) / (np.sum(~sub_freq_flag))**.5
                 #error_history = error_history + [delay_error[pol][calibrators[pol].Info.subsetant]]
                 #solution1_history = solution1_history + [solution[pol][1]]
                 #solution0_history = solution0_history + [solution[pol][0]]
                 #rough_slope_history = rough_slope_history + [rough_slopes]
                 #subant49_history = subant49_history + [avg_angle[49]]
-            #print "Used %i iterations to find the delays"%count
-            if count == MAX_DELAY_ITER:
+            #print "Used %i iterations to find the delays"%delay_fit_count[pol]
+            if delay_fit_count[pol] == MAX_DELAY_ITER:
                 n_bad_delay[pol] = np.sum(delay_error[pol][calibrators[pol].subsetant] >= DELAY_ERROR_THRESH)
                 worst_delay_ant[pol] = calibrators[pol].subsetant[np.argsort(delay_error[pol][calibrators[pol].subsetant])[-n_bad_delay[pol]:]][::-1]
                 new_bad_ant = new_bad_ant + list(calibrators[pol].subsetant[delay_error[pol][calibrators[pol].subsetant] >= DELAY_ERROR_THRESH])
+
 
         print FILENAME + " MSG: %i bad antennas found during delay fitting."%(len(new_bad_ant))
         if new_bad_ant == [] or len(new_bad_ant) > calibrators[wantpols.keys()[0]].nAntenna / 20.:#end case all good or too many delay fitting failures
@@ -518,8 +538,10 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
                         #plt.axes().set_aspect('equal')
                     plt.show()
                     plt.hist(delay_error[pol][calibrators[pol].subsetant], 20)
-                    if count == MAX_DELAY_ITER:
-                        plt.title("The %i worst fitting antennas are (worst first):\n %s"%(n_bad_delay[pol], worst_delay_ant[pol]))
+                    if delay_fit_count[pol] == MAX_DELAY_ITER:
+                        plt.title("The %i worst fitting antennas on %s are (worst first):\n %s"%(n_bad_delay[pol], pol, worst_delay_ant[pol]))
+                    else:
+                        plt.title(pol)
                     plt.show()
 
 
@@ -527,9 +549,11 @@ if oppath != "DONT_WRITE/":
     if info_tag == "DEFAULT":
         op_info_path = oppath + 'redundantinfo_first_cal_' + time.strftime("%Y_%m_%d_%H_%M_%S") + ".bin"
         op_calpar_path = oppath + 'calpar_first_cal_' + time.strftime("%Y_%m_%d_%H_%M_%S") + ".p"
+        op_calpar_path_model = oppath + 'calpar_first_cal_' + time.strftime("%Y_%m_%d_%H_%M_%S") + ".pmodel"
     else:
         op_info_path = oppath + 'redundantinfo_first_cal_' + info_tag + ".bin"
         op_calpar_path = oppath + 'calpar_first_cal_' + info_tag + ".p"
+        op_calpar_path_model = oppath + 'calpar_first_cal_' + info_tag + ".pmodel"
 
     print FILENAME + " MSG: Writing redundant info to %s"%op_info_path,
     sys.stdout.flush()
@@ -543,14 +567,16 @@ if oppath != "DONT_WRITE/":
         #linearcalpar[pol].astype('float32').tofile(op_calpar_path.replace('.bin', pol+'.bin'))
         #print "Done."
         #sys.stdout.flush()
-    linearcalpar_out = {}#include all antennas, not just good ones
-    for pol in linearcalpar.keys():
-        linearcalpar_out[pol] = np.ones((linearcalpar[pol].shape[0], calibrators[pol].nTotalAnt), dtype='complex64')
-        linearcalpar_out[pol][:, calibrators[pol].subsetant] = linearcalpar[pol]
-        linearcalpar_out[pol][np.isnan(linearcalpar_out[pol])] = 1
-    with open(op_calpar_path, 'wb') as outfile:
 
-        pickle.dump(linearcalpar_out, outfile, protocol=pickle.HIGHEST_PROTOCOL)
+    for linpar, linpath in zip([linearcalpar, linearcalpar_model], [op_calpar_path, op_calpar_path_model]):
+        linearcalpar_out = {}#include all antennas, not just good ones
+        for pol in linpar.keys():
+            linearcalpar_out[pol] = np.ones((linpar[pol].shape[0], calibrators[pol].nTotalAnt), dtype='complex64')
+            linearcalpar_out[pol][:, calibrators[pol].subsetant] = linpar[pol]
+        with open(linpath, 'wb') as outfile:
+            pickle.dump(linearcalpar_out, outfile, protocol=pickle.HIGHEST_PROTOCOL)
+
+
 else:
     print FILENAME + " MSG: Not outputting redundantinfo or rawcalpar by default."
     sys.stdout.flush()

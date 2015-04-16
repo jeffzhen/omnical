@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.7.5'
+__version__ = '3.7.6'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -756,6 +756,80 @@ def pick_slice_uvs(uvfilenames, pol_str_or_num, t_index_lst_jd, findex, totalVis
         raise IOError("FATAL ERROR: no data pulled. Total of %i time slices read from UV files. Please check polarization information."%len(t))
     return data
 
+def exportuv(uv_path, data, flags, pols, jds, inttime, sfreq, sdf, latitude, longitude, totalVisibilityId = None, comment='none', overwrite = False):#flags true when bad, lat lon radians, frequency GHz, jd days, inttime seconds, pols in -5~-8 miriad convention
+    uv_path = os.path.expanduser(uv_path)
+    if os.path.isdir(uv_path):
+        if overwrite:
+            try:
+                shutil.rmtree(uv_path)
+            except:
+                raise IOError('Output path %s exists and overwrite failed.'%uv_path)
+        else:
+            raise IOError('Output path %s exists. Use --overwrite if you wish to overwrite.'%uv_path)
+
+    if data.ndim != 4:
+        raise TypeError('Data has %i dimensions, not 4 dimensions (pol, time, freq, baseline).'%(data.ndim))
+    if totalVisibilityId is None:
+        nant = int(np.floor((data.shape[-1] * 2)**.5))
+        if data.shape[-1] != nant * (nant + 1) / 2:
+            raise TypeError('totalVisibilityId is not supplied and baseline dimension in data is %i which cannot be automatically translated into nAntenna.'%data.shape[-1])
+        totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(nant)])
+    if (data.shape[1] != len(jds)):
+        raise TypeError('data and jds have different time lengths %i %i.'%(data.shape[1], len(jds)))
+    if (data.shape[0] != len(pols)):
+        raise TypeError('data and pols have different pol lengths %i %i.'%(data.shape[0], len(pols)))
+    if (data.shape[3] != len(totalVisibilityId)):
+        raise TypeError('data and totalVisibilityId have different baseline counts %i %i.'%(data.shape[3], len(totalVisibilityId)))
+    if (data.shape != flags.shape):
+        raise TypeError('data and flags have different dimensions %s %s.'%(data.shape, flags.shape))
+    for pnum in pols:
+        if type(pnum) != type(1):
+            raise TypeError('pols must be in miriad numbers like -5 for xx. A %s is passed in.'%pnum)
+
+
+    uv = ap.miriad.UV(uv_path, 'new')
+    uv['history'] = 'Made this file from scratch using omnical.calibration_omni.exportuv() on %s. Initial comments: %s.\n'%(time.asctime(time.localtime(time.time())), comment)
+
+    uv.add_var('pol', 'i')
+    uv.add_var('inttime', 'r')
+    uv.add_var('latitud', 'd')
+    uv.add_var('longitu', 'd')
+    uv.add_var('lst', 'd')
+    uv.add_var('nants', 'i')
+    uv.add_var('nchan', 'i')
+    uv.add_var('npol', 'i')
+    uv.add_var('sdf', 'd')#GHZ
+    uv.add_var('sfreq', 'd')#GHZ
+
+
+    uv['nchan'] = data.shape[2]
+    uv['npol'] = data.shape[0]
+    uv['nants'] = np.max(np.array(totalVisibilityId)) + 1
+    uv['latitud'] = latitude
+    uv['longitu'] = longitude
+    uv['sdf'] = sdf
+    uv['sfreq'] = sfreq
+    uv['inttime'] = inttime
+    sa = ephem.Observer()
+    sa.lat = latitude
+    sa.lon = longitude
+
+    for p, pnum in enumerate(pols):
+        uv['pol'] = pnum
+        for t, jd in enumerate(jds):
+            sa.date = jd - julDelta
+            uv['lst'] = sa.sidereal_time()
+            for bl, antpair in enumerate(totalVisibilityId):
+                uvw = np.array([antpair[0]-antpair[1]-1,0,0], dtype=np.double)
+
+                preamble = (uvw, jd, (antpair[0],antpair[1]))
+                if antpair[0] == antpair[1]:
+                    maskdata = np.ma.masked_array(np.conjugate(data[p, t, :, bl]), mask = flags[p, t, :, bl], dtype='complex64')
+                else:
+                    maskdata = np.ma.masked_array(data[p, t, :, bl], mask = flags[p, t, :, bl], dtype='complex64')
+                uv.write(preamble, maskdata)
+    del(uv)
+    return
 
 def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq
     METHODNAME = "*apply_calpar*"
@@ -771,6 +845,10 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
         raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
 def get_uv_pols(uvi):
+    input_is_str = (type(uvi) == type('a'))
+    if input_is_str:
+        uvi = ap.miriad.UV(uvi)
+
     uvpols = []
     npols = uvi['npol']
     uvi.rewind()
@@ -782,6 +860,9 @@ def get_uv_pols(uvi):
                 break
     uvi.rewind()
     uvi.select('clear', 0, 0)
+
+    if input_is_str:
+        del(uvi)
     return [ap.miriad.pol2str[p] for p in uvpols]
 
 def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, oppath, ano, adds={}, flags=None, nTotalAntenna = None, overwrite = False, comment = '', verbose = False):
@@ -925,6 +1006,8 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, oppath, 
         del(uvi)
 
     return
+
+
 
 def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wantpols, oppath, ano, additivefilenames = None, nTotalAntenna = None, comment = '', overwrite= False):
     METHODNAME = "*apply_omnical_uvs*"
@@ -1567,31 +1650,44 @@ class RedundantCalibrator:
 
 
 
-    def diagnose(self, data = None, additiveout = None, verbose = True, healthbar = 2, ubl_healthbar = 50, warn_low_redun = False, ouput_txt = False):
+    def diagnose(self, data = None, additiveout = None, flag = None, verbose = True, healthbar = 2, ubl_healthbar = 50, warn_low_redun = False, ouput_txt = False):
         errstate = np.geterr()
         np.seterr(invalid = 'ignore')
+
+        if self.rawCalpar is None:
+            raise Exception("No calibration has been performed since rawCalpar does not exist.")
+
+        if flag is None:
+            flag = np.zeros(self.rawCalpar.shape[:2], dtype='bool')
+        elif flag.shape != self.rawCalpar.shape[:2]:
+            raise TypeError('flag and self.rawCalpar have different shapes %s %s.'%(flag.shape, self.rawCalpar.shape[:2]))
+
         checks = 1
         timer = Timer()
         bad_count = np.zeros((3,self.Info.nAntenna), dtype='int')
         bad_ubl_count = np.zeros(self.Info.nUBL, dtype='int')
         median_level = nanmedian(nanmedian(self.rawCalpar[:,:,3:3+self.Info.nAntenna], axis= 0), axis= 1)
-        bad_count[0] = np.array([(np.abs(self.rawCalpar[:,:,3+a] - median_level) >= .15).sum() for a in range(self.Info.nAntenna)])**2
+        bad_count[0] = np.array([(np.abs(self.rawCalpar[:,:,3+a] - median_level) >= .15)[~flag].sum() for a in range(self.Info.nAntenna)])**2
         #timer.tick(1)
+
+
         if data is not None and data.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
             subsetbl = self.Info.subsetbl
             crossindex = self.Info.crossindex
             ncross = len(self.Info.crossindex)
             bl1dmatrix = self.Info.bl1dmatrix
-            ant_level = np.array([np.median(np.abs(data[:, :, [subsetbl[crossindex[bl]] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
+            ant_level = np.array([np.median(np.abs(data[:, :, [subsetbl[crossindex[bl]] for bl in bl1dmatrix[a] if (bl < ncross and bl >= 0)]]), axis = -1) for a in range(self.Info.nAntenna)])
             #timer.tick(2)
-            median_level = np.median(ant_level, axis = 0)
+            median_level = np.nanmedian(ant_level, axis = 0)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
-                bad_count[1] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
+                bad_count[1] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667)[~flag].sum() for a in range(self.Info.nAntenna)])**2
         #timer.tick(2)
+
         if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
+
             subsetbl = self.Info.subsetbl
             crossindex = self.Info.crossindex
             ncross = len(self.Info.crossindex)
@@ -1601,18 +1697,19 @@ class RedundantCalibrator:
             median_level = np.median(ant_level, axis = 0)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
-                bad_count[2] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667).sum() for a in range(self.Info.nAntenna)])**2
+                bad_count[2] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667)[~flag].sum() for a in range(self.Info.nAntenna)])**2
             #timer.tick(3)
             ublindex = [np.array(index).astype('int')[:,2] for index in self.Info.ublindex]
             ubl_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in ublindex[u]]]), axis = 2) for u in range(self.Info.nUBL)])
             median_level = np.median(ubl_level, axis = 0)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
-                bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .667).sum() for u in range(self.Info.nUBL)])**2
+                bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .667)[~flag].sum() for u in range(self.Info.nUBL)])**2
             #print median_level
         #timer.tick(3)
+
         np.seterr(invalid = errstate['invalid'])
-        bad_count = (np.mean(bad_count,axis=0)/float(self.nTime * self.nFrequency)**2 * 100).astype('int')
+        bad_count = (np.mean(bad_count,axis=0)/float(np.sum(~flag))**2 * 100).astype('int')
         bad_ubl_count = (bad_ubl_count/float(self.nTime * self.nFrequency)**2 * 100).astype('int')
         if verbose:
             #print bad_ant_cnt, bad_ubl_cnt
@@ -1648,7 +1745,7 @@ class RedundantCalibrator:
             raise Exception("flag cannot be run before lincal.")
 
         chisq = np.copy(self.rawCalpar[:,:,2])
-        nan_flag = np.isnan(chisq)|np.isinf(chisq)
+        nan_flag = np.isnan(np.sum(self.rawCalpar,axis=-1))|np.isinf(np.sum(self.rawCalpar,axis=-1))
 
         #chisq flag: spike_flag
         spike_flag = np.zeros_like(nan_flag)
@@ -3179,9 +3276,28 @@ def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):#so
 
         m = la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass]
         mmi = la.inv(m.transpose().conjugate().dot(m) + np.identity(m.shape[1])*correction_weight)
-        deconv_fdata = mmi.dot(m.transpose().conjugate().dot(spectra))
+        deconv_fdata = mmi.dot(m.transpose().conjugate()).dot(spectra)
         model_fdata = m.dot(deconv_fdata)
-        return deconv_fdata, np.linalg.norm(model_fdata-spectra)
+        return deconv_fdata, np.linalg.norm(model_fdata-spectra, axis = 0)
+
+def deconvolve_spectra2(spectra, window, band_limit, correction_weight=1e-15, correction_weight2=1e6):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error. All fft will be along first axis of spectra
+        if len(spectra) != len(window):
+            raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
+        #if np.sum(window) <= 2* band_limit - 1:
+            #return np.zeros(2*band_limit - 1, dtype=np.array(spectra).dtype), np.inf
+        fwindow = np.fft.fft(window) / len(window)
+        band_limit_pass = np.zeros(len(fwindow), dtype='bool')
+        band_limit_pass[:band_limit] = True
+        if band_limit > 1:
+            band_limit_pass[-(band_limit-1):] = True
+
+        #m = la.inv(la.dft(len(window))).dot(la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass].dot(la.dft(2*band_limit - 1)))
+        m = np.fft.ifft(la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass].dot(la.dft(2*band_limit - 1)), axis=0)
+        Ni = np.ones_like(window) + (1-window) * correction_weight2
+        mmi = la.inv((m.transpose().conjugate() * Ni).dot(m) + np.identity(m.shape[1])*correction_weight)
+        deconv_fdata = (mmi.dot(m.transpose().conjugate()) * Ni).dot(spectra)
+        model_fdata = m.dot(deconv_fdata)
+        return deconv_fdata, np.linalg.norm(model_fdata-spectra, axis = 0), model_fdata-spectra, mmi
 ##########################################################################################
 ##########################################################################################
 ##################           Timer             ###########################################
