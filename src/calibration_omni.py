@@ -844,6 +844,19 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
     else:
         raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
+def apply_calpar2(data, calpar, calpar2, visibilityID):#apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq
+    METHODNAME = "*apply_calpar2*"
+    if calpar.shape[-1] <= np.amax(visibilityID) or data.shape[-1] != len(visibilityID) or calpar.shape != calpar2.shape:
+        raise Exception("Dimension mismatch! Either number of antennas in calpar " + str(calpar.shape[-1]) + " is less than implied in visibility ID "  + str(1 + np.amax(visibilityID)) + ", or the length of the last axis of data "  + str(data.shape[-1]) + " is not equal to length of visibilityID "  + str(len(visibilityID)) + ", or calpars have different dimensions:" + str(calpar.shape) + str(calpar.shape) + '.')
+    if len(calpar.shape) == 3 and len(data.shape) == 3 and calpar.shape[:2] == data.shape[:2]:
+        return data/(np.conjugate(calpar[:,:,visibilityID[:,0].astype(int)]) * calpar2[:,:,visibilityID[:,1].astype(int)])
+    elif len(calpar.shape) == 2 and (len(data.shape) == 3 or len(data.shape) == 2) and calpar.shape[0] == data.shape[-2]:
+        return data/(np.conjugate(calpar[:,visibilityID[:,0].astype(int)]) * calpar2[:,visibilityID[:,1].astype(int)])
+    elif len(calpar.shape) == 1 and len(data.shape) <= 3:
+        return data/(np.conjugate(calpar[visibilityID[:,0].astype(int)]) * calpar2[visibilityID[:,1].astype(int)])
+    else:
+        raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
+
 def get_uv_pols(uvi):
     input_is_str = (type(uvi) == type('a'))
     if input_is_str:
@@ -1772,7 +1785,13 @@ class RedundantCalibrator:
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore",category=RuntimeWarning)
                     smoothed_chisq = smoothed_chisq * np.median(chisq[~(nan_flag|spike_flag)] / smoothed_chisq[~(nan_flag|spike_flag)])
-                spike_flag = spike_flag | (np.abs(chisq - smoothed_chisq) >= smoothed_chisq * thresh) | (chisq == 0)
+
+                    del_chisq = chisq - smoothed_chisq
+                    del_chisq[(nan_flag|spike_flag)] = np.nan
+                    estimate_chisq_sigma = np.nanstd(del_chisq,axis=0)
+                    estimate_chisq_sigma[np.isnan(estimate_chisq_sigma)] = 0
+                spike_flag = spike_flag | (np.abs(chisq - smoothed_chisq) >= np.minimum(smoothed_chisq * thresh, estimate_chisq_sigma * nsigma)) | (chisq == 0)
+
             if _dbg_plotter is not None:
                 _dbg_plotter.imshow(np.abs(chisq - smoothed_chisq)/smoothed_chisq, vmin=-thresh, vmax=thresh, interpolation='none')
         #baseline fit flag
@@ -2957,13 +2976,16 @@ def get_omnitime(omnistuff):
     else:
         raise ValueError('get_omnitime does not know how to deal with array of shape %s.'%omnistuff.shape)
 
-def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False):
+def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False, plot_3 = False):#plot_3: only plot the 3 most redundant ones
     import matplotlib.pyplot as plt
     data = np.array(data_in)
     try:#in case info is Info class
         info = info.get_info()
     except:
         pass
+    if plot_3 and info['nUBL'] < 3:
+        plot_3 = False
+
     colors=[]
     colorgrid = int(math.ceil((info['nUBL']/12.+1)**.34))
     for red in range(colorgrid):
@@ -2974,8 +2996,10 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
     #colors.remove([0,0,0])
     colors.remove([1,1,1])
 
+    if plot_3:
+        select_ubl_index = np.argsort(info['ublcount'])[-3:]
 
-    if len(data.shape) == 1:
+    if len(data.shape) == 1 or data.shape[0] == 1:
         ds = [data[info['subsetbl']][info['crossindex']]]
         fig, axes = plt.subplots(nrows=1, ncols=1, sharey=True, sharex=True)
         axes = [axes]
@@ -2996,7 +3020,9 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
             for color in colors:
                 #print info['ublindex'][ubl][:,2]
                 #print marker, color
-                if plot_single_ubl or len(info['ublindex'][ubl]) > 1:
+                if (plot_single_ubl or len(info['ublindex'][ubl]) > 1) and (not plot_3 or ubl in select_ubl_index):
+                    if plot_3:
+                        color = [[1,0,0],[0,1,0],[0,0,1]][select_ubl_index.tolist().index(ubl)]
                     ax.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker=marker, color=color)
                     outputdata[i] = outputdata[i] + [(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]) + 1.j * np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker, color, info['ubl'][ubl])]
 
@@ -3227,8 +3253,8 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):#ret
 def meanAngle(a, weights = None):
     return np.angle(np.average(np.exp(1.j*np.array(a)), weights = weights))
 
-def medianAngle(a):
-    return np.angle(np.median(np.cos(np.array(a))) + 1.j * np.median(np.sin(np.array(a))))
+def medianAngle(a, axis = -1):
+    return np.angle(np.median(np.cos(a), axis = axis) + 1.j * np.median(np.sin(a), axis = axis))
 
 def raw_calibrate(data, info, initant, solution_path, additional_solution_path, degeneracy_remove):
     result = np.ones(int(math.floor((len(data)*2.)**.5)), dtype='complex64')
@@ -3261,6 +3287,204 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
 
     result[info['subsetant']] = np.exp(1.j*calpar)# * result[info['subsetant']]
     return result
+
+
+def solve_slope(A_in, b_in, tol, niter=3, step=1, verbose=False):#solve for the solution vector x such that mod(A.x, 2pi) = b, where the values range from -p to p. solution will be seeked on the first axis of b
+    p = np.pi
+    A = np.array(A_in)
+    b = np.array(b_in + p) % (2*p) - p
+    if A.ndim != 2:
+        raise TypeError("A matrix must be 2 dimensional. Input A is %i dimensional."%A.ndim)
+    if A.shape[0] != b.shape[0]:
+        raise TypeError("A and b has shape mismatch: %s and %s."%(A.shape, b.shape))
+    if A.shape[1] != 2:
+        raise TypeError("A matrix's second dimension must have size of 2. %i inputted."%A.shape[1])
+
+    #find the shortest 2 non-parallel baselines, candidate_vecs have all combinations of vectors in a summation or subtraction. Each entry is i,j, v0,v1 where Ai+Aj=(v0,v1), negative j means subtraction. Identical i,j means vector itself without add or subtract
+    candidate_vecs = np.zeros((len(A)**2, 4), dtype = 'float32')
+    n = 0
+    for i in range(len(A)):
+        for j in range(len(A)):
+            if i < j:
+                candidate_vecs[n] = [i, j, A[i,0]+A[j,0], A[i,1]+A[j,1]]
+            elif i == j:
+                candidate_vecs[n] = [i, j, A[i,0], A[i,1]]
+            elif i > j:
+                candidate_vecs[n] = [i, -j, A[i,0]-A[j,0], A[i,1]-A[j,1]]
+
+            n = n + 1
+
+    candidate_vecs = candidate_vecs[np.linalg.norm(candidate_vecs, axis=1)>tol]
+
+    #construct coarse A that consists of the 2 shortest vecs
+    coarseA = np.zeros((2,2), dtype = 'float32')
+    if b.ndim > 1:
+        coarseb = np.zeros(np.concatenate(([2], b.shape[1:])), dtype='float32')
+    else:
+        coarseb = np.zeros(2, dtype='float32')
+
+    for n in np.argsort(np.linalg.norm(candidate_vecs[:, 2:4], axis=1)):
+        v = candidate_vecs[n, 2:4]
+        if la.norm(coarseA[0]) == 0:
+            coarseA[0] = v
+        else:
+            perp_component = v - v.dot(coarseA[0])/(coarseA[0].dot(coarseA[0])) * coarseA[0]
+            if la.norm(perp_component) > tol:
+                coarseA[1] = v
+                break
+    if la.norm(coarseA[1]) == 0:
+        raise Exception("Poorly constructed A matrix: cannot find a pair of orthogonal vectors")
+
+    #construct coarse b that contains medianAngle off all bs correponding to the 2 shortest bls
+    coarseb0_candidate_indices = np.arange(len(candidate_vecs))[(np.linalg.norm(candidate_vecs[:, 2:4] - coarseA[0], axis=-1) < tol)|(np.linalg.norm(candidate_vecs[:, 2:4] + coarseA[0], axis=-1) < tol)]#stores the indices in candidate_vecs that is revelant to coarseb0
+    coarseb1_candidate_indices = np.arange(len(candidate_vecs))[(np.linalg.norm(candidate_vecs[:, 2:4] - coarseA[1], axis=-1) < tol)|(np.linalg.norm(candidate_vecs[:, 2:4] + coarseA[1], axis=-1) < tol)]#stores the indices in candidate_vecs that is revelant to coarseb1
+    coarseb0_candidate_shape = np.array(coarseb.shape)
+    coarseb0_candidate_shape[0] = len(coarseb0_candidate_indices)
+    coarseb1_candidate_shape = np.array(coarseb.shape)
+    coarseb1_candidate_shape[0] = len(coarseb1_candidate_indices)
+    coarseb0_candidate = np.zeros(coarseb0_candidate_shape, dtype='float32')
+    coarseb1_candidate = np.zeros(coarseb1_candidate_shape, dtype='float32')
+
+    for nn, (coarseb_candidate_indices, coarseb_candidate) in enumerate(zip([coarseb0_candidate_indices, coarseb1_candidate_indices], [coarseb0_candidate, coarseb1_candidate])):
+        for n, ind in enumerate(coarseb_candidate_indices):
+            i = int(candidate_vecs[ind, 0])
+            j = int(candidate_vecs[ind, 1])
+            v = candidate_vecs[ind, 2:4]
+            if la.norm(coarseA[nn] - v) < tol:
+                bsign = 1
+            else:
+                bsign = -1
+            if i < j:
+                coarseb_candidate[n] = (b[i]+b[j]+p)%(2*p)-p
+            elif i == j:
+                coarseb_candidate[n] = b[i]
+            elif i > j:
+                coarseb_candidate[n] = (b[i]-b[abs(j)]+p)%(2*p)-p
+            coarseb_candidate[n] = coarseb_candidate[n] * bsign
+
+
+    coarseb[0] = medianAngle(coarseb0_candidate, axis=0)
+    coarseb[1] = medianAngle(coarseb1_candidate, axis=0)
+    # find coarse solutions
+    try:
+        icA = la.inv(coarseA)
+    except:
+        raise Exception("Poorly constructed coarseA matrix: %s."%(coarseA))
+    try:
+        iA = la.inv(A.transpose().dot(A))
+    except:
+        raise Exception("Poorly constructed A matrix: %s."%(A.transpose().dot(A)))
+
+    if b.ndim > 2:
+        extra_shape = b.shape[1:]
+        flat_extra_dim = 1
+        for i in range(1, b.ndim):
+            flat_extra_dim = flat_extra_dim * b.shape[i]
+        coarseb.shape = (2, flat_extra_dim)
+        b.shape = (len(b), flat_extra_dim)
+    else:
+        extra_shape = None
+
+    result = icA.dot(coarseb)
+    if verbose:
+        print coarseA
+        print result
+    for i in range(niter):
+        result = result + step * iA.dot(A.transpose().dot((b - A.dot(result) + p)%(2*p)-p))
+        if verbose:
+            print result
+    if extra_shape is not None:
+        result.shape = tuple(np.concatenate(([2], extra_shape)))
+
+    return result
+
+#def solve_slope_old(A_in, b_in, tol, niter=3, p = np.pi):#solve for the solution vector x such that mod(A.x, 2pi) = b, where the values range from -p to p. solution will be seeked on the first axis of b
+    #A = np.array(A_in)
+    #b = np.array(b_in + p) % (2*p) - p
+    #if A.ndim != 2:
+        #raise TypeError("A matrix must be 2 dimensional. Input A is %i dimensional."%A.ndim)
+    #if A.shape[0] != b.shape[0]:
+        #raise TypeError("A and b has shape mismatch: %s and %s."%(A.shape, b.shape))
+    #if A.shape[1] != 2:
+        #raise TypeError("A matrix's second dimension must have size of 2. %i inputted."%A.shape[1])
+
+    ##find the shortest 2 non-parallel baselines, candidate_vecs have all combinations of vectors in a summation or subtraction. Each entry is i,j, v0,v1 where Ai+Aj=(v0,v1), negative j means subtraction. Identical i,j means vector itself without add or subtract
+    #candidate_vecs = np.zeros((len(A)**2, 4), dtype = 'float32')
+    #n = 0
+    #for i in range(len(A)):
+        #for j in range(len(A)):
+            #if i < j:
+                #candidate_vecs[n] = [i, j, A[i,0]+A[j,0], A[i,1]+A[j,1]]
+            #elif i == j:
+                #candidate_vecs[n] = [i, j, A[i,0], A[i,1]]
+            #elif i > j:
+                #candidate_vecs[n] = [i, -j, A[i,0]-A[j,0], A[i,1]-A[j,1]]
+
+            #n = n + 1
+
+    #candidate_vecs = candidate_vecs[np.linalg.norm(candidate_vecs, axis=1)>tol]
+
+    ##construct coarse A that consists of the 2 shortest vecs
+    #coarseA = np.zeros((2,2), dtype = 'float32')
+    #if b.ndim > 1:
+        #coarseb = np.zeros(np.concatenate(([2], b.shape[1:])), dtype='float32')
+    #else:
+        #coarseb = np.zeros(2, dtype='float32')
+    #for n in np.argsort(np.linalg.norm(candidate_vecs[:, 2:4], axis=1)):
+        #i = candidate_vecs[n, 0]
+        #j = candidate_vecs[n, 1]
+        #v = candidate_vecs[n, 2:4]
+        #if la.norm(coarseA[0]) == 0:
+            #coarseA[0] = v
+            #if i < j:
+                #coarseb[0] = (b[i]+b[j]+p)%(2*p)-p
+            #elif i == j:
+                #coarseb[0] = b[i]
+            #elif i > j:
+                #coarseb[0] = (b[i]-b[abs(j)]+p)%(2*p)-p
+        #else:
+            #perp_component = v - v.dot(coarseA[0])/(coarseA[0].dot(coarseA[0])) * coarseA[0]
+            #if la.norm(perp_component) > tol:
+                #coarseA[1] = v
+                #if i < j:
+                    #coarseb[1] = (b[i]+b[j]+p)%(2*p)-p
+                #elif i == j:
+                    #coarseb[1] = b[i]
+                #elif i > j:
+                    #coarseb[1] = (b[i]-b[abs(j)]+p)%(2*p)-p
+                #break
+
+    #if la.norm(coarseA[1]) == 0:
+        #raise Exception("Poorly constructed A matrix: cannot find a pair of orthogonal vectors")
+
+    ## find coarse solutions
+    #try:
+        #icA = la.inv(coarseA)
+    #except:
+        #raise Exception("Poorly constructed coarseA matrix: %s."%(coarseA))
+    #try:
+        #iA = la.inv(A.transpose().dot(A))
+    #except:
+        #raise Exception("Poorly constructed A matrix: %s."%(A.transpose().dot(A)))
+
+    #if b.ndim > 2:
+        #extra_shape = b.shape[1:]
+        #flat_extra_dim = 1
+        #for i in range(1, b.ndim):
+            #flat_extra_dim = flat_extra_dim * b.shape[i]
+        #coarseb.shape = (2, flat_extra_dim)
+        #b.shape = (len(b), flat_extra_dim)
+    #else:
+        #extra_shape = None
+
+    #result = icA.dot(coarseb)
+    #for i in range(niter):
+        #result = result + iA.dot(A.transpose().dot((b - A.dot(result) + p)%(2*p)-p))
+
+    #if extra_shape is not None:
+        #result.shape = tuple(np.concatenate(([2], extra_shape)))
+
+    #return result
 
 
 def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error. All fft will be along first axis of spectra

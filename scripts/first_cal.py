@@ -191,14 +191,15 @@ if input_type == 'odf':
                 if l.split()[0] == 'nIntegrations':
                     nTimes = nTimes + [int(l.split()[1])]
     pol_select = []
-    if 'xx' in wantpols.keys():
-        pol_select = pol_select + [0]
-    if 'xy' in wantpols.keys():
-        pol_select = pol_select + [1]
-    if 'yx' in wantpols.keys():
-        pol_select = pol_select + [2]
-    if 'yy' in wantpols.keys():
-        pol_select = pol_select + [3]
+    for key in wantpols.keys():
+        if 'xx' == key:
+            pol_select = pol_select + [0]
+        elif 'xy' == key:
+            pol_select = pol_select + [1]
+        elif 'yx' == key:
+            pol_select = pol_select + [2]
+        elif 'yy' == key:
+            pol_select = pol_select + [3]
     rawdata = np.zeros((len(pol_select), np.sum(nTimes), nfreq, nant * (nant + 1) / 2), dtype='complex64')
     timing = []
     lst = []
@@ -568,14 +569,18 @@ if oppath != "DONT_WRITE/":
         #print "Done."
         #sys.stdout.flush()
 
+
     for linpar, linpath in zip([linearcalpar, linearcalpar_model], [op_calpar_path, op_calpar_path_model]):
         linearcalpar_out = {}#include all antennas, not just good ones
         for pol in linpar.keys():
             linearcalpar_out[pol] = np.ones((linpar[pol].shape[0], calibrators[pol].nTotalAnt), dtype='complex64')
             linearcalpar_out[pol][:, calibrators[pol].subsetant] = linpar[pol]
         with open(linpath, 'wb') as outfile:
+            print FILENAME + " MSG: Writing crude calpar to %s"%linpath,
+            sys.stdout.flush()
             pickle.dump(linearcalpar_out, outfile, protocol=pickle.HIGHEST_PROTOCOL)
-
+    print "Done."
+    sys.stdout.flush()
 
 else:
     print FILENAME + " MSG: Not outputting redundantinfo or rawcalpar by default."

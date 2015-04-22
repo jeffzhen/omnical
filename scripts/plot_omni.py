@@ -91,13 +91,15 @@ elif '.omnichisq' in datafiles[0]:
     plottype = 'omnichisq'
 elif '.uv' in datafiles[0] and os.path.isfile(datafiles[0] + '/visdata'):
     plottype = 'uv'
+elif '.odf' in datafiles[0] and os.path.isfile(datafiles[0] + '/visibilities'):
+    plottype = 'odf'
 else:
     raise IOError("File format not recognized. Must contain .omnigain, .omnifit, .omnichisq, or .uv")
 
 ######################################################################
 ############## read redundant info and antenna numbers; perform sanity checks ###################################
 ######################################################################
-if plottype == 'uv':
+if plottype == 'uv' or plottype == 'odf':
     if len(datafiles) != 1:
         raise IOError("For uv file plotting only 1 file accepted. Received %i."%len(datafiles))
     if not os.path.isdir(datafiles[0]):
@@ -359,9 +361,37 @@ if plottype == 'omnichisq':
 
 if plottype == 'uv':
     plotdata = omni.pick_slice_uvs(datafiles, pol, time, frequency)
+
     #try:
         #totalVisibilityId = info['totalVisibilityId']
     #except KeyError:
         #nant = int(np.ceil((len(plotdata)*2)**.5))
         #totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(nant)])
+    omni.omniview(plotdata, info, oppath = oppath, suppress= suppress)
+
+if plottype == 'odf':
+    with open(datafiles[0]+'/header.txt') as f:
+        for l in f.readlines():
+            if l.split()[0] == 'nChannels':
+                nfreq = int(l.split()[1])
+            elif l.split()[0] == 'nAntennas':
+                nant = int(l.split()[1])
+            #elif l.split()[0] == 'longitude':#odf header has bug that switched lat and lon
+                #sa.lat = float(l.split()[1]) * PI/180.
+            #elif l.split()[0] == 'latitude':
+                #sa.lon = float(l.split()[1]) * PI/180.
+            #elif l.split()[0] == 'startFreq':
+                #startfreq = float(l.split()[1]) / 1000.
+            #elif l.split()[0] == 'endFreq':
+                #endfreq = float(l.split()[1]) / 1000.
+            elif l.split()[0] == 'nIntegrations':
+                ntime = int(l.split()[1])
+    if pol == 'xx':
+        plotdata = omni.read_ndarray(datafiles[0]+'/visibilities', (4*ntime, nfreq, nant * (nant + 1)/2), 'complex64', [0*ntime+time, 0*ntime+time+1])[0,frequency]
+    elif pol == 'xy':
+        plotdata = omni.read_ndarray(datafiles[0]+'/visibilities', (4*ntime, nfreq, nant * (nant + 1)/2), 'complex64', [1*ntime+time, 1*ntime+time+1])[0,frequency]
+    elif pol == 'yx':
+        plotdata = omni.read_ndarray(datafiles[0]+'/visibilities', (4*ntime, nfreq, nant * (nant + 1)/2), 'complex64', [2*ntime+time, 2*ntime+time+1])[0,frequency]
+    elif pol == 'yy':
+        plotdata = omni.read_ndarray(datafiles[0]+'/visibilities', (4*ntime, nfreq, nant * (nant + 1)/2), 'complex64', [3*ntime+time, 3*ntime+time+1])[0,frequency]
     omni.omniview(plotdata, info, oppath = oppath, suppress= suppress)

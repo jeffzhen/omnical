@@ -72,17 +72,20 @@ if opts.treasure is not None:
 else:
     treasurePath = None
 
+
+
 uvfiles = [os.path.expanduser(arg) for arg in args]
-for uvf in uvfiles:
-    if not os.path.isdir(uvf):
-        uvfiles.remove(uvf)
-        print "WARNING: uv file path %s does not exist!"%uvf
-if len(uvfiles) == 0:
-    raise Exception("ERROR: No valid uv files detected in input. Exiting!")
 if '.odf' in uvfiles[0]:
     input_type = 'odf'
 else:
     input_type = 'uv'
+for uvf in uvfiles:
+    if not os.path.isdir(uvf):
+        uvfiles.remove(uvf)
+        print "WARNING: %s file path %s does not exist!"%(input_type, uvf)
+if len(uvfiles) == 0:
+    raise Exception("ERROR: No valid %s files detected in input. Exiting!"%input_type)
+
 
 flag_thresh = opts.flagsigma
 flagt = opts.flagt
@@ -255,15 +258,17 @@ if input_type == 'odf':
                 if l.split()[0] == 'nIntegrations':
                     nTimes = nTimes + [int(l.split()[1])]
     pol_select = []
-    if 'xx' in wantpols.keys():
-        pol_select = pol_select + [0]
-    if 'xy' in wantpols.keys():
-        pol_select = pol_select + [1]
-    if 'yx' in wantpols.keys():
-        pol_select = pol_select + [2]
-    if 'yy' in wantpols.keys():
-        pol_select = pol_select + [3]
+    for key in wantpols.keys():
+        if 'xx' == key:
+            pol_select = pol_select + [0]
+        elif 'xy' == key:
+            pol_select = pol_select + [1]
+        elif 'yx' == key:
+            pol_select = pol_select + [2]
+        elif 'yy' == key:
+            pol_select = pol_select + [3]
     data = np.zeros((len(pol_select), np.sum(nTimes), nfreq, nant * (nant + 1) / 2), dtype='complex64')
+    rawflag = np.zeros(data.shape, dtype='bool')
     timing = []
     lst = []
     for i, uvfile in enumerate(uvfiles):
@@ -292,7 +297,7 @@ else:
         sys.stdout.flush()
 
     else:
-        print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed for " + ano
+        print FILENAME + " MSG:",  len(uvfiles), "%s files to be processed for "%input_type + ano
         sys.stdout.flush()
         data, jd, timing, lst, rawflag = omni.importuvs(uvfiles, wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100, init_mem=init_mem, lat = sa.lat, lon=sa.lon)#, nTotalAntenna = len(aa))
         print FILENAME + " MSG:",  len(jd), "slices read. data shape: ", data.shape
@@ -336,7 +341,7 @@ sys.stdout.flush()
 
 if (not calibrate_sun) and (not (sunpos[:,0] < -.1).all()):
     print "Sun up", sunpos[:,0]
-    exit()
+    sys.exit(0)
 
 ###########initialize stuff
 calibrators = {}
@@ -435,6 +440,12 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
                 flags[pol] = flags[pol]| (calibrators[pol].rawCalpar[..., 2] > model_chisq)
 
+for p, pol in zip(range(len(data)), wantpols.keys()):
+    if need_new_flag:
+        for p2, pol2 in zip(range(len(data)), wantpols.keys()):
+            flags[pol] = flags[pol]|flags[pol2]
+for p, pol in zip(range(len(data)), wantpols.keys()):
+    if need_new_flag:
         if chemo >= 1:
 
             flags[pol] = flags[pol]|(ss.convolve(flags[pol],[[.2,.4,1,.4,.2]],mode='same')>=1)
@@ -474,7 +485,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
         calibrators[pol].get_omnifit().tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnifit"%pol)
         omnigains[pol[0]].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omnigain"%pol)
         if have_model_treasure and (sunpos[:,0] < -.1).all():
-            amp_cal, phs_cal
+            #amp_cal, phs_cal
             omnichisq[:, 3:] = amp_cal
             omnichisq.tofile(oppath + '/' + dataano + '_' + ano + "_%s.absa.omnichisq"%pol)
             for i in range(phs_cal.shape[-1]):
