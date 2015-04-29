@@ -22,7 +22,7 @@ import os, glob, numpy
 #''',
        #ext_modules = [module])
 
-__version__ = '3.7.6'
+__version__ = '4.0.0'
 
 def indir(dir, files): return [dir+f for f in files]
 def globdir(dir, files):
@@ -48,6 +48,6 @@ setup(name = 'omnical',
             extra_compile_args=['-Wno-write-strings', '-O3']
         )
     ],
-    scripts = ['scripts/omnical_PSA128.py', 'scripts/omnical2npz.py', 'scripts/plot_omni.py', 'scripts/plot_treasure.py', 'scripts/first_cal.py', 'scripts/bury_treasure.py', 'scripts/apply_omnigain.py', 'scripts/dr_compress.py'],
+    scripts = ['scripts/firstcal4.py', 'scripts/omnical4.py', 'scripts/omnical_PSA128.py', 'scripts/omnical2npz.py', 'scripts/plot_omni.py', 'scripts/plot_treasure.py', 'scripts/first_cal.py', 'scripts/bury_treasure.py', 'scripts/apply_omnigain.py', 'scripts/dr_compress.py'],
 )
 

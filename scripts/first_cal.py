@@ -11,6 +11,9 @@ import scipy.linalg as la
 from scipy.stats import nanmedian
 import matplotlib.pyplot as plt
 import cPickle as pickle
+print "!!!!!!!!!!!!WARNING: THIS SCRIPT IS OUTDATED!!!!!!!!!!!!!!!!!"
+print "Use the updated firstcal4.py for latest features such as cross-pol calibration."
+print "!!!!!!!!!!!!WARNING: THIS SCRIPT IS OUTDATED!!!!!!!!!!!!!!!!!"
 FILENAME = "first_cal.py"
 PI = np.pi
 TPI = 2 * np.pi
@@ -467,10 +470,10 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
                     #print la.norm(solution[pol][1])
                 linearcalpar[pol] = linearcalpar[pol] / np.exp(1.j* (np.outer(np.arange(nfreq) * dfreq + startfreq, solution_degen[0]) + solution_degen[1]))
 
-                #for flagged frequencies, use the phase model
+                #for flagged frequencies, use NaN#the phase model
                 model_phase = np.array([(np.arange(nfreq)*dfreq + startfreq) * solution[pol][0, a] + solution[pol][1, a] for a in range(linearcalpar[pol].shape[1])]).transpose()
-                linearcalpar[pol][freq_flag] = np.exp(1.j * model_phase[freq_flag])
-                linearcalpar[pol][np.isnan(linearcalpar[pol])] = np.exp(1.j * model_phase[np.isnan(linearcalpar[pol])])
+                linearcalpar[pol][freq_flag] = np.nan#np.exp(1.j * model_phase[freq_flag])
+                linearcalpar[pol][np.isnan(linearcalpar[pol])] = np.nan#np.exp(1.j * model_phase[np.isnan(linearcalpar[pol])])
 
                 #also create linearcalpar counter part that is purely the model phase and unity amp
                 linearcalpar_model[pol] = np.exp(1.j * model_phase)

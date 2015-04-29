@@ -8,6 +8,10 @@ import cPickle as pickle
 import scipy.signal as ss
 import scipy.ndimage.filters as sfil
 from scipy import interpolate
+print "!!!!!!!!!!!!WARNING: THIS SCRIPT IS OUTDATED!!!!!!!!!!!!!!!!!"
+print "Use the updated omnical4.py for latest features such as cross-pol calibration."
+print "!!!!!!!!!!!!WARNING: THIS SCRIPT IS OUTDATED!!!!!!!!!!!!!!!!!"
+
 FILENAME = "omnical_PSA128.py"
 print "#Omnical Version %s#"%omni.__version__
 PI = np.pi

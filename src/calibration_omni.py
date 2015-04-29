@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     from scipy import interpolate
     from scipy.stats import nanmedian
 
-__version__ = '3.7.6'
+__version__ = '4.0.0'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -3250,8 +3250,8 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):#ret
         print "Degeneracy: a1 = %i, a2 = %i"%(info['subsetant'][a1], info['subsetant'][a2])
     return initialant, solution_path, additional_solution_path, degeneracy_remove, (unsolved_ant == [])
 
-def meanAngle(a, weights = None):
-    return np.angle(np.average(np.exp(1.j*np.array(a)), weights = weights))
+def meanAngle(a, weights = None, axis = -1):
+    return np.angle(np.average(np.exp(1.j*np.array(a)), weights = weights, axis = axis))
 
 def medianAngle(a, axis = -1):
     return np.angle(np.median(np.cos(a), axis = axis) + 1.j * np.median(np.sin(a), axis = axis))
@@ -3288,8 +3288,51 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
     result[info['subsetant']] = np.exp(1.j*calpar)# * result[info['subsetant']]
     return result
 
+class InverseCholeskyMatrix:#for a positive definite matrix, Cholesky decomposition is M = L.Lt, where L lower triangular. This decomposition helps computing inv(M).v faster, by avoiding calculating inv(M). Once we have L, the product is simply inv(Lt).inv(L).v, and inverse of triangular matrices multiplying a vector is fast. sla.solve_triangular(M, v) = inv(M).v
+    def __init__(self, matrix):
+        if type(matrix).__module__ != np.__name__ or len(matrix.shape) != 2:
+            raise TypeError("matrix must be a 2D numpy array");
+        try:
+            self.L = la.cholesky(matrix)#L.dot(L.conjugate().transpose()) = matrix, L lower triangular
+            self.Lt = self.L.conjugate().transpose()
+            #print la.norm(self.L.dot(self.Lt)-matrix)/la.norm(matrix)
+        except:
+            raise TypeError("cholesky failed. matrix is not positive definite.")
 
-def solve_slope(A_in, b_in, tol, niter=3, step=1, verbose=False):#solve for the solution vector x such that mod(A.x, 2pi) = b, where the values range from -p to p. solution will be seeked on the first axis of b
+    @classmethod
+    def fromfile(cls, filename, n, dtype):
+        if not os.path.isfile(filename):
+            raise IOError("%s file not found!"%filename)
+        matrix = cls(np.array([[1,0],[0,1]]))
+        try:
+            matrix.L = np.fromfile(filename, dtype=dtype).reshape((n,n))#L.dot(L.conjugate().transpose()) = matrix, L lower triangular
+            matrix.Lt = matrix.L.conjugate().transpose()
+            #print la.norm(self.L.dot(self.Lt)-matrix)/la.norm(matrix)
+        except:
+            raise TypeError("cholesky import failed. matrix is not %i by %i with dtype=%s."%(n, n, dtype))
+        return matrix
+
+    def dotv(self, vector):
+        try:
+            return la.solve_triangular(self.Lt, la.solve_triangular(self.L, vector, lower=True), lower=False)
+        except:
+            return np.empty_like(vector)+np.nan
+
+    def dotM(self, matrix):
+        return np.array([self.dotv(v) for v in matrix.transpose()]).transpose()
+
+    def astype(self, t):
+        self.L = self.L.astype(t)
+        self.Lt = self.Lt.astype(t)
+        return self
+
+    def tofile(self, filename, overwrite = False):
+        if os.path.isfile(filename) and not overwrite:
+            raise IOError("%s file exists!"%filename)
+        self.L.tofile(filename)
+
+def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):#solve for the solution vector x such that mod(A.x, 2pi) = b, where the values range from -p to p. solution will be seeked on the first axis of b
+    timer = Timer()
     p = np.pi
     A = np.array(A_in)
     b = np.array(b_in + p) % (2*p) - p
@@ -3299,7 +3342,8 @@ def solve_slope(A_in, b_in, tol, niter=3, step=1, verbose=False):#solve for the 
         raise TypeError("A and b has shape mismatch: %s and %s."%(A.shape, b.shape))
     if A.shape[1] != 2:
         raise TypeError("A matrix's second dimension must have size of 2. %i inputted."%A.shape[1])
-
+    if verbose:
+        timer.tick("a")
     #find the shortest 2 non-parallel baselines, candidate_vecs have all combinations of vectors in a summation or subtraction. Each entry is i,j, v0,v1 where Ai+Aj=(v0,v1), negative j means subtraction. Identical i,j means vector itself without add or subtract
     candidate_vecs = np.zeros((len(A)**2, 4), dtype = 'float32')
     n = 0
@@ -3313,7 +3357,8 @@ def solve_slope(A_in, b_in, tol, niter=3, step=1, verbose=False):#solve for the 
                 candidate_vecs[n] = [i, -j, A[i,0]-A[j,0], A[i,1]-A[j,1]]
 
             n = n + 1
-
+    if verbose:
+        timer.tick("b")
     candidate_vecs = candidate_vecs[np.linalg.norm(candidate_vecs, axis=1)>tol]
 
     #construct coarse A that consists of the 2 shortest vecs
@@ -3334,7 +3379,8 @@ def solve_slope(A_in, b_in, tol, niter=3, step=1, verbose=False):#solve for the 
                 break
     if la.norm(coarseA[1]) == 0:
         raise Exception("Poorly constructed A matrix: cannot find a pair of orthogonal vectors")
-
+    if verbose:
+        timer.tick("c")
     #construct coarse b that contains medianAngle off all bs correponding to the 2 shortest bls
     coarseb0_candidate_indices = np.arange(len(candidate_vecs))[(np.linalg.norm(candidate_vecs[:, 2:4] - coarseA[0], axis=-1) < tol)|(np.linalg.norm(candidate_vecs[:, 2:4] + coarseA[0], axis=-1) < tol)]#stores the indices in candidate_vecs that is revelant to coarseb0
     coarseb1_candidate_indices = np.arange(len(candidate_vecs))[(np.linalg.norm(candidate_vecs[:, 2:4] - coarseA[1], axis=-1) < tol)|(np.linalg.norm(candidate_vecs[:, 2:4] + coarseA[1], axis=-1) < tol)]#stores the indices in candidate_vecs that is revelant to coarseb1
@@ -3355,26 +3401,33 @@ def solve_slope(A_in, b_in, tol, niter=3, step=1, verbose=False):#solve for the 
             else:
                 bsign = -1
             if i < j:
-                coarseb_candidate[n] = (b[i]+b[j]+p)%(2*p)-p
+                coarseb_candidate[n] = b[i]+b[j]#(b[i]+b[j]+p)%(2*p)-p
             elif i == j:
                 coarseb_candidate[n] = b[i]
             elif i > j:
-                coarseb_candidate[n] = (b[i]-b[abs(j)]+p)%(2*p)-p
+                coarseb_candidate[n] = b[i]-b[abs(j)]#(b[i]-b[abs(j)]+p)%(2*p)-p
             coarseb_candidate[n] = coarseb_candidate[n] * bsign
-
+    if verbose:
+        timer.tick("d")
 
     coarseb[0] = medianAngle(coarseb0_candidate, axis=0)
     coarseb[1] = medianAngle(coarseb1_candidate, axis=0)
+    if verbose:
+        print coarseb0_candidate.shape
+        timer.tick("d")
     # find coarse solutions
     try:
         icA = la.inv(coarseA)
     except:
         raise Exception("Poorly constructed coarseA matrix: %s."%(coarseA))
     try:
+        #iA = InverseCholeskyMatrix(A.transpose().dot(A))
         iA = la.inv(A.transpose().dot(A))
     except:
         raise Exception("Poorly constructed A matrix: %s."%(A.transpose().dot(A)))
-
+    if verbose:
+        print iA.shape
+        timer.tick("e")
     if b.ndim > 2:
         extra_shape = b.shape[1:]
         flat_extra_dim = 1
@@ -3384,7 +3437,8 @@ def solve_slope(A_in, b_in, tol, niter=3, step=1, verbose=False):#solve for the 
         b.shape = (len(b), flat_extra_dim)
     else:
         extra_shape = None
-
+    if verbose:
+        timer.tick("f")
     result = icA.dot(coarseb)
     if verbose:
         print coarseA
@@ -3395,7 +3449,8 @@ def solve_slope(A_in, b_in, tol, niter=3, step=1, verbose=False):#solve for the 
             print result
     if extra_shape is not None:
         result.shape = tuple(np.concatenate(([2], extra_shape)))
-
+    if verbose:
+        timer.tick("g")
     return result
 
 #def solve_slope_old(A_in, b_in, tol, niter=3, p = np.pi):#solve for the solution vector x such that mod(A.x, 2pi) = b, where the values range from -p to p. solution will be seeked on the first axis of b
