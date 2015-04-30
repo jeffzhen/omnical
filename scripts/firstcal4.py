@@ -622,7 +622,7 @@ sys.stdout.flush()
 sol = omni.solve_slope(A, b, 1)
 sol[:,flags['xx']] = np.nan
 sol[:,flags['yy']] = np.nan
-median_sol = np.array([np.nanmedian(sol[i]) for i in range(len(sol))])
+median_sol = np.array([nanmedian(sol[i]) for i in range(len(sol))])
 print "Done.",
 sys.stdout.flush()
 crosstimer.tick()
@@ -684,7 +684,7 @@ for p, pol in enumerate(wantpols.keys()):
 
 ####apply cross pol solution to 'xx'############
 apply_pol = wantpols.keys()[0][1] + wantpols.keys()[0][1]
-solf = np.nanmedian(sol, axis=-2)
+solf = nanmedian(sol, axis=-2)
 Af = np.ones((len(solf[0]), 2), dtype='float32')
 Af[:,0] = np.arange(len(solf[0]))
 nan_freq = np.isnan(solf[0])|np.isnan(solf[1])
