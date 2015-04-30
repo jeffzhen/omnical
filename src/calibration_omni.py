@@ -1692,7 +1692,7 @@ class RedundantCalibrator:
             bl1dmatrix = self.Info.bl1dmatrix
             ant_level = np.array([np.median(np.abs(data[:, :, [subsetbl[crossindex[bl]] for bl in bl1dmatrix[a] if (bl < ncross and bl >= 0)]]), axis = -1) for a in range(self.Info.nAntenna)])
             #timer.tick(2)
-            median_level = np.nanmedian(ant_level, axis = 0)
+            median_level = nanmedian(ant_level, axis = 0)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
                 bad_count[1] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667)[~flag].sum() for a in range(self.Info.nAntenna)])**2
