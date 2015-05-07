@@ -446,7 +446,9 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
         print "%s flagged fraction in uv: "%(pol), float(np.sum(uvflags[pol]))/uvflags[pol].shape[0]/uvflags[pol].shape[1]
         flags[pol] = calibrators[pol].flag(nsigma = flag_thresh, twindow=flagt, fwindow=flagf)#True if bad and flagged
         flags[pol] = flags[pol] | uvflags[pol]
-        print "%s flagged fraction pre-chemo: "%(pol), float(np.sum(flags[pol]))/uvflags[pol].shape[0]/uvflags[pol].shape[1]
+    else:
+        flags[pol] = uvflags[pol]
+    print "%s flagged fraction pre-chemo: "%(pol), float(np.sum(flags[pol]))/uvflags[pol].shape[0]/uvflags[pol].shape[1]
 
     #omni.omniview([data[0,0,110], calibrators['xx'].get_calibrated_data(data[0])[0,110]], info = calibrators['xx'].get_info())
     if have_model_treasure and (sunpos[:,0] < -.1).all():
