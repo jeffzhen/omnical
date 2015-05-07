@@ -593,10 +593,14 @@ xy_candidates = np.empty(list(cdata.shape)[1:3] + [np.sum(red_enough)], dtype='f
 for i,u in enumerate(np.arange(c.nUBL)[red_enough].astype(int)):
     xy_candidates[..., i] = np.angle(crossextract[0,...,u]/crossextract[1,...,u])
 
-overall_angle = omni.medianAngle(xy_candidates, axis = -1) / 2
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=RuntimeWarning)
+    overall_angle = omni.medianAngle(xy_candidates, axis = -1) / 2
 
 if make_plots:
-    plt.plot(nanmedian(overall_angle,axis=0))
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore",category=RuntimeWarning)
+        plt.plot(nanmedian(overall_angle,axis=0))
     plt.ylim(-PI, PI);plt.title('overall angle solution between xx and yy')
     plt.show()
 

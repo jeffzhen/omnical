@@ -2,7 +2,7 @@
 
 import aipy as ap
 import numpy as np
-import commands, os, time, math, ephem
+import commands, os, time, math, ephem, warnings
 import omnical.calibration_omni as omni
 import omnical._omnical as _O
 import optparse, sys
@@ -40,6 +40,7 @@ o.add_option('-e', '--tol', action = 'store', type = 'float', default = 1e-2, he
 o.add_option('--ba', action = 'store', default = '', help = 'bad antenna number indices seperated by commas')
 o.add_option('--bu', action = 'store', default = '', help = 'bad unique baseline indicated by ant pairs (seperated by .) seperated by commas: 1.2,3.4,10.11')
 o.add_option('--flagsigma', action = 'store', type = 'float', default = 4, help = 'Number of sigmas to flag on chi^2 distribution. 4 sigma by default. For full cadence data, 3 is recommended.')
+o.add_option('--crosscal_strength', action = 'store', type = 'float', default = 1, help = 'Fraction of redundant baseline types to use in crosspol calibration.')
 
 
 
@@ -54,6 +55,9 @@ healthbar = opts.healthbar
 bad_ant_suppress = opts.suppress
 max_try = opts.max
 nsigma = opts.flagsigma
+crosscal_strength = opts.crosscal_strength
+if crosscal_strength <= 0 or crosscal_strength > 1:
+    raise ValueError("crosscal_strength must be in (0, 1]")
 
 try:
     badAntenna = [int(i) for i in opts.ba.split(',')]
@@ -601,7 +605,7 @@ A = []
 bindex = []
 ublcount_sort = np.argsort(c.ublcount)
 for u in range(c.nUBL):
-    if c.ublcount[u] >= c.ublcount[ublcount_sort[-min(c.nUBL,9999)]]:
+    if c.ublcount[u] >= c.ublcount[ublcount_sort[-int(crosscal_strength * c.nUBL)]]:
         cbl = c.ublindex[u][:,2].astype(int)
         mask = c.reversed[cbl] == 1
         if mask.any():
@@ -686,7 +690,9 @@ xy_candidates = np.empty(list(cdata.shape)[1:3] + [np.sum(red_enough)], dtype='f
 for i,u in enumerate(np.arange(c.nUBL)[red_enough].astype(int)):
     xy_candidates[..., i] = np.angle(crossextract[0,...,u]/crossextract[1,...,u])
 
-overall_angle = omni.medianAngle(omni.medianAngle(xy_candidates, axis = -1), axis = 0) / 2
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=RuntimeWarning)
+    overall_angle = omni.medianAngle(omni.medianAngle(xy_candidates, axis = -1), axis = 0) / 2
 prev_valid = -1
 for i in range(1, len(overall_angle)):
     if not np.isnan(overall_angle[i-1]):
@@ -695,7 +701,7 @@ for i in range(1, len(overall_angle)):
         offset = overall_angle[prev_valid]-PI/2
     else:
         offset = -PI/2
-    overall_angle[i] = (overall_angle[i] + offset)%(PI) - offset
+    overall_angle[i] = (overall_angle[i] - offset)%(PI) + offset
 if make_plots:
     plt.plot(overall_angle)
     plt.ylim(-PI, PI)

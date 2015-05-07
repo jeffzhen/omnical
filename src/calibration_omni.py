@@ -24,7 +24,7 @@ with warnings.catch_warnings():
         print "WARNING: using scipy's nanmedian function with is much slower than numpy.nanmedian. Consider numpy 1.9+."
         from scipy.stats import nanmedian
 
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -2971,6 +2971,20 @@ def load_omnigain(path, info=None):
     omnigain = np.fromfile(path, dtype = 'float32')
     omnigain.shape = (omnigain.shape[0] / (info['nAntenna']) / (2 + 1 + 1 + 2 * int(omnigain[3])), info['nAntenna'], 2 + 1 + 1 + 2 * int(omnigain[3]))
     return omnigain
+
+def load_omnifit(path, info=None):
+    path = os.path.expanduser(path)
+    if not os.path.isfile(path):
+        raise IOError("Path %s does not exist."%path)
+    if info is None:
+        info = path.replace('.omnifit', '.binfo')
+    if type(info) == type('a'):
+        info = read_redundantinfo(info)
+
+
+    omnifit = np.fromfile(path, dtype = 'float32')
+    omnifit.shape = (omnifit.shape[0] / (info['nUBL']) / (2 + 3 + 1 + 2 * int(omnifit[5])), info['nUBL'], 2 + 3 + 1 + 2 * int(omnifit[3]))
+    return omnifit
 
 def get_omnitime(omnistuff):
     if len(omnistuff.shape) == 2:
