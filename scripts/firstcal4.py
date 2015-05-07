@@ -687,8 +687,14 @@ for i,u in enumerate(np.arange(c.nUBL)[red_enough].astype(int)):
     xy_candidates[..., i] = np.angle(crossextract[0,...,u]/crossextract[1,...,u])
 
 overall_angle = omni.medianAngle(omni.medianAngle(xy_candidates, axis = -1), axis = 0) / 2
+prev_valid = -1
 for i in range(1, len(overall_angle)):
-    offset = overall_angle[i-1]-PI/2
+    if not np.isnan(overall_angle[i-1]):
+        prev_valid = i - 1
+    if prev_valid >= 0:
+        offset = overall_angle[prev_valid]-PI/2
+    else:
+        offset = -PI/2
     overall_angle[i] = (overall_angle[i] + offset)%(PI) - offset
 if make_plots:
     plt.plot(overall_angle)
