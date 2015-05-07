@@ -18,7 +18,11 @@ with warnings.catch_warnings():
     import scipy.signal as ss
     import scipy.ndimage.filters as sfil
     from scipy import interpolate
-    from scipy.stats import nanmedian
+    try:
+        from numpy import nanmedian as nanmedian
+    except:
+        print "WARNING: using scipy's nanmedian function with is much slower than numpy.nanmedian. Consider numpy 1.9+."
+        from scipy.stats import nanmedian
 
 __version__ = '4.0.0'
 
@@ -2976,7 +2980,7 @@ def get_omnitime(omnistuff):
     else:
         raise ValueError('get_omnitime does not know how to deal with array of shape %s.'%omnistuff.shape)
 
-def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False, plot_3 = False):#plot_3: only plot the 3 most redundant ones
+def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False, plot_3 = False, plot_1 = -1):#plot_3: only plot the 3 most redundant ones. plot_1: counting start from 0 the most redundant baseline
     import matplotlib.pyplot as plt
     data = np.array(data_in)
     try:#in case info is Info class
@@ -2998,6 +3002,9 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
 
     if plot_3:
         select_ubl_index = np.argsort(info['ublcount'])[-3:]
+    elif plot_1 >= 0:
+        select_ubl_index = np.argsort(info['ublcount'])[::-1][plot_1:plot_1+1]
+
 
     if len(data.shape) == 1 or data.shape[0] == 1:
         ds = [data[info['subsetbl']][info['crossindex']]]
@@ -3020,8 +3027,8 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
             for color in colors:
                 #print info['ublindex'][ubl][:,2]
                 #print marker, color
-                if (plot_single_ubl or len(info['ublindex'][ubl]) > 1) and (not plot_3 or ubl in select_ubl_index):
-                    if plot_3:
+                if (plot_single_ubl or len(info['ublindex'][ubl]) > 1) and (not (plot_3 or plot_1 >= 0) or ubl in select_ubl_index):
+                    if plot_3 or plot_1 >= 0:
                         color = [[1,0,0],[0,1,0],[0,0,1]][select_ubl_index.tolist().index(ubl)]
                     ax.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker=marker, color=color)
                     outputdata[i] = outputdata[i] + [(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]) + 1.j * np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker, color, info['ubl'][ubl])]
@@ -3254,7 +3261,87 @@ def meanAngle(a, weights = None, axis = -1):
     return np.angle(np.average(np.exp(1.j*np.array(a)), weights = weights, axis = axis))
 
 def medianAngle(a, axis = -1):
-    return np.angle(np.median(np.cos(a), axis = axis) + 1.j * np.median(np.sin(a), axis = axis))
+    return np.angle(nanmedian(np.cos(a), axis = axis) + 1.j * nanmedian(np.sin(a), axis = axis))
+
+#def _medianAngle(data, result, axis = -1):
+    #result_shape = collapse_shape(data.shape, axis)
+
+    #np_result = np.frombuffer(result, dtype='float32')
+    #np_result.shape = tuple(result_shape)
+    #np_result[:] = medianAngle(data, axis = axis).reshape(result_shape)
+    #return
+
+def collapse_shape(shape, axis):
+    if axis == 0 or axis == -len(shape):
+        return tuple(list(shape)[1:])
+    elif axis == -1 or axis == len(shape) - 1:
+        return tuple(list(shape)[:-1])
+    else:
+        return tuple(list(shape)[:axis] + list(shape)[axis+1:])
+
+###curerntly suffering from slow initialization which is probably due to copying data into shared array. worth further investigation.
+#def medianAngle_multithread(data, axis = -1, nthread = None, verbose = False):
+    #if axis < 0:
+        #axis = data.ndim + axis
+    #parallel_axis2 = np.argmax(collapse_shape(data.shape, axis))#the axis after averaging
+    #if parallel_axis2 >= axis:
+        #parallel_axis1 = parallel_axis2 + 1
+    #else:
+        #parallel_axis1 = parallel_axis2
+    #parallel_axis_len = data.shape[parallel_axis1]
+    #if nthread is None:
+        #nthread = min(mp.cpu_count() - 1, parallel_axis_len)
+    #nthread = min(nthread, parallel_axis_len)
+    #if nthread < 2 or data.ndim == 1:
+        #return medianAngle(data, axis=axis)
+    #else:
+        #results = {}
+        #np_results = {}
+
+        #threads = {}
+        #fchunk = {}
+        #chunk = parallel_axis_len / int(nthread)
+        #excess = parallel_axis_len % int(nthread)
+        #kwarg = {"axis": axis}
+
+####set up threads
+        #for i in range(nthread):
+            #if excess == 0:
+                #fchunk[i] = (i * chunk, min((1 + i) * chunk, parallel_axis_len),)
+            #elif i < excess:
+                #fchunk[i] = (i * (chunk+1), min((1 + i) * (chunk+1), parallel_axis_len),)
+            #else:
+                #fchunk[i] = (fchunk[i-1][1], min(fchunk[i-1][1] + chunk, parallel_axis_len),)
+
+            #result_shape = list(collapse_shape(data.shape, axis))
+            #result_shape[parallel_axis2] = fchunk[i][1] - fchunk[i][0]
+
+            #results[i] = mp.RawArray('f', np.prod(result_shape))
+            #np_results[i] = np.frombuffer(results[i], dtype='float32')
+            #np_results[i].shape = tuple(result_shape)
+            #def _slice(a):
+                #return a[fchunk[i][0]:fchunk[i][1]]
+            #threads[i] = mp.Process(target = _medianAngle, args = (np.apply_along_axis(_slice, parallel_axis1, data), results[i]), kwargs=kwarg)
+
+####start processing
+        #if verbose:
+            #print "Starting medianAngle Process",
+            #sys.stdout.flush()
+        #for i in range(nthread):
+            #if verbose:
+                #print "#%i"%i,
+                #sys.stdout.flush()
+            #threads[i].start()
+        #if verbose:
+            #print "Finished Process",
+        #for i in range(nthread):
+            #threads[i].join()
+            #if verbose:
+                #print "#%i"%i,
+        #if verbose:
+            #print ""
+            #sys.stdout.flush()
+        #return np.concatenate([np_results[i] for i in range(nthread)],axis=parallel_axis2)
 
 def raw_calibrate(data, info, initant, solution_path, additional_solution_path, degeneracy_remove):
     result = np.ones(int(math.floor((len(data)*2.)**.5)), dtype='complex64')
@@ -3541,42 +3628,65 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):#solve for the
 
     #return result
 
+def extract_crosspol_ubl(data, info):#input data should be xy/yx (2,...,bl)
+    if len(data) != 2:
+        raise AttributeError('Datas first demension need to have length 2 corresponding to xy/yx. Current input shape %s.'%data.shape)
 
-def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error. All fft will be along first axis of spectra
-        if len(spectra) != len(window):
-            raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
-        #if np.sum(window) <= 2* band_limit - 1:
-            #return np.zeros(2*band_limit - 1, dtype=np.array(spectra).dtype), np.inf
-        fwindow = np.fft.fft(window) / len(window)
-        band_limit_pass = np.zeros(len(fwindow), dtype='bool')
-        band_limit_pass[:band_limit] = True
-        if band_limit > 1:
-            band_limit_pass[-(band_limit-1):] = True
+    output_shape = np.array(data.shape)
+    output_shape[-1] = info['nUBL']
+    output = np.empty(output_shape, dtype='complex64')
+    chisq = np.zeros(output_shape[:-1], dtype='float32')
 
-        m = la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass]
-        mmi = la.inv(m.transpose().conjugate().dot(m) + np.identity(m.shape[1])*correction_weight)
-        deconv_fdata = mmi.dot(m.transpose().conjugate()).dot(spectra)
-        model_fdata = m.dot(deconv_fdata)
-        return deconv_fdata, np.linalg.norm(model_fdata-spectra, axis = 0)
+    for u in range(info['nUBL']):
+        blindex = info['subsetbl'][info['crossindex'][info['ublindex'][u][:,2].astype(int)]]
+        ureversed = info['reversed'][info['ublindex'][u][:,2].astype(int)] == -1
+        nreversed = np.sum(ureversed)
+        if nreversed == 0:#no reversed
+            output[..., u] = np.mean(data[..., blindex], axis=-1)
+            chisq += np.linalg.norm(output[..., u][...,None] - data[..., blindex], axis=-1)**2
+        elif nreversed == info['ublcount'][u]:
+            output[..., u] = np.conjugate(np.mean(data[::-1, ..., blindex], axis=-1))
+            chisq += np.linalg.norm(output[..., u][...,None] - np.conjugate(data[::-1, ..., blindex]), axis=-1)**2
+        else:
+            output[..., u] = (np.mean(data[..., blindex[~ureversed]], axis=-1) * (info['ublcount'][u] - nreversed) + np.conjugate(np.mean(data[::-1, ..., blindex[ureversed]], axis=-1)) * nreversed) / info['ublcount'][u]
+            chisq += np.linalg.norm(output[..., u][...,None] - data[..., blindex[~ureversed]], axis=-1)**2 + np.linalg.norm(output[..., u][...,None] - np.conjugate(data[::-1, ..., blindex[ureversed]]), axis=-1)**2
+    return output, chisq
 
-def deconvolve_spectra2(spectra, window, band_limit, correction_weight=1e-15, correction_weight2=1e6):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error. All fft will be along first axis of spectra
-        if len(spectra) != len(window):
-            raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
-        #if np.sum(window) <= 2* band_limit - 1:
-            #return np.zeros(2*band_limit - 1, dtype=np.array(spectra).dtype), np.inf
-        fwindow = np.fft.fft(window) / len(window)
-        band_limit_pass = np.zeros(len(fwindow), dtype='bool')
-        band_limit_pass[:band_limit] = True
-        if band_limit > 1:
-            band_limit_pass[-(band_limit-1):] = True
+def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error. All fft will be along first axis of spectra. Input and outputs are in fourier space, window in real space
+    if len(spectra) != len(window):
+        raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
+    #if np.sum(window) <= 2* band_limit - 1:
+        #return np.zeros(2*band_limit - 1, dtype=np.array(spectra).dtype), np.inf
+    fwindow = np.fft.fft(window) / len(window)
+    band_limit_pass = np.zeros(len(fwindow), dtype='bool')
+    band_limit_pass[:band_limit] = True
+    if band_limit > 1:
+        band_limit_pass[-(band_limit-1):] = True
 
-        #m = la.inv(la.dft(len(window))).dot(la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass].dot(la.dft(2*band_limit - 1)))
-        m = np.fft.ifft(la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass].dot(la.dft(2*band_limit - 1)), axis=0)
-        Ni = np.ones_like(window) + (1-window) * correction_weight2
-        mmi = la.inv((m.transpose().conjugate() * Ni).dot(m) + np.identity(m.shape[1])*correction_weight)
-        deconv_fdata = (mmi.dot(m.transpose().conjugate()) * Ni).dot(spectra)
-        model_fdata = m.dot(deconv_fdata)
-        return deconv_fdata, np.linalg.norm(model_fdata-spectra, axis = 0), model_fdata-spectra, mmi
+    m = la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass]
+    mmi = la.inv(m.transpose().conjugate().dot(m) + np.identity(m.shape[1])*correction_weight)
+    deconv_fdata = mmi.dot(m.transpose().conjugate()).dot(spectra)
+    model_fdata = m.dot(deconv_fdata)
+    return deconv_fdata, np.linalg.norm(model_fdata-spectra, axis = 0)
+
+def deconvolve_spectra2(spectra, window, band_limit, correction_weight=1e-15, correction_weight2=1e6):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error. All fft will be along first axis of spectra. Input and outputs are in real space, window also in real space
+    if len(spectra) != len(window):
+        raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
+    #if np.sum(window) <= 2* band_limit - 1:
+        #return np.zeros(2*band_limit - 1, dtype=np.array(spectra).dtype), np.inf
+    fwindow = np.fft.fft(window) / len(window)
+    band_limit_pass = np.zeros(len(fwindow), dtype='bool')
+    band_limit_pass[:band_limit] = True
+    if band_limit > 1:
+        band_limit_pass[-(band_limit-1):] = True
+
+    #m = la.inv(la.dft(len(window))).dot(la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass].dot(la.dft(2*band_limit - 1)))
+    m = np.fft.ifft(la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass].dot(la.dft(2*band_limit - 1)), axis=0)
+    Ni = np.ones_like(window) + (1-window) * correction_weight2
+    mmi = la.inv((m.transpose().conjugate() * Ni).dot(m) + np.identity(m.shape[1])*correction_weight)
+    deconv_fdata = (mmi.dot(m.transpose().conjugate()) * Ni).dot(spectra)
+    model_fdata = m.dot(deconv_fdata)
+    return deconv_fdata, np.linalg.norm(model_fdata-spectra, axis = 0), model_fdata-spectra, mmi
 ##########################################################################################
 ##########################################################################################
 ##################           Timer             ###########################################

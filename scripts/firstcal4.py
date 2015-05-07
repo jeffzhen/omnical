@@ -12,7 +12,7 @@ from scipy.stats import nanmedian
 import matplotlib.pyplot as plt
 import cPickle as pickle
 
-FILENAME = "firstcal.py"
+FILENAME = "firstcal4.py"
 PI = np.pi
 TPI = 2 * np.pi
 print "#Omnical Version %s#"%omni.__version__
@@ -49,7 +49,7 @@ make_plots = opts.plot
 print_ampdelay = opts.ampdelay
 oppath = os.path.expanduser(opts.outputpath)
 info_tag = opts.info_tag
-uvfiles = args
+uvfiles = [os.path.expanduser(arg) for arg in args]
 healthbar = opts.healthbar
 bad_ant_suppress = opts.suppress
 max_try = opts.max
@@ -361,7 +361,8 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
         freq_flag = np.zeros(nfreq, dtype='bool')
         for pol in wantpols.keys():
             linearcalpar[pol] = 10.**(calibrators[pol].rawCalpar[:,:,3:3+calibrators[pol].Info.nAntenna]) * np.exp(1j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna])
-            linearcalpar[pol][flags[pol]] = np.nan
+            if input_type != 'odf':
+                linearcalpar[pol][flags[pol]] = np.nan
             linearcalpar[pol] = nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * nanmedian(np.imag(linearcalpar[pol]), axis = 0)
             linearcalpar[pol][np.isnan(linearcalpar[pol])] = 1
             linearcalpar[pol] = linearcalpar[pol] * crude_calpar[pol][:, calibrators[pol].Info.subsetant]
@@ -453,8 +454,9 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
 
                 #for flagged frequencies, use NaN#the phase model
                 model_phase = np.array([(np.arange(nfreq)*dfreq + startfreq) * solution[pol][0, a] + solution[pol][1, a] for a in range(linearcalpar[pol].shape[1])]).transpose()
-                linearcalpar[pol][freq_flag] = np.nan#np.exp(1.j * model_phase[freq_flag])
-                linearcalpar[pol][np.isnan(linearcalpar[pol])] = np.nan#np.exp(1.j * model_phase[np.isnan(linearcalpar[pol])])
+                if input_type != 'odf':
+                    linearcalpar[pol][freq_flag] = np.nan#np.exp(1.j * model_phase[freq_flag])
+                #linearcalpar[pol][np.isnan(linearcalpar[pol])] = np.exp(1.j * model_phase[np.isnan(linearcalpar[pol])])
 
                 #also create linearcalpar counter part that is purely the model phase and unity amp
                 linearcalpar_model[pol] = np.exp(1.j * model_phase)
@@ -537,9 +539,9 @@ print FILENAME + " MSG: Processing cross pol:"
 sys.stdout.flush()
 
 del(rawdata)
-wantpols = {}
+crosspols = {}
 for p in ['xy', 'yx']:
-    wantpols[p] = ap.miriad.str2pol[p]
+    crosspols[p] = ap.miriad.str2pol[p]
 
 if input_type == 'odf':
     nTimes = []
@@ -549,7 +551,7 @@ if input_type == 'odf':
                 if l.split()[0] == 'nIntegrations':
                     nTimes = nTimes + [int(l.split()[1])]
     pol_select = []
-    for key in wantpols.keys():
+    for key in crosspols.keys():
         if 'xx' == key:
             pol_select = pol_select + [0]
         elif 'xy' == key:
@@ -572,14 +574,14 @@ if input_type == 'odf':
                 timing += [sa.date.__str__()]
 else:
     if len(uvfiles) == 1:
-        rawdata, t, timing, lst, rawflag = omni.importuvs(uvfiles, wantpols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)#, nTotalAntenna = len(aa))
+        rawdata, t, timing, lst, rawflag = omni.importuvs(uvfiles, crosspols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)#, nTotalAntenna = len(aa))
     else:
 
-        for p, pol in enumerate(wantpols.keys()):
+        for p, pol in enumerate(crosspols.keys()):
             if p == 0:
-                rawdata, t, timing, lst, rawflag = omni.importuvs([uvfiles_dic[pol]], {pol:wantpols[pol]}, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)
+                rawdata, t, timing, lst, rawflag = omni.importuvs([uvfiles_dic[pol]], {pol:crosspols[pol]}, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)
             else:
-                tmpdata, t, timing, lst, tmpflag = omni.importuvs([uvfiles_dic[pol]], {pol:wantpols[pol]}, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)
+                tmpdata, t, timing, lst, tmpflag = omni.importuvs([uvfiles_dic[pol]], {pol:crosspols[pol]}, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)
                 rawdata = np.concatenate((rawdata, tmpdata))
     print FILENAME + " MSG:",  len(t), "slices read."
     sys.stdout.flush()
@@ -591,7 +593,7 @@ for pol in ['xx','yy']:
     calpar[pol[0]] = np.ones((linearcalpar[pol].shape[0], c.nTotalAnt), dtype='complex64')
     calpar[pol[0]][:, c.subsetant] = linearcalpar[pol]
 
-for p, pol in enumerate(wantpols.keys()):
+for p, pol in enumerate(crosspols.keys()):
     rawdata[p] = omni.apply_calpar2(rawdata[p], calpar[pol[0]], calpar[pol[1]], c.totalVisibilityId)
 
 #construct A and b for cross-pol
@@ -613,7 +615,7 @@ A = np.concatenate((A, -A), axis=0)
 bindex = c.subsetbl[c.crossindex[np.array(bindex).astype(int)]]#inside all bl
 
 b = np.empty((len(A), rawdata.shape[1], rawdata.shape[2]), dtype='float32')
-for p, pol in enumerate(wantpols.keys()):
+for p, pol in enumerate(crosspols.keys()):
     b[p*len(bindex):(p+1)*len(bindex)] = (np.angle(rawdata[p][..., bindex[:,0]]) - np.angle(rawdata[p][..., bindex[:,1]])).transpose((2,0,1))
 
 crosstimer = omni.Timer()
@@ -630,20 +632,20 @@ if make_plots:
     for i in range(len(sol)):
         plt.subplot('21%i'%(i+1))
         min_period = TPI / min(abs(A[:,i][abs(A[:,i]) > 1]))
-        plt.imshow(sol[i]%min_period, vmin = np.percentile(sol[i][~(flags['xx']|flags['yy']|np.isnan(sol[i]))]%min_period, 5), vmax = np.percentile(sol[i][~(flags['xx']|flags['yy']|np.isnan(sol[i]))]%min_period, 95));plt.colorbar()
+        plt.imshow((sol[i]+min_period/2.)%min_period-min_period/2.);plt.colorbar()
     plt.show()
 #apply to data
 crosscalpar = {}
 #for pol in ['xx','yy']:
     #crosscalpar[pol[0]] = np.ones(c.nTotalAnt, dtype='complex64')
-#crosscalpar[wantpols.keys()[0][1]][c.subsetant] = np.exp(1.j * c.antloc[:,:2].dot(median_sol))
+#crosscalpar[crosspols.keys()[0][1]][c.subsetant] = np.exp(1.j * c.antloc[:,:2].dot(median_sol))
 
 for pol in ['xx','yy']:
     crosscalpar[pol[0]] = np.ones((rawdata.shape[1], rawdata.shape[2], c.nTotalAnt), dtype='complex64')
-crosscalpar[wantpols.keys()[0][1]][..., c.subsetant] = np.exp(1.j * c.antloc[:,:2].dot(sol.transpose(1,0,2))).transpose(1,2,0)
+crosscalpar[crosspols.keys()[0][1]][..., c.subsetant] = np.exp(1.j * c.antloc[:,:2].dot(sol.transpose(1,0,2))).transpose(1,2,0)
 
 cdata = np.empty_like(rawdata)
-for p, pol in enumerate(wantpols.keys()):
+for p, pol in enumerate(crosspols.keys()):
     cdata[p] = omni.apply_calpar2(rawdata[p], crosscalpar[pol[0]], crosscalpar[pol[1]], c.totalVisibilityId)
 
 #check application
@@ -661,7 +663,7 @@ for p, pol in enumerate(wantpols.keys()):
 #bindex = c.subsetbl[c.crossindex[np.array(bindex).astype(int)]]#inside all bl
 
 #b = np.empty((len(A), rawdata.shape[1], rawdata.shape[2]), dtype='float32')
-#for p, pol in enumerate(wantpols.keys()):
+#for p, pol in enumerate(crosspols.keys()):
     #b[p*len(bindex):(p+1)*len(bindex)] = (np.angle(cdata[p][..., bindex[:,0]]) - np.angle(cdata[p][..., bindex[:,1]])).transpose((2,0,1))
 
 #crosstimer = omni.Timer()
@@ -677,20 +679,42 @@ for p, pol in enumerate(wantpols.keys()):
 #################################################################################
 ############################solve for overall constant###########################
 #################################################################################
+crossextract, cross_chisq = omni.extract_crosspol_ubl(cdata, c.Info.get_info())
+red_enough = c.ublcount > (max(c.ublcount) / 2) #treat all ubls above half max ublcount equally when computing the x-y angle
+xy_candidates = np.empty(list(cdata.shape)[1:3] + [np.sum(red_enough)], dtype='float32')
 
+for i,u in enumerate(np.arange(c.nUBL)[red_enough].astype(int)):
+    xy_candidates[..., i] = np.angle(crossextract[0,...,u]/crossextract[1,...,u])
 
+overall_angle = omni.medianAngle(omni.medianAngle(xy_candidates, axis = -1), axis = 0) / 2
+for i in range(1, len(overall_angle)):
+    offset = overall_angle[i-1]-PI/2
+    overall_angle[i] = (overall_angle[i] + offset)%(PI) - offset
+if make_plots:
+    plt.plot(overall_angle)
+    plt.ylim(-PI, PI)
+    plt.show()
 
+crosscalpar2={}
+for pol in ['xx','yy']:
+    crosscalpar2[pol[0]] = np.ones((rawdata.shape[1], rawdata.shape[2], c.nTotalAnt), dtype='complex64')
+crosscalpar2[crosspols.keys()[0][1]][..., c.subsetant] = np.exp(1.j * overall_angle[None, :, None])
 
+cdata2 = np.empty_like(rawdata)
+for p, pol in enumerate(crosspols.keys()):
+    cdata2[p] = omni.apply_calpar2(cdata[p], crosscalpar2[pol[0]], crosscalpar2[pol[1]], c.totalVisibilityId)
 
 ####apply cross pol solution to 'xx'############
-apply_pol = wantpols.keys()[0][1] + wantpols.keys()[0][1]
+apply_pol = crosspols.keys()[0][1] + crosspols.keys()[0][1]
+#model sol as linear over freq
 solf = nanmedian(sol, axis=-2)
 Af = np.ones((len(solf[0]), 2), dtype='float32')
 Af[:,0] = np.arange(len(solf[0]))
 nan_freq = np.isnan(solf[0])|np.isnan(solf[1])
 lin_solf = Af.dot(la.inv(Af[~nan_freq].transpose().dot(Af[~nan_freq])).dot(Af[~nan_freq].transpose().dot(solf.transpose()[~nan_freq]))).transpose()
-linearcalpar[apply_pol] =  linearcalpar[apply_pol] * (np.exp(1.j * c.antloc[:,:2].dot(solf)).transpose())
-linearcalpar_model[apply_pol] = linearcalpar_model[apply_pol] * (np.exp(1.j * c.antloc[:,:2].dot(lin_solf)).transpose())
+##apply
+linearcalpar[apply_pol] =  linearcalpar[apply_pol] * (np.exp(1.j * c.antloc[:,:2].dot(solf)).transpose()) * np.exp(1.j * overall_angle[:, None])
+linearcalpar_model[apply_pol] = linearcalpar_model[apply_pol] * (np.exp(1.j * c.antloc[:,:2].dot(lin_solf)).transpose()) * np.exp(1.j * overall_angle[:, None])
 crosstimer.tick("cross calibration")
 ####################################################################################
 ######################output results ##################################
@@ -711,7 +735,7 @@ if oppath != "DONT_WRITE/":
     print "Done."
     sys.stdout.flush()
 
-    #for pol in wantpols.keys():
+    #for pol in crosspols.keys():
         #print FILENAME + " MSG: Writing %s raw calpar to %s"%(pol, op_calpar_path.replace('.bin', pol+'.bin')),
         #sys.stdout.flush()
         #linearcalpar[pol].astype('float32').tofile(op_calpar_path.replace('.bin', pol+'.bin'))
