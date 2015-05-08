@@ -648,9 +648,8 @@ print "Performing more flagging and saving the results"
 sys.stdout.flush()
 
 for p, pol in enumerate(wantpols.keys()):
-    if need_new_flag:
-        for p2, pol2 in enumerate(wantpols.keys()):
-            flags[pol] = flags[pol]|flags[pol2]
+    for p2, pol2 in enumerate(wantpols.keys()):
+        flags[pol] = flags[pol]|flags[pol2]
 for p, pol in enumerate(wantpols.keys()):
     if need_new_flag:
         if chemo >= 1:
@@ -667,8 +666,7 @@ for p, pol in enumerate(wantpols.keys()):
 
         if chemo > 1 and np.sum(flags[pol]) > flags[pol].shape[0] * flags[pol].shape[1] / chemo:
             flags[pol] = flags[pol] | True
-    else:
-        flags[pol] = uvflags[pol]
+
 
 
 
