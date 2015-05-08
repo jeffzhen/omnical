@@ -563,8 +563,8 @@ crosstimer = omni.Timer()
 print "Solving cross calibration....",
 sys.stdout.flush()
 sol = omni.solve_slope(A, b, 1)
-sol[:,flags['xx']] = np.nan
-sol[:,flags['yy']] = np.nan
+#sol[:,flags['xx']] = np.nan
+#sol[:,flags['yy']] = np.nan
 print "Done.",
 sys.stdout.flush()
 crosstimer.tick()
@@ -599,11 +599,24 @@ with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=RuntimeWarning)
     overall_angle = omni.medianAngle(xy_candidates, axis = -1) / 2
 
+    median_overall_angle = omni.medianAngle(omni.medianAngle(xy_candidates, axis = -1), axis = 0) / 2
+    prev_valid = -1
+    for i in range(1, len(median_overall_angle)):
+        if not np.isnan(median_overall_angle[i-1]):
+            prev_valid = i - 1
+        if prev_valid >= 0:
+            offset = median_overall_angle[prev_valid]-PI/2
+        else:
+            offset = -PI/2
+        median_overall_angle[i] = (median_overall_angle[i] - offset)%(PI) + offset
+
+    offset = median_overall_angle[None]-PI/2
+    overall_angle = (overall_angle - offset)%(PI) + offset
 if make_plots:
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore",category=RuntimeWarning)
-        plt.plot(nanmedian(overall_angle,axis=0))
-    plt.ylim(-PI, PI);plt.title('overall angle solution between xx and yy')
+        plt.imshow(overall_angle, vmin = -PI, vmax = PI)
+    plt.title('overall angle solution between xx and yy')
     plt.show()
 
 crosscalpar2={}
@@ -789,7 +802,8 @@ if create_new_uvs:
     infos = {}
     for pol in wantpols.keys():
         infos[pol[0]] = omni.read_redundantinfo(infopaths[pol])
-    omni.apply_omnigain_uvs(uvfiles, omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), flags = flags, overwrite = overwrite_uvs)
+    for uvfile in uvfiles:
+        omni.apply_omnigain_uvs([uvfile], omnigains, calibrators[wantpols.keys()[0]].totalVisibilityId, infos, oppath, ano, adds= adds, verbose = True, comment = '_'.join(sys.argv), flags = flags, overwrite = overwrite_uvs)
     print "Done."
     sys.stdout.flush()
 
