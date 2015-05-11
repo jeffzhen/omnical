@@ -1,2 +1,0 @@
-echo compiling $1
-g++ $1.cc -o $1 calibration_omni.cc -I . -I /usr/include/python* -Wno-format-security -O3

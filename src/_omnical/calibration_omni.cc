@@ -3142,6 +3142,15 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	int ncross = info->crossindex.size();
 	////read in amp and args
 	for (int b = 0; b < ncross; b++){
+
+		if ((data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0] == 0) and (data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1] == 0)){//got 0, quit
+			for(int i = 3; i < 3 + 2 * nant + 2 * nubl; i++){
+				calpar->at(i) = 0;
+			}
+			calpar->at(1) = INFINITY;
+			return;
+		}
+
 		module->amp1[b] = log10(amp(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]));
 		module->pha1[b] = phase(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]) * info->reversed[b];
 	}
@@ -3174,6 +3183,9 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	}
 	vecmatmul(&(info->AtAi), &(module->x3), &(module->x1));
 	vecmatmul(&(info->BtBi), &(module->x4), &(module->x2));
+	//vecmatmul(&(info->AtAiAt), &(module->amp1), &(module->x1));////This is actually slower than seperate multiplications
+	//vecmatmul(&(info->BtBiBt), &(module->pha1), &(module->x2));
+
 
 	for(int b = 0; b < ncross; b++) {
 		float amp = pow(10, module->x1[nant + info->bltoubl[b]] + module->x1[info->bl2d[info->crossindex[b]][0]] + module->x1[info->bl2d[info->crossindex[b]][1]]);
@@ -3182,7 +3194,7 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 		additiveout->at(info->crossindex[b])[1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1] - amp * sin(phase);
 	}
 	if(command == 0){////compute additive term only
-		calpar->at(0) = pow(norm(additiveout), 2);
+		calpar->at(1) = pow(norm(additiveout), 2);
 		//cout << norm(additiveout) << endl;
 		return;
 	} else if(command == 1){////compute full set of calpars
@@ -3249,7 +3261,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		}
 	}
 
-	float gre, gim, chisq, chisq2;
+	float gre, gim, starting_chisq, chisq, chisq2, delta;
 	int a1, a2;
 	chisq = 0;
 	for (unsigned int b = 0; b < (module->cdata2).size(); b++){
@@ -3259,9 +3271,14 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
 		module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
 		module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
-		chisq += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
+		delta = (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
+		chisq += delta;
+		//if (delta != 0){
+			//cout << delta << " " << module->cdata2[b][0]-1 << " " << module->cdata2[b][1] << " " << module->ubl0[info->bltoubl[b]][0]-1 << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
+		//}
 		//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
 	}
+	starting_chisq = chisq;
 	//cout << "lincal DBG v " << module->cdata1[DBGbl][0] << " " <<  module->cdata1[DBGbl][1] << endl<<flush;
 	//cout << "lincal DBG c0 g0 g0 " << module->ubl0[info->nUBL - 1][0] << " " <<  module->ubl0[info->nUBL -1][1]  << " " << module->g0[DBGg1][0] << " " <<  module->g0[DBGg1][1]  << " " << module->g0[DBGg2][0] << " " <<  module->g0[DBGg2][1] << endl<<flush;
 	//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;
@@ -3322,7 +3339,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		}
 
 
-		////Update g and ubl
+		////Update g and ubl, do not update single-bl bls since they are not reversible. Will reverse this step later is chisq increased
 		//float fraction;
 		for (unsigned int a = 0; a < module->g3.size(); a++){
 			module->g0[a][0] = stepsize2 * module->g0[a][0] + stepsize * module->g3[a][0];
@@ -3333,35 +3350,74 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			if ((info->ublcount)[u] > 1){
 				module->ubl0[u][0] = stepsize2 * module->ubl0[u][0] + stepsize * module->ubl3[u][0];
 				module->ubl0[u][1] = stepsize2 * module->ubl0[u][1] + stepsize * module->ubl3[u][1];
-			} else{
-				//make sure there's no error on unique baselines with only 1 baseline
-				module->ubl2dgrp2[u][0][0] = module->g0[info->ublindex[u][0][0]][0] * module->g0[info->ublindex[u][0][1]][0] + module->g0[info->ublindex[u][0][0]][1] * module->g0[info->ublindex[u][0][1]][1];
-				module->ubl2dgrp2[u][0][1] = (module->g0[info->ublindex[u][0][0]][0] * module->g0[info->ublindex[u][0][1]][1] - module->g0[info->ublindex[u][0][0]][1] * module->g0[info->ublindex[u][0][1]][0]) * info->reversed[cbl];
-				module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
 			}
+			//else{
+				////make sure there's no error on unique baselines with only 1 baseline
+				//for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
+					//cbl = info->ublindex[u][i][2];
+					//module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
+					//module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+					//module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
+					//module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+				//}
+
+				//module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
+				//module->ubl0[u][0] = module->ubl3[u][0];
+				//module->ubl0[u][1] = module->ubl3[u][1];
+			//}
 		}
 
 		//compute chisq and decide convergence
 		chisq2 = 0;
 		for (unsigned int b = 0; b < (module->cdata2).size(); b++){
-			a1 = info->bl2d[info->crossindex[b]][0];
-			a2 = info->bl2d[info->crossindex[b]][1];
-			gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
-			gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
-			module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
-			module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
-			chisq2 += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
-			//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
+			if ((info->ublcount)[info->bltoubl[b]] > 1){//automatically use 0 for single-bl ubls, their actaul values are not updated yet
+				a1 = info->bl2d[info->crossindex[b]][0];
+				a2 = info->bl2d[info->crossindex[b]][1];
+				gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
+				gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
+				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
+				module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+				chisq2 += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
+				//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
+			}
 		}
 		componentchange = (chisq - chisq2) / chisq;
-		chisq = chisq2;
-		//cout << "lincal DBG c0 g0 g0 " << module->ubl0[info->nUBL - 1][0] << " " <<  module->ubl0[info->nUBL -1][1]  << " " << module->g0[DBGg1][0] << " " <<  module->g0[DBGg1][1]  << " " << module->g0[DBGg2][0] << " " <<  module->g0[DBGg2][1] << endl<<flush;
-		//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;
+
+		if (componentchange > 0){//if improved, keep g0 and ubl0 updates, and update single-bl ubls and chisq
+			chisq = chisq2;
+			for (unsigned int u = 0; u < module->ubl3.size(); u++){
+			//make sure there's no error on unique baselines with only 1 baseline
+				for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
+					cbl = info->ublindex[u][i][2];
+					module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
+					module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+					module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
+					module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+				}
+
+				module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
+				module->ubl0[u][0] = module->ubl3[u][0];
+				module->ubl0[u][1] = module->ubl3[u][1];
+			}
+		} else {//reverse g0 and ubl0 changes
+			iter--;
+			for (unsigned int a = 0; a < module->g3.size(); a++){
+				module->g0[a][0] = (module->g0[a][0] - stepsize * module->g3[a][0]) / stepsize2;
+				module->g0[a][1] = (module->g0[a][1] - stepsize * module->g3[a][1]) / stepsize2;
+
+			}
+			for (unsigned int u = 0; u < module->ubl3.size(); u++){
+				if ((info->ublcount)[u] > 1){
+					module->ubl0[u][0] = (module->ubl0[u][0] - stepsize * module->ubl3[u][0]) / stepsize2;
+					module->ubl0[u][1] = (module->ubl0[u][1] - stepsize * module->ubl3[u][1]) / stepsize2;
+				}
+			}
+		}
 	}
 
 
 	////update calpar and additive term
-	if( componentchange> 0){
+	if(componentchange > 0 or iter > 1){
 		for (unsigned int a = 0; a < module->g0.size(); a++){
 			calpar->at(3 + a) = log10(amp(&(module->g0[a])));
 			calpar->at(3 + info->nAntenna + a) = phase(&(module->g0[a]));
@@ -3380,7 +3436,157 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		}
 	}else{////if chisq didnt decrease, keep everything untouched
 		calpar->at(0) += 0;
-		calpar->at(2) = calpar->at(1);
+		calpar->at(2) = starting_chisq;
+	}
+	//cout << "lincal DBG v "  << module->cdata1[DBGbl][0] << " " << module->cdata1[DBGbl][1] << endl<<flush;
+	//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;
+	return;
+}
+
+
+void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
+	//cout << "lincal DBG" << info->ublindex[(info->nUBL)-1][0][0] << " " << info->ublindex[(info->nUBL)-1][0][1] << " " << info->ublindex[(info->nUBL)-1][0][2] <<endl<<flush;
+	//int DBGg1 = info->ublindex[(info->nUBL)-1][0][0];
+	//int DBGg2 = info->ublindex[(info->nUBL)-1][0][1];
+	//int DBGbl = info->ublindex[(info->nUBL)-1][0][2];
+
+	////initialize data and g0 ubl0
+	for (unsigned int b = 0; b < (module->cdata1).size(); b++){
+		module->cdata1[b][0] = data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0];
+		module->cdata1[b][1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1];
+	}
+	float amptmp;
+	unsigned int cbl;
+	float stepsize2 = 1 - stepsize;
+	for (int a = 0; a < info->nAntenna; a++){
+		amptmp = pow(10, calpar->at(3 + a));
+		module->g0[a][0] = amptmp * cos(calpar->at(3 + info->nAntenna + a));
+		module->g0[a][1] = amptmp * sin(calpar->at(3 + info->nAntenna + a));
+	}
+
+	for (int u = 0; u < info->nUBL; u++){
+		module->ubl0[u][0] = 1;
+		module->ubl0[u][1] = 0;
+	}
+
+
+	float gre, gim, starting_chisq, chisq, chisq2, delta;
+	int a1, a2;
+	chisq = 0;
+	for (unsigned int b = 0; b < (module->cdata2).size(); b++){
+		a1 = info->bl2d[info->crossindex[b]][0];
+		a2 = info->bl2d[info->crossindex[b]][1];
+		gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
+		gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
+		module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
+		module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+		delta = (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
+		chisq += delta;
+		//if (delta != 0){
+			//cout << delta << " " << module->cdata2[b][0]-1 << " " << module->cdata2[b][1] << " " << module->ubl0[info->bltoubl[b]][0]-1 << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
+		//}
+		//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
+	}
+	starting_chisq = chisq;
+	//cout << "lincal DBG v " << module->cdata1[DBGbl][0] << " " <<  module->cdata1[DBGbl][1] << endl<<flush;
+	//cout << "lincal DBG c0 g0 g0 " << module->ubl0[info->nUBL - 1][0] << " " <<  module->ubl0[info->nUBL -1][1]  << " " << module->g0[DBGg1][0] << " " <<  module->g0[DBGg1][1]  << " " << module->g0[DBGg2][0] << " " <<  module->g0[DBGg2][1] << endl<<flush;
+	//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;
+
+	////start iterations
+	int iter = 0;
+	float componentchange = 100;
+	while(iter < maxiter and componentchange > convergethresh){
+		iter++;
+		//cout << "iteration #" << iter << endl; cout.flush();
+		////calpar g
+
+		for (unsigned int a3 = 0; a3 < module->g3.size(); a3++){////g3 will be containing the final dg, g1, g2 will contain a and b as in the cost function LAMBDA = ||a + b*g||^2
+			for (unsigned int a = 0; a < module->g3.size(); a++){
+				cbl = info->bl1dmatrix[a3][a];
+				if (cbl < 0 or cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
+					module->g1[a] = vector<float>(2,0);
+					module->g2[a] = vector<float>(2,0);
+				}else if(info->bl2d[info->crossindex[cbl]][1] == a3){
+					module->g1[a] = module->cdata1[cbl];
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+				}else{
+					module->g1[a][0] = module->cdata1[cbl][0];
+					module->g1[a][1] = -module->cdata1[cbl][1];////vij needs to be conjugated
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+				}
+			}
+			//(module->g1)[a3] = vector<float>(2,0);
+			//(module->g2)[a3] = (module->g1)[a3];
+			//for (unsigned int a = a3 + 1; a < module->g3.size(); a++){
+				//cbl = info->bl1dmatrix[a3][a];
+				//if (cbl < 0 or cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
+					//module->g1[a] = vector<float>(2,0);
+					//module->g2[a] = vector<float>(2,0);
+				//}else{
+					//module->g1[a][0] = module->cdata1[cbl][0];
+					//module->g1[a][1] = -module->cdata1[cbl][1];////vij needs to be conjugated
+					//module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
+					//module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+				//}
+			//}
+			module->g3[a3] = minimizecomplex(&(module->g1), &(module->g2));
+		}
+
+
+		////Update g and ubl, do not update single-bl bls since they are not reversible. Will reverse this step later is chisq increased
+		//float fraction;
+		for (unsigned int a = 0; a < module->g3.size(); a++){
+			module->g0[a][0] = stepsize2 * module->g0[a][0] + stepsize * module->g3[a][0];
+			module->g0[a][1] = stepsize2 * module->g0[a][1] + stepsize * module->g3[a][1];
+
+		}
+
+		//compute chisq and decide convergence
+		chisq2 = 0;
+		for (unsigned int b = 0; b < (module->cdata2).size(); b++){
+			if ((info->ublcount)[info->bltoubl[b]] > 1){//automatically use 0 for single-bl ubls, their actaul values are not updated yet
+				a1 = info->bl2d[info->crossindex[b]][0];
+				a2 = info->bl2d[info->crossindex[b]][1];
+				gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
+				gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
+				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
+				module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+				chisq2 += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
+				//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
+			}
+		}
+		componentchange = (chisq - chisq2) / chisq;
+
+		if (componentchange > 0){//if improved, keep g0 and ubl0 updates, and update single-bl ubls and chisq
+			chisq = chisq2;
+		} else {//reverse g0 and ubl0 changes
+			iter--;
+			for (unsigned int a = 0; a < module->g3.size(); a++){
+				module->g0[a][0] = (module->g0[a][0] - stepsize * module->g3[a][0]) / stepsize2;
+				module->g0[a][1] = (module->g0[a][1] - stepsize * module->g3[a][1]) / stepsize2;
+			}
+		}
+	}
+
+
+	////update calpar and additive term
+	if(componentchange > 0 or iter > 1){
+		for (unsigned int a = 0; a < module->g0.size(); a++){
+			calpar->at(3 + a) = log10(amp(&(module->g0[a])));
+			calpar->at(3 + info->nAntenna + a) = phase(&(module->g0[a]));
+		}
+
+		calpar->at(0) += iter;
+		calpar->at(2) = chisq;
+		for (unsigned int b = 0; b < (module->cdata2).size(); b++){
+			additiveout->at(info->crossindex[b])[0] = module->cdata1[b][0] - module->cdata2[b][0];
+			additiveout->at(info->crossindex[b])[1] = module->cdata1[b][1] - module->cdata2[b][1];
+		}
+	}else{////if chisq didnt decrease, keep everything untouched
+		calpar->at(0) += 0;
+		calpar->at(2) = starting_chisq;
 	}
 	//cout << "lincal DBG v "  << module->cdata1[DBGbl][0] << " " << module->cdata1[DBGbl][1] << endl<<flush;
 	//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;
@@ -3543,3 +3749,26 @@ void runAverage(vector<vector<vector<vector<float> > > > *in, int dimension, int
 	}
 
 }
+
+
+//void clean1d(vector<float> re_in, vector<float> im_in, vector<float> *re_fil, vector<float> *im_fil, vector<float> *re_out, vector<float> *im_out, float step_size){//1d cyclic deconvolution
+	//string METHODNAME = "clean1d";
+	//uint l = re_in.>size();
+	//if(l != im_in.size() or l != re_fil.size() or l != im_fil.size() or l != re_out.size() or l != im_out.size()){
+		//printf("#!!#%s#!!#%s: FATAL ERROR: input and output arrays have different dimensions. ABORT!\n", FILENAME.c_str(), METHODNAME.c_str());
+		//return;
+
+	//uint fil_max_index = 0;
+	//float max_abs = 0;
+	//for (uint i = 0; i < l; i ++){
+		//float this_amp = amp(re_fil->at(i), (im_fil->at(i)));
+		//if (this_amp > max_abs){
+			//fil_max_index = i;
+			//max_abs = this_amp;
+		//}
+	//}
+
+
+
+
+	//}

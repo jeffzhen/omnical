@@ -2,7 +2,7 @@
 
 import aipy as ap
 import numpy as np
-import commands, os, time, math, ephem
+import commands, os, time, math, ephem, warnings
 import omnical.calibration_omni as omni
 import omnical._omnical as _O
 import optparse, sys
@@ -11,10 +11,8 @@ import scipy.linalg as la
 from scipy.stats import nanmedian
 import matplotlib.pyplot as plt
 import cPickle as pickle
-print "!!!!!!!!!!!!WARNING: THIS SCRIPT IS OUTDATED!!!!!!!!!!!!!!!!!"
-print "Use the updated firstcal4.py for latest features such as cross-pol calibration."
-print "!!!!!!!!!!!!WARNING: THIS SCRIPT IS OUTDATED!!!!!!!!!!!!!!!!!"
-FILENAME = "first_cal.py"
+
+FILENAME = "firstcal4.py"
 PI = np.pi
 TPI = 2 * np.pi
 print "#Omnical Version %s#"%omni.__version__
@@ -29,49 +27,37 @@ o = optparse.OptionParser()
 
 #ap.scripting.add_standard_options(o, cal=True, pol=True)
 o.add_option('-C', '--cal', action = 'store', default = None, help = 'calfile for processing uv files')
-o.add_option('-p', '--pol', action = 'store', default = None, help = 'polarization to calibrate')
-#o.add_option('-d', '--datatag', action = 'store', default = 'PSA128', help = 'tag name of this data set')
-#o.add_option('-i', '--infopath', action = 'store', default = 'DOESNTEXIST', help = 'Redundantinfo file to read.')
 o.add_option('--max', action = 'store', type = 'int', default = 5, help = 'Max number of iterations when removing bad antennas.')
-#o.add_option('--add', action = 'store_true', help = 'whether to enable crosstalk removal')
-#o.add_option('--nadd', action = 'store', type = 'int', default = -1, help = 'time steps w to remove additive term with. for running average its 2w + 1 sliding window.')
-#o.add_option('--datapath', action = 'store', default = None, help = 'uv file or binary file folder')
 o.add_option('--healthbar', action = 'store', type = 'float', default = 2, help = 'Health threshold (0-100) over which an antenna is marked bad. 2 by default.')
 o.add_option('--suppress', action = 'store', type = 'float', default = 1, help = 'Amplitude of the gains for the bad antennas. Larger means more suppressed. Only useful if you dont want to use flagging.')
 o.add_option('-f', '--freq_range', action = 'store', default = '0_0', help = 'Frequency bin number range to use for fitting amp and delay seperated by underscore. 0_0 by default and will process all frequencies.')
 o.add_option('-o', '--outputpath', action = 'store', default = "DONT_WRITE", help = 'Output folder. No output by default.')
 o.add_option('-t', '--info_tag', action = 'store', default = "DEFAULT", help = 'Name tag for output redundantinfo file.')
-#o.add_option('-k', '--skip', action = 'store_true', help = 'whether to skip data importing from uv')
-#o.add_option('-u', '--newuv', action = 'store_true', help = 'whether to create new uv files with calibration applied')
 o.add_option('--overwrite', action = 'store_true', help = 'whether to overwrite if the new uv files already exists')
 o.add_option('--ampdelay', action = 'store_true', help = 'whether to print out amplitude and delay for Calfile usage. Amplitude print out disabled because theres no justifiable reason to ever use it.')
-#o.add_option('--smooth', action = 'store_true', help = 'whether to smooth the calibration results over frequency.')
 o.add_option('--plot', action = 'store_true', help = 'Whether to make plots in the end.')
-#o.add_option('--crude', action = 'store_true', help = 'whether to apply crude calibration')
 o.add_option('-e', '--tol', action = 'store', type = 'float', default = 1e-2, help = 'tolerance of antenna location deviation when computing unique baselines.')
 o.add_option('--ba', action = 'store', default = '', help = 'bad antenna number indices seperated by commas')
 o.add_option('--bu', action = 'store', default = '', help = 'bad unique baseline indicated by ant pairs (seperated by .) seperated by commas: 1.2,3.4,10.11')
 o.add_option('--flagsigma', action = 'store', type = 'float', default = 4, help = 'Number of sigmas to flag on chi^2 distribution. 4 sigma by default. For full cadence data, 3 is recommended.')
+o.add_option('--crosscal_strength', action = 'store', type = 'float', default = 1, help = 'Fraction of redundant baseline types to use in crosspol calibration.')
 
 
 
 opts,args = o.parse_args(sys.argv[1:])
-#skip = opts.skip
-#create_new_uvs = opts.newuv
 overwrite = opts.overwrite
 make_plots = opts.plot
 print_ampdelay = opts.ampdelay
-#smooth = opts.smooth
-#ano = opts.tag##This is the file name difference for final calibration parameter result file. Result will be saved in miriadextract_xx_ano.omnical
-#dataano = opts.datatag#ano for existing data and lst.dat
-#sourcepath = opts.datapath
 oppath = os.path.expanduser(opts.outputpath)
 info_tag = opts.info_tag
-uvfiles = args
+uvfiles = [os.path.expanduser(arg) for arg in args]
 healthbar = opts.healthbar
 bad_ant_suppress = opts.suppress
 max_try = opts.max
 nsigma = opts.flagsigma
+crosscal_strength = opts.crosscal_strength
+if crosscal_strength <= 0 or crosscal_strength > 1:
+    raise ValueError("crosscal_strength must be in (0, 1]")
 
 try:
     badAntenna = [int(i) for i in opts.ba.split(',')]
@@ -89,27 +75,31 @@ redundancy_tol = opts.tol
 [fstart,fend] = [int(x) for x in opts.freq_range.split('_')]
 
 wantpols = {}
-for p in opts.pol.split(','):
+for p in ['xx', 'yy']:
     wantpols[p] = ap.miriad.str2pol[p]
-#wantpols = {'xx':ap.miriad.str2pol['xx']}#, 'yy':-6}#todo:
 
 for uvf in uvfiles:
     if not os.path.isdir(uvf):
         uvfiles.remove(uvf)
         print "WARNING: uv file path %s does not exist!"%uvf
-if len(uvfiles) == 0:
-    raise IOError("ERROR: No valid uv files detected in input. Exiting!")
-elif len(uvfiles) > 1:
-        if len(uvfiles)!= len(wantpols):
-            raise IOError("ERROR: %i uvfiles are inputed and assumed to be corresponding to different polarizations, but only %s polarizations specified. Exiting!"%(len(uvfiles), len(wantpols)))
-        else:
-            uvfiles_dic = {}
-            for i, p in enumerate(opts.pol.split(',')):
-                uvfiles_dic[p] = uvfiles[i]
+
 if '.odf' in uvfiles[0]:
     input_type = 'odf'
 else:
     input_type = 'uv'
+
+if len(uvfiles) == 0:
+    raise IOError("ERROR: No valid uv files detected in input. Exiting!")
+elif len(uvfiles) != 4 and len(uvfiles) != 1 and input_type == 'uv':
+    raise IOError("ERROR: %i uvfiles are inputed and assumed to be corresponding to different polarizations, but we expect %s polarizations. Exiting!"%(len(uvfiles), 4))
+elif len(uvfiles) != 1 and input_type == 'odf':
+    raise IOError("ERROR: %i odfs are inputed and only one at a time is supported."%len(uvfiles))
+else:
+    if input_type == 'uv' and len(uvfiles) == 4:
+        uvfiles_dic = {}
+        for i, p in enumerate(['xx', 'xy', 'yx', 'yy']):
+            uvfiles_dic[p] = uvfiles[i]
+
 
 if input_type == 'uv':
     print "Reading calfile %s..."%opts.cal,
@@ -118,11 +108,6 @@ if input_type == 'uv':
     print "Done. Antenna layout:"
     print aa.ant_layout
     sys.stdout.flush()
-
-
-#infopaths = {}
-#for pol in wantpols.keys():
-    #infopaths[pol]= opts.infopath
 
 
 removedegen = True #this is only for amplitude, because for phase there's a special degenaracy removal anyways
@@ -183,7 +168,7 @@ sys.stdout.flush()
 
 
 ###start reading miriads################
-print FILENAME + " MSG:",  len(uvfiles), "uv files to be processed"
+print FILENAME + " MSG:",  len(uvfiles), "%s files to be processed"%input_type
 sys.stdout.flush()
 
 if input_type == 'odf':
@@ -380,7 +365,8 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
         freq_flag = np.zeros(nfreq, dtype='bool')
         for pol in wantpols.keys():
             linearcalpar[pol] = 10.**(calibrators[pol].rawCalpar[:,:,3:3+calibrators[pol].Info.nAntenna]) * np.exp(1j * calibrators[pol].rawCalpar[:,:,3+calibrators[pol].Info.nAntenna:3+2*calibrators[pol].Info.nAntenna])
-            linearcalpar[pol][flags[pol]] = np.nan
+            if input_type != 'odf':
+                linearcalpar[pol][flags[pol]] = np.nan
             linearcalpar[pol] = nanmedian(np.real(linearcalpar[pol]), axis = 0) + 1j * nanmedian(np.imag(linearcalpar[pol]), axis = 0)
             linearcalpar[pol][np.isnan(linearcalpar[pol])] = 1
             linearcalpar[pol] = linearcalpar[pol] * crude_calpar[pol][:, calibrators[pol].Info.subsetant]
@@ -472,8 +458,9 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
 
                 #for flagged frequencies, use NaN#the phase model
                 model_phase = np.array([(np.arange(nfreq)*dfreq + startfreq) * solution[pol][0, a] + solution[pol][1, a] for a in range(linearcalpar[pol].shape[1])]).transpose()
-                linearcalpar[pol][freq_flag] = np.nan#np.exp(1.j * model_phase[freq_flag])
-                linearcalpar[pol][np.isnan(linearcalpar[pol])] = np.nan#np.exp(1.j * model_phase[np.isnan(linearcalpar[pol])])
+                if input_type != 'odf':
+                    linearcalpar[pol][freq_flag] = np.nan#np.exp(1.j * model_phase[freq_flag])
+                #linearcalpar[pol][np.isnan(linearcalpar[pol])] = np.exp(1.j * model_phase[np.isnan(linearcalpar[pol])])
 
                 #also create linearcalpar counter part that is purely the model phase and unity amp
                 linearcalpar_model[pol] = np.exp(1.j * model_phase)
@@ -548,7 +535,202 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
                         plt.title(pol)
                     plt.show()
 
+####################################################################################
+#####################cross-pol calibration############################
+####################################################################################
+###start reading miriads################
+print FILENAME + " MSG: Processing cross pol:"
+sys.stdout.flush()
 
+del(rawdata)
+crosspols = {}
+for p in ['xy', 'yx']:
+    crosspols[p] = ap.miriad.str2pol[p]
+
+if input_type == 'odf':
+    nTimes = []
+    for uvfile in uvfiles:
+        with open(uvfile+'/header.txt') as f:
+            for l in f.readlines():
+                if l.split()[0] == 'nIntegrations':
+                    nTimes = nTimes + [int(l.split()[1])]
+    pol_select = []
+    for key in crosspols.keys():
+        if 'xx' == key:
+            pol_select = pol_select + [0]
+        elif 'xy' == key:
+            pol_select = pol_select + [1]
+        elif 'yx' == key:
+            pol_select = pol_select + [2]
+        elif 'yy' == key:
+            pol_select = pol_select + [3]
+    rawdata = np.zeros((len(pol_select), np.sum(nTimes), nfreq, nant * (nant + 1) / 2), dtype='complex64')
+    timing = []
+    lst = []
+
+    for i, uvfile in enumerate(uvfiles):
+        rawdata[:, len(timing):len(timing)+nTimes[i]] = np.fromfile(uvfile+'/visibilities', dtype='complex64').reshape((4, nTimes[i], nfreq, nant * (nant + 1) / 2))[pol_select]
+        with open(uvfile.replace('.odf', '.odfa') + '/timing.dat') as f:
+            for l in f.readlines():
+                sa.date = l.replace('\n','')
+                sa.date += ephem.second * 3600 * 4
+                lst += [sa.sidereal_time()]
+                timing += [sa.date.__str__()]
+else:
+    if len(uvfiles) == 1:
+        rawdata, t, timing, lst, rawflag = omni.importuvs(uvfiles, crosspols, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)#, nTotalAntenna = len(aa))
+    else:
+
+        for p, pol in enumerate(crosspols.keys()):
+            if p == 0:
+                rawdata, t, timing, lst, rawflag = omni.importuvs([uvfiles_dic[pol]], {pol:crosspols[pol]}, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)
+            else:
+                tmpdata, t, timing, lst, tmpflag = omni.importuvs([uvfiles_dic[pol]], {pol:crosspols[pol]}, totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(len(aa))]), timingTolerance=100)
+                rawdata = np.concatenate((rawdata, tmpdata))
+    print FILENAME + " MSG:",  len(t), "slices read."
+    sys.stdout.flush()
+
+
+c = calibrators['xx']
+calpar = {}
+for pol in ['xx','yy']:
+    calpar[pol[0]] = np.ones((linearcalpar[pol].shape[0], c.nTotalAnt), dtype='complex64')
+    calpar[pol[0]][:, c.subsetant] = linearcalpar[pol]
+
+for p, pol in enumerate(crosspols.keys()):
+    rawdata[p] = omni.apply_calpar2(rawdata[p], calpar[pol[0]], calpar[pol[1]], c.totalVisibilityId)
+
+#construct A and b for cross-pol
+A = []
+bindex = []
+ublcount_sort = np.argsort(c.ublcount)
+for u in range(c.nUBL):
+    if c.ublcount[u] >= c.ublcount[ublcount_sort[-int(crosscal_strength * c.nUBL)]]:
+        cbl = c.ublindex[u][:,2].astype(int)
+        mask = c.reversed[cbl] == 1
+        if mask.any():
+            A = A + (c.antloc[c.ublindex[u][mask, 0].astype(int)] - c.antloc[int(c.ublindex[u][mask, 0][0])]).tolist()
+            bindex = bindex + [[a, int(c.ublindex[u][mask, 2][0])] for a in c.ublindex[u][mask, 2].astype(int)]#inside crossindex
+        if not mask.all():
+            A = A + (c.antloc[c.ublindex[u][~mask, 0].astype(int)] - c.antloc[int(c.ublindex[u][~mask, 0][0])]).tolist()
+            bindex = bindex + [[a, int(c.ublindex[u][~mask, 2][0])] for a in c.ublindex[u][~mask, 2].astype(int)]#inside crossindex
+A = np.array(A)[:, :2]
+A = np.concatenate((A, -A), axis=0)
+bindex = c.subsetbl[c.crossindex[np.array(bindex).astype(int)]]#inside all bl
+
+b = np.empty((len(A), rawdata.shape[1], rawdata.shape[2]), dtype='float32')
+for p, pol in enumerate(crosspols.keys()):
+    b[p*len(bindex):(p+1)*len(bindex)] = (np.angle(rawdata[p][..., bindex[:,0]]) - np.angle(rawdata[p][..., bindex[:,1]])).transpose((2,0,1))
+
+crosstimer = omni.Timer()
+print "Solving cross calibration....",
+sys.stdout.flush()
+sol = omni.solve_slope(A, b, 1)
+sol[:,flags['xx']] = np.nan
+sol[:,flags['yy']] = np.nan
+median_sol = np.array([nanmedian(sol[i]) for i in range(len(sol))])
+print "Done.",
+sys.stdout.flush()
+crosstimer.tick()
+if make_plots:
+    for i in range(len(sol)):
+        plt.subplot('21%i'%(i+1))
+        min_period = TPI / min(abs(A[:,i][abs(A[:,i]) > 1]))
+        plt.imshow((sol[i]+min_period/2.)%min_period-min_period/2.);plt.colorbar()
+    plt.show()
+#apply to data
+crosscalpar = {}
+#for pol in ['xx','yy']:
+    #crosscalpar[pol[0]] = np.ones(c.nTotalAnt, dtype='complex64')
+#crosscalpar[crosspols.keys()[0][1]][c.subsetant] = np.exp(1.j * c.antloc[:,:2].dot(median_sol))
+
+for pol in ['xx','yy']:
+    crosscalpar[pol[0]] = np.ones((rawdata.shape[1], rawdata.shape[2], c.nTotalAnt), dtype='complex64')
+crosscalpar[crosspols.keys()[0][1]][..., c.subsetant] = np.exp(1.j * c.antloc[:,:2].dot(sol.transpose(1,0,2))).transpose(1,2,0)
+
+cdata = np.empty_like(rawdata)
+for p, pol in enumerate(crosspols.keys()):
+    cdata[p] = omni.apply_calpar2(rawdata[p], crosscalpar[pol[0]], crosscalpar[pol[1]], c.totalVisibilityId)
+
+#check application
+#A = []
+#bindex = []
+#ublcount_sort = np.argsort(c.ublcount)
+#for u in range(c.nUBL):
+    #if c.ublcount[u] >= c.ublcount[ublcount_sort[-min(c.nUBL,99999)]]:
+        #cbl = c.ublindex[u][:,2].astype(int)
+        #mask = c.reversed[cbl] == 1
+        #A = A + (c.antloc[c.ublindex[u][mask, 0].astype(int)] - c.antloc[int(c.ublindex[u][mask, 0][0])]).tolist()
+        #bindex = bindex + [[a, int(c.ublindex[u][mask, 2][0])] for a in c.ublindex[u][mask, 2].astype(int)]#inside crossindex
+#A = np.array(A)[:, :2]
+#A = np.concatenate((A, -A), axis=0)
+#bindex = c.subsetbl[c.crossindex[np.array(bindex).astype(int)]]#inside all bl
+
+#b = np.empty((len(A), rawdata.shape[1], rawdata.shape[2]), dtype='float32')
+#for p, pol in enumerate(crosspols.keys()):
+    #b[p*len(bindex):(p+1)*len(bindex)] = (np.angle(cdata[p][..., bindex[:,0]]) - np.angle(cdata[p][..., bindex[:,1]])).transpose((2,0,1))
+
+#crosstimer = omni.Timer()
+#print "Solving cross calibration again....",
+#sys.stdout.flush()
+#sol2 = omni.solve_slope(A, b, 1, verbose=True)
+#sol2[:,flags['xx']] = np.nan
+#sol2[:,flags['yy']] = np.nan
+#median_sol2 = np.array([np.nanmedian(sol2[i]) for i in range(len(sol2))])
+#print "Done."
+#sys.stdout.flush()
+
+#################################################################################
+############################solve for overall constant###########################
+#################################################################################
+crossextract, cross_chisq = omni.extract_crosspol_ubl(cdata, c.Info.get_info())
+red_enough = c.ublcount > (max(c.ublcount) / 2) #treat all ubls above half max ublcount equally when computing the x-y angle
+xy_candidates = np.empty(list(cdata.shape)[1:3] + [np.sum(red_enough)], dtype='float32')
+
+for i,u in enumerate(np.arange(c.nUBL)[red_enough].astype(int)):
+    xy_candidates[..., i] = np.angle(crossextract[0,...,u]/crossextract[1,...,u])
+
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=RuntimeWarning)
+    overall_angle = omni.medianAngle(omni.medianAngle(xy_candidates, axis = -1), axis = 0) / 2
+prev_valid = -1
+for i in range(1, len(overall_angle)):
+    if not np.isnan(overall_angle[i-1]):
+        prev_valid = i - 1
+    if prev_valid >= 0:
+        offset = overall_angle[prev_valid]-PI/2
+    else:
+        offset = -PI/2
+    overall_angle[i] = (overall_angle[i] - offset)%(PI) + offset
+if make_plots:
+    plt.plot(overall_angle)
+    plt.ylim(-PI, PI)
+    plt.show()
+
+crosscalpar2={}
+for pol in ['xx','yy']:
+    crosscalpar2[pol[0]] = np.ones((rawdata.shape[1], rawdata.shape[2], c.nTotalAnt), dtype='complex64')
+crosscalpar2[crosspols.keys()[0][1]][..., c.subsetant] = np.exp(1.j * overall_angle[None, :, None])
+
+cdata2 = np.empty_like(rawdata)
+for p, pol in enumerate(crosspols.keys()):
+    cdata2[p] = omni.apply_calpar2(cdata[p], crosscalpar2[pol[0]], crosscalpar2[pol[1]], c.totalVisibilityId)
+
+####apply cross pol solution to 'xx'############
+apply_pol = crosspols.keys()[0][1] + crosspols.keys()[0][1]
+#model sol as linear over freq
+solf = nanmedian(sol, axis=-2)
+Af = np.ones((len(solf[0]), 2), dtype='float32')
+Af[:,0] = np.arange(len(solf[0]))
+nan_freq = np.isnan(solf[0])|np.isnan(solf[1])
+lin_solf = Af.dot(la.inv(Af[~nan_freq].transpose().dot(Af[~nan_freq])).dot(Af[~nan_freq].transpose().dot(solf.transpose()[~nan_freq]))).transpose()
+##apply
+linearcalpar[apply_pol] =  linearcalpar[apply_pol] * (np.exp(1.j * c.antloc[:,:2].dot(solf)).transpose()) * np.exp(1.j * overall_angle[:, None])
+linearcalpar_model[apply_pol] = linearcalpar_model[apply_pol] * (np.exp(1.j * c.antloc[:,:2].dot(lin_solf)).transpose()) * np.exp(1.j * overall_angle[:, None])
+crosstimer.tick("cross calibration")
+####################################################################################
+######################output results ##################################
+####################################################################################
 if oppath != "DONT_WRITE/":
     if info_tag == "DEFAULT":
         op_info_path = oppath + 'redundantinfo_first_cal_' + time.strftime("%Y_%m_%d_%H_%M_%S") + ".bin"
@@ -561,11 +743,11 @@ if oppath != "DONT_WRITE/":
 
     print FILENAME + " MSG: Writing redundant info to %s"%op_info_path,
     sys.stdout.flush()
-    calibrators[wantpols.keys()[0]].write_redundantinfo(infoPath = op_info_path, verbose = False, overwrite = overwrite)
+    calibrators['xx'].write_redundantinfo(infoPath = op_info_path, verbose = False, overwrite = overwrite)
     print "Done."
     sys.stdout.flush()
 
-    #for pol in wantpols.keys():
+    #for pol in crosspols.keys():
         #print FILENAME + " MSG: Writing %s raw calpar to %s"%(pol, op_calpar_path.replace('.bin', pol+'.bin')),
         #sys.stdout.flush()
         #linearcalpar[pol].astype('float32').tofile(op_calpar_path.replace('.bin', pol+'.bin'))
@@ -575,7 +757,7 @@ if oppath != "DONT_WRITE/":
 
     for linpar, linpath in zip([linearcalpar, linearcalpar_model], [op_calpar_path, op_calpar_path_model]):
         linearcalpar_out = {}#include all antennas, not just good ones
-        for pol in linpar.keys():
+        for pol in ['xx', 'yy']:
             linearcalpar_out[pol] = np.ones((linpar[pol].shape[0], calibrators[pol].nTotalAnt), dtype='complex64')
             linearcalpar_out[pol][:, calibrators[pol].subsetant] = linpar[pol]
         with open(linpath, 'wb') as outfile:

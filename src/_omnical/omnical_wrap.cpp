@@ -428,6 +428,46 @@ int RedInfoObject_set_bl2d(RedInfoObject *self, PyObject *value, void *closure) 
     return 0;
 }
 
+// RedundantInfo.totalVisibilityId
+PyObject *RedInfoObject_get_totalVisibilityId(RedInfoObject *self, void *closure) {
+    if (self->info.totalVisibilityId.size() < 1){
+        return NULL;
+    }
+    PyArrayObject *rv;
+    npy_intp data_dims[2] = {self->info.totalVisibilityId.size(), self->info.totalVisibilityId[0].size()};
+    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
+    for (int i=0; i < data_dims[0]; i++) {
+      for (int j=0; j < data_dims[1]; j++) {
+        ((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.totalVisibilityId[i][j];
+      }
+    }
+    return PyArray_Return(rv);
+}
+
+int RedInfoObject_set_totalVisibilityId(RedInfoObject *self, PyObject *value, void *closure) {
+    PyArrayObject *v;
+    npy_intp dim1,dim2;
+    if (!PyArray_Check(value)) {
+        PyErr_Format(PyExc_ValueError, "totalVisibilityId must be a numpy array");
+        return -1;
+    }
+    v = (PyArrayObject *) value;
+    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
+        PyErr_Format(PyExc_ValueError, "totalVisibilityId must be a 2D array of ints");
+        return -1;
+    }
+    dim1 = PyArray_DIM(v,0);
+    dim2 = PyArray_DIM(v,1);
+    self->info.totalVisibilityId.resize(dim1);
+    for (int i=0; i < dim1; i++) {
+      self->info.totalVisibilityId[i].resize(dim2);
+      for (int j=0; j < dim2; j++) {
+        self->info.totalVisibilityId[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
+      }
+    }
+    return 0;
+}
+
 // RedundantInfo.ublcount (1D integer array)
 PyObject *RedInfoObject_get_ublcount(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
@@ -596,79 +636,79 @@ int RedInfoObject_set_degenM(RedInfoObject *self, PyObject *value, void *closure
     return 0;
 }
 
-// RedundantInfo.A (1D integer array)
-PyObject *RedInfoObject_get_A(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.A.size(), self->info.A[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.A[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.A (1D integer array)
+////PyObject *RedInfoObject_get_A(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.A.size(), self->info.A[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.A[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_A(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "A must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "A must be a 2D array of ints");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.A.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.A[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.A[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_A(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "A must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
+        ////PyErr_Format(PyExc_ValueError, "A must be a 2D array of ints");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.A.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.A[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.A[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.B (1D integer array)
-PyObject *RedInfoObject_get_B(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.B.size(), self->info.B[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.B[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.B (1D integer array)
+////PyObject *RedInfoObject_get_B(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.B.size(), self->info.B[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.B[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_B(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "B must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "B must be a 2D array of ints");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.B.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.B[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.B[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_B(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "B must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
+        ////PyErr_Format(PyExc_ValueError, "B must be a 2D array of ints");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.B.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.B[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.B[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
 // RedundantInfo.Atsparse (1D integer array)
 PyObject *RedInfoObject_get_Atsparse(RedInfoObject *self, void *closure) {
@@ -835,227 +875,227 @@ int RedInfoObject_set_BtBi(RedInfoObject *self, PyObject *value, void *closure) 
     return 0;
 }
 
-// RedundantInfo.AtAiAt (1D integer array)
-PyObject *RedInfoObject_get_AtAiAt(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.AtAiAt.size(), self->info.AtAiAt[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.AtAiAt[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.AtAiAt (1D integer array)
+////PyObject *RedInfoObject_get_AtAiAt(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.AtAiAt.size(), self->info.AtAiAt[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.AtAiAt[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_AtAiAt(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "AtAiAt must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "AtAiAt must be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.AtAiAt.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.AtAiAt[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.AtAiAt[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_AtAiAt(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "AtAiAt must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "AtAiAt must be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.AtAiAt.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.AtAiAt[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.AtAiAt[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.BtBiBt (1D integer array)
-PyObject *RedInfoObject_get_BtBiBt(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.BtBiBt.size(), self->info.BtBiBt[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.BtBiBt[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.BtBiBt (1D integer array)
+////PyObject *RedInfoObject_get_BtBiBt(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.BtBiBt.size(), self->info.BtBiBt[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.BtBiBt[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_BtBiBt(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "BtBiBt must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "BtBiBt must be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.BtBiBt.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.BtBiBt[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.BtBiBt[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_BtBiBt(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "BtBiBt must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "BtBiBt must be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.BtBiBt.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.BtBiBt[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.BtBiBt[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.PA (1D integer array)
-PyObject *RedInfoObject_get_PA(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.PA.size(), self->info.PA[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.PA[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.PA (1D integer array)
+////PyObject *RedInfoObject_get_PA(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.PA.size(), self->info.PA[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.PA[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_PA(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "PA must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "PA must be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.PA.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.PA[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.PA[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_PA(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "PA must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "PA must be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.PA.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.PA[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.PA[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.PB (1D integer array)
-PyObject *RedInfoObject_get_PB(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.PB.size(), self->info.PB[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.PB[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.PB (1D integer array)
+////PyObject *RedInfoObject_get_PB(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.PB.size(), self->info.PB[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.PB[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_PB(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "PB must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "PB must be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.PB.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.PB[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.PB[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_PB(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "PB must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "PB must be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.PB.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.PB[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.PB[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.ImPA (1D integer array)
-PyObject *RedInfoObject_get_ImPA(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.ImPA.size(), self->info.ImPA[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.ImPA[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.ImPA (1D integer array)
+////PyObject *RedInfoObject_get_ImPA(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.ImPA.size(), self->info.ImPA[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.ImPA[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_ImPA(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "ImPA must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "ImPA be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.ImPA.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.ImPA[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.ImPA[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_ImPA(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "ImPA must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "ImPA be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.ImPA.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.ImPA[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.ImPA[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
-// RedundantInfo.ImPB (1D integer array)
-PyObject *RedInfoObject_get_ImPB(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.ImPB.size(), self->info.ImPB[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.ImPB[i][j];
-      }
-    }
-    return PyArray_Return(rv);
-}
+////// RedundantInfo.ImPB (1D integer array)
+////PyObject *RedInfoObject_get_ImPB(RedInfoObject *self, void *closure) {
+    ////PyArrayObject *rv;
+    ////npy_intp data_dims[2] = {self->info.ImPB.size(), self->info.ImPB[0].size()};
+    ////rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+    ////for (int i=0; i < data_dims[0]; i++) {
+      ////for (int j=0; j < data_dims[1]; j++) {
+        ////((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.ImPB[i][j];
+      ////}
+    ////}
+    ////return PyArray_Return(rv);
+////}
 
-int RedInfoObject_set_ImPB(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "ImPB must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "ImPB must be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.ImPB.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.ImPB[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.ImPB[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+////int RedInfoObject_set_ImPB(RedInfoObject *self, PyObject *value, void *closure) {
+    ////PyArrayObject *v;
+    ////npy_intp dim1, dim2;
+    ////if (!PyArray_Check(value)) {
+        ////PyErr_Format(PyExc_ValueError, "ImPB must be a numpy array");
+        ////return -1;
+    ////}
+    ////v = (PyArrayObject *) value;
+    ////if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+        ////PyErr_Format(PyExc_ValueError, "ImPB must be a 2D array of floats");
+        ////return -1;
+    ////}
+    ////dim1 = PyArray_DIM(v,0);
+    ////dim2 = PyArray_DIM(v,1);
+    ////self->info.ImPB.resize(dim1);
+    ////for (int i=0; i < dim1; i++) {
+      ////self->info.ImPB[i].resize(dim2);
+      ////for (int j=0; j < dim2; j++) {
+        ////self->info.ImPB[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+      ////}
+    ////}
+    ////return 0;
+////}
 
 /*___          _ ___        __                        _   _               _
 |  _ \ ___  __| |_ _|_ __  / _| ___    _ __ ___   ___| |_| |__   ___   __| |
@@ -1101,22 +1141,23 @@ static PyGetSetDef RedInfoObject_getseters[] = {
     {"autoindex", (getter)RedInfoObject_get_autoindex, (setter)RedInfoObject_set_autoindex, "autoindex", NULL},
     {"crossindex", (getter)RedInfoObject_get_crossindex, (setter)RedInfoObject_set_crossindex, "crossindex", NULL},
     {"bl2d", (getter)RedInfoObject_get_bl2d, (setter)RedInfoObject_set_bl2d, "bl2d", NULL},
+    {"totalVisibilityId", (getter)RedInfoObject_get_totalVisibilityId, (setter)RedInfoObject_set_totalVisibilityId, "totalVisibilityId", NULL},
     {"ublcount", (getter)RedInfoObject_get_ublcount, (setter)RedInfoObject_set_ublcount, "ublcount", NULL},
     {"ublindex", (getter)RedInfoObject_get_ublindex, (setter)RedInfoObject_set_ublindex, "ublindex", NULL},
     {"bl1dmatrix", (getter)RedInfoObject_get_bl1dmatrix, (setter)RedInfoObject_set_bl1dmatrix, "bl1dmatrix", NULL},
     {"degenM", (getter)RedInfoObject_get_degenM, (setter)RedInfoObject_set_degenM, "degenM", NULL},
-    {"A", (getter)RedInfoObject_get_A, (setter)RedInfoObject_set_A, "A", NULL},
-    {"B", (getter)RedInfoObject_get_B, (setter)RedInfoObject_set_B, "B", NULL},
+    //{"A", (getter)RedInfoObject_get_A, (setter)RedInfoObject_set_A, "A", NULL},
+    //{"B", (getter)RedInfoObject_get_B, (setter)RedInfoObject_set_B, "B", NULL},
     {"Atsparse", (getter)RedInfoObject_get_Atsparse, (setter)RedInfoObject_set_Atsparse, "Atsparse", NULL},
     {"Btsparse", (getter)RedInfoObject_get_Btsparse, (setter)RedInfoObject_set_Btsparse, "Btsparse", NULL},
     {"AtAi", (getter)RedInfoObject_get_AtAi, (setter)RedInfoObject_set_AtAi, "AtAi", NULL},
     {"BtBi", (getter)RedInfoObject_get_BtBi, (setter)RedInfoObject_set_BtBi, "BtBi", NULL},
-    {"AtAiAt", (getter)RedInfoObject_get_AtAiAt, (setter)RedInfoObject_set_AtAiAt, "AtAiAt", NULL},
-    {"BtBiBt", (getter)RedInfoObject_get_BtBiBt, (setter)RedInfoObject_set_BtBiBt, "BtBiBt", NULL},
-    {"PA", (getter)RedInfoObject_get_PA, (setter)RedInfoObject_set_PA, "PA", NULL},
-    {"PB", (getter)RedInfoObject_get_PB, (setter)RedInfoObject_set_PB, "PB", NULL},
-    {"ImPA", (getter)RedInfoObject_get_ImPA, (setter)RedInfoObject_set_ImPA, "ImPA", NULL},
-    {"ImPB", (getter)RedInfoObject_get_ImPB, (setter)RedInfoObject_set_ImPB, "ImPB", NULL},
+    ////{"AtAiAt", (getter)RedInfoObject_get_AtAiAt, (setter)RedInfoObject_set_AtAiAt, "AtAiAt", NULL},
+    ////{"BtBiBt", (getter)RedInfoObject_get_BtBiBt, (setter)RedInfoObject_set_BtBiBt, "BtBiBt", NULL},
+    ////{"PA", (getter)RedInfoObject_get_PA, (setter)RedInfoObject_set_PA, "PA", NULL},
+    ////{"PB", (getter)RedInfoObject_get_PB, (setter)RedInfoObject_set_PB, "PB", NULL},
+    ////{"ImPA", (getter)RedInfoObject_get_ImPA, (setter)RedInfoObject_set_ImPA, "ImPA", NULL},
+    ////{"ImPB", (getter)RedInfoObject_get_ImPB, (setter)RedInfoObject_set_ImPB, "ImPB", NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -1169,8 +1210,8 @@ PyTypeObject RedInfoType = {
 | |  | | (_) | (_| | |_| | |  __/ | | | | | |  __/ |_| | | | (_) | (_| \__ \
 |_|  |_|\___/ \__,_|\__,_|_|\___| |_| |_| |_|\___|\__|_| |_|\___/ \__,_|___/ */
 
-PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
-    int uselogcal = 1, removedegen = 1, maxiter = 10, dummy = 0, computeUBLFit = 1;
+PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//return version
+    int uselogcal = 1, removedegen = 1, maxiter = 10, dummy = 0, computeUBLFit = 1, trust_period = 1;
     float stepsize=.3, conv=.01;
     npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
     npy_intp nint, nfreq, nbls;
@@ -1178,10 +1219,10 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
     PyArrayObject *data, *additivein, *calpar; // input arrays
     PyArrayObject *additiveout=NULL; // output arrays
     PyObject *rv;
-    static char *kwlist[] = {"data", "calpar", "info", "additivein", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "computeUBLFit", "dummy"};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!|iiiffii", kwlist,
+    static char *kwlist[] = {"data", "calpar", "info", "additivein", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "computeUBLFit", "trust_period", "dummy"};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!|iiiffiii", kwlist,
             &PyArray_Type, &data, &PyArray_Type, &calpar, &RedInfoType, &redinfo, &PyArray_Type, &additivein,
-            &uselogcal, &removedegen, &maxiter, &stepsize, &conv, &computeUBLFit, &dummy))
+            &uselogcal, &removedegen, &maxiter, &stepsize, &conv, &computeUBLFit, &trust_period, &dummy))
         return NULL;
     // check shape and type of data
     if (PyArray_NDIM(data) != 3 || PyArray_TYPE(data) != PyArray_CFLOAT) {
@@ -1203,7 +1244,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
     }
     if (PyArray_NDIM(calpar) != 3 || PyArray_TYPE(calpar) != PyArray_FLOAT
             || PyArray_DIM(calpar,0) != nint || PyArray_DIM(calpar,1) != nfreq || (uint)PyArray_DIM(calpar,2) != calpar_v.size()) {
-        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data");
+        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data and the third being 3+2(nAnt+nUBL).");
         return NULL;
     }
 
@@ -1249,8 +1290,17 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                     //stepsize
                 //);
             } else {
-                for (unsigned int n = 0; n < calpar_v.size(); n ++){
-                    calpar_v[n] = ((float *) PyArray_GETPTR2(calpar,t,f))[n];
+                if (t % trust_period == 0 or (((float *) PyArray_GETPTR2(calpar, t, f))[1] > 0 and ((float *) PyArray_GETPTR2(calpar, t, f))[1] <= ((float *) PyArray_GETPTR2(calpar, t - 1, f))[2])){//whether to start from logcal calpar or the result of revious lincal result
+                    for (unsigned int n = 0; n < calpar_v.size(); n ++){
+                        calpar_v[n] = ((float *) PyArray_GETPTR2(calpar, t, f))[n];
+                    }
+                } else {
+                    calpar_v[0] = ((float *) PyArray_GETPTR2(calpar, t, f))[0];
+                    calpar_v[1] = ((float *) PyArray_GETPTR2(calpar, t, f))[1];
+                    calpar_v[2] = ((float *) PyArray_GETPTR2(calpar, t, f))[2];
+                    for (unsigned int n = 3; n < calpar_v.size(); n ++){
+                        calpar_v[n] = ((float *) PyArray_GETPTR2(calpar, t - 1, f))[n];
+                    }
                 }
                 lincal(
                     &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
@@ -1266,7 +1316,9 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
                 );
             }
             //if (removedegen) removeDegen((vector<float> *) PyArray_GETPTR3(calpar,t,f,0), &(redinfo->info), &module);
-            if (removedegen) removeDegen(&calpar_v, &(redinfo->info), &module);
+            for (int i = 0; i < removedegen; i++){
+                removeDegen(&calpar_v, &(redinfo->info), &module);
+            }
             // copy to output arrays
             for (int b = 0; b < nbls; b++) {
                 ((float *) PyArray_GETPTR3(additiveout,t,f,b))[0] = additiveout_v[b][0];
@@ -1285,12 +1337,233 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {
     return rv;
 }
 
+PyObject *redcal2_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in place version
+    int uselogcal = 1, removedegen = 1, maxiter = 10, dummy = 0, computeUBLFit = 1, trust_period = 1;
+    float stepsize=.3, conv=.01;
+    npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
+    npy_intp nint, nfreq, nbls;
+    RedInfoObject *redinfo;
+    PyArrayObject *data, *additivein, *calpar, *additiveout; // input arrays
+    //PyObject *rv;
+    static char *kwlist[] = {"data", "calpar", "info", "additivein", "additiveout", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "computeUBLFit", "trust_period", "dummy"};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!O!|iiiffiii", kwlist,
+            &PyArray_Type, &data, &PyArray_Type, &calpar, &RedInfoType, &redinfo, &PyArray_Type, &additivein, &PyArray_Type, &additiveout,
+            &uselogcal, &removedegen, &maxiter, &stepsize, &conv, &computeUBLFit, &trust_period, &dummy))
+        return NULL;
+    // check shape and type of data
+    if (PyArray_NDIM(data) != 3 || PyArray_TYPE(data) != PyArray_CFLOAT) {
+        PyErr_Format(PyExc_ValueError, "data must be a (nint,nfreq,nbls) array of complex floats");
+        return NULL;
+    }
+    nint = PyArray_DIM(data,0);
+    nfreq = PyArray_DIM(data,1);
+    nbls = PyArray_DIM(data,2);
+    vector<vector<float> > data_v(nbls, vector<float>(2, 0));
+    vector<float> calpar_v(3 + 2*(redinfo->info.nUBL + redinfo->info.nAntenna), 0);
+    vector<vector<float> >additivein_v(nbls, vector<float>(2, 0));
+    vector<vector<float> >additiveout_v(nbls, vector<float>(2, 0));
+    // check that dims of additivein and data match
+    if (PyArray_NDIM(additivein) != 3 || PyArray_TYPE(additivein) != PyArray_CFLOAT
+            || PyArray_DIM(additivein,0) != nint || PyArray_DIM(additivein,1) != nfreq || PyArray_DIM(additivein,2) != nbls) {
+        PyErr_Format(PyExc_ValueError, "additivein must be of the same type and shape as data");
+        return NULL;
+    }
+    if (PyArray_NDIM(additiveout) != 3 || PyArray_TYPE(additiveout) != PyArray_CFLOAT
+            || PyArray_DIM(additiveout,0) != nint || PyArray_DIM(additiveout,1) != nfreq || PyArray_DIM(additiveout,2) != nbls) {
+        PyErr_Format(PyExc_ValueError, "additiveout must be of the same type and shape as data");
+        return NULL;
+    }
+    if (PyArray_NDIM(calpar) != 3 || PyArray_TYPE(calpar) != PyArray_FLOAT
+            || PyArray_DIM(calpar,0) != nint || PyArray_DIM(calpar,1) != nfreq || (uint)PyArray_DIM(calpar,2) != calpar_v.size()) {
+        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data and the third being 3+2(nAnt+nUBL).");
+        return NULL;
+    }
+
+    // allocate output additiveout array
+    dims[0] = nint;
+    dims[1] = nfreq;
+    dims[2] = nbls;
+    calmemmodule module;////memory module to be reused in order to avoid redeclaring all sorts of long vectors
+    initcalmodule(&module, &(redinfo->info));
+
+    for (int t = 0; t < nint; t++){
+        for (int f = 0; f < nfreq; f++){
+            // copy from input arrays
+            for (int b = 0; b < nbls; b++) {
+                data_v[b][0] = ((float *) PyArray_GETPTR3(data,t,f,b))[0];
+                data_v[b][1] = ((float *) PyArray_GETPTR3(data,t,f,b))[1];
+                additivein_v[b][0] = ((float *) PyArray_GETPTR3(additivein,t,f,b))[0];
+                additivein_v[b][1] = ((float *) PyArray_GETPTR3(additivein,t,f,b))[1];
+            }
+
+            if (uselogcal) {
+                logcaladd(
+                    &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
+                    &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0),
+                    &(redinfo->info),
+                    &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0),
+                    &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0),
+                    1,
+                    &module
+                );
+                //lincal(
+                    //&data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
+                    //&additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0),
+                    //&(redinfo->info),
+                    //&calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0),
+                    //&additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0),
+                    //0,
+                    //&module,
+                    //conv,
+                    //maxiter,
+                    //stepsize
+                //);
+            } else {
+                if (t % trust_period == 0 or (((float *) PyArray_GETPTR2(calpar, t, f))[1] > 0 and ((float *) PyArray_GETPTR2(calpar, t, f))[1] <= ((float *) PyArray_GETPTR2(calpar, t - 1, f))[2])){//whether to start from logcal calpar or the result of revious lincal result
+                    for (unsigned int n = 0; n < calpar_v.size(); n ++){
+                        calpar_v[n] = ((float *) PyArray_GETPTR2(calpar, t, f))[n];
+                    }
+                } else {
+                    calpar_v[0] = ((float *) PyArray_GETPTR2(calpar, t, f))[0];
+                    calpar_v[1] = ((float *) PyArray_GETPTR2(calpar, t, f))[1];
+                    calpar_v[2] = ((float *) PyArray_GETPTR2(calpar, t, f))[2];
+                    for (unsigned int n = 3; n < calpar_v.size(); n ++){
+                        calpar_v[n] = ((float *) PyArray_GETPTR2(calpar, t - 1, f))[n];
+                    }
+                }
+                lincal(
+                    &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
+                    &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0),
+                    &(redinfo->info),
+                    &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0),
+                    &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0),
+                    computeUBLFit,
+                    &module,
+                    conv,
+                    maxiter,
+                    stepsize
+                );
+            }
+            //if (removedegen) removeDegen((vector<float> *) PyArray_GETPTR3(calpar,t,f,0), &(redinfo->info), &module);
+            for (int i = 0; i < removedegen; i++){
+                removeDegen(&calpar_v, &(redinfo->info), &module);
+            }
+            // copy to output arrays
+            for (int b = 0; b < nbls; b++) {
+                ((float *) PyArray_GETPTR3(additiveout,t,f,b))[0] = additiveout_v[b][0];
+                ((float *) PyArray_GETPTR3(additiveout,t,f,b))[1] = additiveout_v[b][1];
+            }
+            for (unsigned int b = 0; b < calpar_v.size(); b++) {
+                ((float *) PyArray_GETPTR3(calpar,t,f,b))[0] = calpar_v[b];
+            }
+        }
+    }
+    //for (unsigned int b = 0; b < 5; b++) {
+        //cout << ((float *) PyArray_GETPTR3(calpar,0,10,b))[0] << " ";
+    //}
+    //cout << endl << flush;
+    return Py_BuildValue("");
+}
+
+PyObject *gaincal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in place version like redcal2
+    int maxiter = 10, dummy = 0;
+    float stepsize=.3, conv=.01;
+    npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
+    npy_intp nint, nfreq, nbls;
+    RedInfoObject *redinfo;
+    PyArrayObject *data, *additivein, *calpar, *additiveout; // input arrays
+    //PyObject *rv;
+    static char *kwlist[] = {"data", "calpar", "info", "additivein", "additiveout", "maxiter", "stepsize", "conv", "dummy"};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!O!|iffi", kwlist,
+            &PyArray_Type, &data, &PyArray_Type, &calpar, &RedInfoType, &redinfo, &PyArray_Type, &additivein, &PyArray_Type, &additiveout,
+            &maxiter, &stepsize, &conv, &dummy))
+        return NULL;
+    // check shape and type of data
+    if (PyArray_NDIM(data) != 3 || PyArray_TYPE(data) != PyArray_CFLOAT) {
+        PyErr_Format(PyExc_ValueError, "data must be a (nint,nfreq,nbls) array of complex floats");
+        return NULL;
+    }
+    nint = PyArray_DIM(data,0);
+    nfreq = PyArray_DIM(data,1);
+    nbls = PyArray_DIM(data,2);
+    vector<vector<float> > data_v(nbls, vector<float>(2, 0));
+    vector<float> calpar_v(3 + 2*(redinfo->info.nUBL + redinfo->info.nAntenna), 0);
+    vector<vector<float> >additivein_v(nbls, vector<float>(2, 0));
+    vector<vector<float> >additiveout_v(nbls, vector<float>(2, 0));
+    // check that dims of additivein and data match
+    if (PyArray_NDIM(additivein) != 3 || PyArray_TYPE(additivein) != PyArray_CFLOAT
+            || PyArray_DIM(additivein,0) != nint || PyArray_DIM(additivein,1) != nfreq || PyArray_DIM(additivein,2) != nbls) {
+        PyErr_Format(PyExc_ValueError, "additivein must be of the same type and shape as data");
+        return NULL;
+    }
+    if (PyArray_NDIM(additiveout) != 3 || PyArray_TYPE(additiveout) != PyArray_CFLOAT
+            || PyArray_DIM(additiveout,0) != nint || PyArray_DIM(additiveout,1) != nfreq || PyArray_DIM(additiveout,2) != nbls) {
+        PyErr_Format(PyExc_ValueError, "additiveout must be of the same type and shape as data");
+        return NULL;
+    }
+    if (PyArray_NDIM(calpar) != 3 || PyArray_TYPE(calpar) != PyArray_FLOAT
+            || PyArray_DIM(calpar,0) != nint || PyArray_DIM(calpar,1) != nfreq || (uint)PyArray_DIM(calpar,2) != calpar_v.size()) {
+        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data and the third being 3+2(nAnt+nUBL).");
+        return NULL;
+    }
+
+    // allocate output additiveout array
+    dims[0] = nint;
+    dims[1] = nfreq;
+    dims[2] = nbls;
+    calmemmodule module;////memory module to be reused in order to avoid redeclaring all sorts of long vectors
+    initcalmodule(&module, &(redinfo->info));
+
+    for (int t = 0; t < nint; t++){
+        for (int f = 0; f < nfreq; f++){
+            // copy from input arrays
+            for (int b = 0; b < nbls; b++) {
+                data_v[b][0] = ((float *) PyArray_GETPTR3(data,t,f,b))[0];
+                data_v[b][1] = ((float *) PyArray_GETPTR3(data,t,f,b))[1];
+                additivein_v[b][0] = ((float *) PyArray_GETPTR3(additivein,t,f,b))[0];
+                additivein_v[b][1] = ((float *) PyArray_GETPTR3(additivein,t,f,b))[1];
+            }
+
+
+            gaincal(
+                &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
+                &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0),
+                &(redinfo->info),
+                &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0),
+                &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0),
+                &module,
+                conv,
+                maxiter,
+                stepsize
+            );
+
+
+            // copy to output arrays
+            for (int b = 0; b < nbls; b++) {
+                ((float *) PyArray_GETPTR3(additiveout,t,f,b))[0] = additiveout_v[b][0];
+                ((float *) PyArray_GETPTR3(additiveout,t,f,b))[1] = additiveout_v[b][1];
+            }
+            for (unsigned int b = 0; b < calpar_v.size(); b++) {
+                ((float *) PyArray_GETPTR3(calpar,t,f,b))[0] = calpar_v[b];
+            }
+        }
+    }
+    //for (unsigned int b = 0; b < 5; b++) {
+        //cout << ((float *) PyArray_GETPTR3(calpar,0,10,b))[0] << " ";
+    //}
+    //cout << endl << flush;
+    return Py_BuildValue("");
+}
+
 PyObject* phase_wrap(PyObject *self, PyObject *args){
     float a, b;
 
     if (!PyArg_ParseTuple(args, "ff", &a, &b))
         return NULL;
     float result = phase(a, b);
+    //for (int i = 0; i < 1000000000; i ++){
+        //result = phase(a, b);
+    //}
     //cout << a << endl; cout.flush();
     return Py_BuildValue("f", result);
 }
@@ -1362,6 +1635,10 @@ static PyMethodDef omnical_methods[] = {
         "Return the norm of input array."},
     {"redcal", (PyCFunction)redcal_wrap, METH_VARARGS | METH_KEYWORDS,
         "redcal(data,calpar,info,additivein,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,conv=.001)\nRun redundant calibration on data (3D array of complex floats)."},
+    {"redcal2", (PyCFunction)redcal2_wrap, METH_VARARGS | METH_KEYWORDS,
+        "redcal2(data,calpar,info,additivein,additiveout,uselogcal=1,removedegen=0,maxiter=20,stepsize=.3,conv=.001)\nRun redundant calibration on data (3D array of complex floats)."},
+    {"gaincal", (PyCFunction)gaincal_wrap, METH_VARARGS | METH_KEYWORDS,
+        "gaincal(data,calpar,info,additivein,additiveout,maxiter=20,stepsize=.3,conv=.001)\nRun gain calibration on data (3D array of complex floats)."},
     {"unwrap_phase", (PyCFunction)unwrap_phase, METH_VARARGS | METH_KEYWORDS,
         "unwrap_phase(calpar)\nUnwrap phase in radians."},
     ////{"omnical_old", (PyCFunction)cal_wrap_old, METH_VARARGS,
