@@ -1,6 +1,8 @@
 '''XXX DOCSTRING'''
 # XXX lots of imports... are all necessary?  can code be separated into files with smaller dependency lists?
 # XXX this file has gotten huge. need to break into smaller files
+# XXX clean house on commented code?
+# XXX obey python style conventions
 import datetime
 import socket, math, random, traceback, ephem, string, commands, datetime, shutil, resource, threading, time
 import multiprocessing as mp
@@ -33,6 +35,8 @@ FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
 PI = np.pi
 TPI = 2 * np.pi
+
+# XXX all this meta stuff about "info" almost assuredly means info needs to be a class
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 infokeys_optional = ['totalVisibilityId']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
@@ -516,6 +520,7 @@ def get_xy_AB(info):
 
     return xyA, xyB, yxA, yxB
 
+# XXX this probably belongs in a different file; it's not omnical, it's fileio.
 def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, lat = None, lon = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):
     '''tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files. return lst in sidereal hour'''
 
@@ -773,6 +778,7 @@ def pick_slice_uvs(uvfilenames, pol_str_or_num, t_index_lst_jd, findex, totalVis
         raise IOError("FATAL ERROR: no data pulled. Total of %i time slices read from UV files. Please check polarization information."%len(t))
     return data
 
+# XXX also doesn't belong in this file.  it's fileio
 def exportuv(uv_path, data, flags, pols, jds, inttime, sfreq, sdf, latitude, longitude, totalVisibilityId = None, comment='none', overwrite = False):
     '''flags true when bad, lat lon radians, frequency GHz, jd days, inttime seconds, pols in -5~-8 miriad convention'''
     uv_path = os.path.expanduser(uv_path)
@@ -877,6 +883,7 @@ def apply_calpar2(data, calpar, calpar2, visibilityID):
     else:
         raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
+# XXX fileio
 def get_uv_pols(uvi):
     '''XXX DOCSTRING'''
     input_is_str = (type(uvi) == type('a'))
@@ -899,6 +906,7 @@ def get_uv_pols(uvi):
         del(uvi)
     return [ap.miriad.pol2str[p] for p in uvpols]
 
+# XXX fileio
 def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, oppath, ano, adds={}, flags=None, nTotalAntenna = None, overwrite = False, comment = '', verbose = False):
     '''XXX DOCSTRING'''
     METHODNAME = "*apply_omnigain_uvs*"
@@ -1043,7 +1051,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, oppath, 
     return
 
 
-
+# XXX fileio
 def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wantpols, oppath, ano, additivefilenames = None, nTotalAntenna = None, comment = '', overwrite= False):
     '''XXX DOCSTRING'''
     METHODNAME = "*apply_omnical_uvs*"
@@ -1153,12 +1161,14 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wan
     return
 
 
+# XXX utility function, should be separate file
 def stdmatrix(length, polydegree):
     '''to find out the error in fitting y by a polynomial poly(x), one compute error vector by (I-A.(At.A)^-1 At).y, where Aij = i^j. This function returns (I-A.(At.A)^-1 At)'''
     A = np.array([[i**j for j in range(polydegree + 1)] for i in range(length)], dtype='int')
     At = A.transpose()
     return np.identity(length) - A.dot(la.pinv(At.dot(A), cond = 10**(-6)).dot(At))
 
+# XXX part of Info class?
 def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
     '''input two different redundant info, output True if they are the same and False if they are different'''
     try:
@@ -1627,6 +1637,7 @@ class RedundantCalibrator:
             return apply_calpar(data - additivein, calpar, self.totalVisibilityId)
 
     def get_modeled_data(self):
+        '''XXX DOCSTRING'''
         if self.rawCalpar is None:
             raise ValueError("self.rawCalpar doesn't exist. Please calibrate first using logcal() or lincal().")
         if len(self.totalVisibilityId) <= np.max(self.Info.subsetbl):
@@ -1879,6 +1890,7 @@ class RedundantCalibrator:
         return_flag = (nan_flag|spike_flag|ubl_flag)
         return return_flag
 
+    # XXX treasure stuff is not necessary for core functionality.  make a subclass that adds treasure capability and move all treasure stuff to another file
     def absolutecal_w_treasure(self, treasure, pol, lsts, tolerance = None, MIN_UBL_COUNT = 50, static_treasure = True):#phase not yet implemented
         '''XXX DOCSTRING'''
         with warnings.catch_warnings():
@@ -1996,6 +2008,7 @@ class RedundantCalibrator:
             else:
                 return ubl_overlap
 
+    # XXX treasure stuff is not necessary for core functionality.  make a subclass that adds treasure capability and move all treasure stuff to another file
     def update_treasure(self, treasure, lsts, flags, pol, nsigma_cut = 5, verbose = False):#lsts in radians
         '''XXX DOCSTRING'''
         if type(treasure) == type('aa'):
@@ -2573,6 +2586,7 @@ class RedundantCalibrator:
         return self.Info.reversed[crossblindex]
 
 ##########################Sub-class#############################
+# XXX application to PAPER should be in another file
 class RedundantCalibrator_PAPER(RedundantCalibrator):
     '''XXX DOCSTRING'''
     def __init__(self, aa):
@@ -2615,6 +2629,7 @@ class RedundantCalibrator_X5(RedundantCalibrator):
 #   | || '_/ -_) _` (_-< || | '_/ -_)
 #   |_||_| \___\__,_/__/\_,_|_| \___|
 
+# XXX treasure stuff is not necessary for core functionality.  make a subclass that adds treasure capability and move all treasure stuff to another file
 class Treasure:
     '''XXX DOCSTRING'''
     def __init__(self, folder_path, nlst = int(TPI/1e-3), nfreq = 1024, tolerance = .1):
@@ -2981,6 +2996,7 @@ class FakeCoin:
     '''XXX DOCSTRING'''
     pass
 
+# XXX utility function belongs in another file
 def read_ndarray(path, shape, dtype, ranges):
     '''read middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)'''
     if not os.path.isfile(path):
@@ -3002,6 +3018,7 @@ def read_ndarray(path, shape, dtype, ranges):
     #print result.shape,tuple(new_shape)
     return result.reshape(tuple(new_shape))
 
+# XXX utility function belongs in another file
 def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3, task = 'unkown'):
     '''write middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)'''
     if not os.path.isfile(path):
@@ -3080,6 +3097,7 @@ def get_omnitime(omnistuff):
     else:
         raise ValueError('get_omnitime does not know how to deal with array of shape %s.'%omnistuff.shape)
 
+# XXX utility function belongs in another file
 def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False, plot_3 = False, plot_1 = -1):
     '''plot_3: only plot the 3 most redundant ones. plot_1: counting start from 0 the most redundant baseline'''
     import matplotlib.pyplot as plt
@@ -3155,6 +3173,7 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
         plt.close()
     return outputdata
 
+# XXX utility function belongs in another file
 def lin_depend(v1, v2, tol = 0):
     '''whether v1 and v2 are linearly dependent'''
     if len(v1) != len(v2):
@@ -3163,6 +3182,7 @@ def lin_depend(v1, v2, tol = 0):
         return True
     return la.norm(np.dot(v1, v2)/np.dot(v1, v1) * v1 - v2) <= tol
 
+# XXX utility function belongs in another file
 def _f(rawcal_ubl=[], verbose=False):
     '''run this function twice in a row and its christmas'''
     if verbose and rawcal_ubl != []:
@@ -3380,6 +3400,7 @@ def medianAngle(a, axis = -1):
     #np_result[:] = medianAngle(data, axis = axis).reshape(result_shape)
     #return
 
+# XXX utility function belongs in another file
 def collapse_shape(shape, axis):
     '''XXX DOCSTRING'''
     if axis == 0 or axis == -len(shape):
@@ -3486,6 +3507,7 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
     result[info['subsetant']] = np.exp(1.j*calpar)# * result[info['subsetant']]
     return result
 
+# XXX utility class belongs in another file
 class InverseCholeskyMatrix:
     '''for a positive definite matrix, Cholesky decomposition is M = L.Lt, where L
     lower triangular. This decomposition helps computing inv(M).v faster, by
@@ -3534,6 +3556,7 @@ class InverseCholeskyMatrix:
             raise IOError("%s file exists!"%filename)
         self.L.tofile(filename)
 
+# XXX utility function belongs elsewhere
 def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
     '''solve for the solution vector x such that mod(A.x, 2pi) = b, 
     where the values range from -p to p. solution will be seeked 
@@ -3772,6 +3795,7 @@ def extract_crosspol_ubl(data, info):
             chisq += np.linalg.norm(output[..., u][...,None] - data[..., blindex[~ureversed]], axis=-1)**2 + np.linalg.norm(output[..., u][...,None] - np.conjugate(data[::-1, ..., blindex[ureversed]]), axis=-1)**2
     return output, chisq
 
+# XXX data compression stuff belongs in another file
 def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):
     '''solve for band_limit * 2 -1 bins, returns the deconvolved solution and 
     the norm of fitting error. All fft will be along first axis of spectra. 
@@ -3792,6 +3816,7 @@ def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):
     model_fdata = m.dot(deconv_fdata)
     return deconv_fdata, np.linalg.norm(model_fdata-spectra, axis = 0)
 
+# XXX data compression stuff belongs in another file
 def deconvolve_spectra2(spectra, window, band_limit, correction_weight=1e-15, correction_weight2=1e6):
     '''solve for band_limit * 2 -1 bins, returns the deconvolved solution 
     and the norm of fitting error. All fft will be along first axis of 
@@ -3819,6 +3844,7 @@ def deconvolve_spectra2(spectra, window, band_limit, correction_weight=1e-15, co
 #   | | | | '  \/ -_) '_|
 #   |_| |_|_|_|_\___|_|  
 
+# XXX utility stuff belongs in another file
 class Timer:
     '''XXX DOCSTRING'''
     def __init__(self):
@@ -3847,6 +3873,7 @@ class Timer:
         self.time = time.time()
         return t, m
 
+# XXX should be a method of Info class
 def remove_one_antenna(Info,badant):
     '''XXX DOCSTRING'''
     info = Info.get_info()
