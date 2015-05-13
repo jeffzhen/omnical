@@ -180,6 +180,7 @@ class TestMethods(unittest.TestCase):
         np.testing.assert_array_equal(_O.norm(d), d.flatten()[:6])
 
 
+# XXX doesn't belong here, make a different unittest for UV stuff
 class TestUV(unittest.TestCase):
     def test_all(self):
         ##FILENAME = "test.py"
@@ -293,6 +294,8 @@ class TestUV(unittest.TestCase):
         np.testing.assert_almost_equal(np.sort(np.abs(correctresult[:,:,67:][nanmask])), np.sort(np.abs(newresult[:,:,67:][nanmask])), decimal = 5)
 
 
+# XXX these are failing; need to fix
+# XXX doesn't belong here, make a different unittest file for Treasure stuff
 class TestTreasure(unittest.TestCase):
     def test_IO(self):
         nTime = 3
