@@ -3683,11 +3683,19 @@ def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):#so
     model_fdata = m.dot(deconv_fdata)
     return deconv_fdata, np.linalg.norm(model_fdata-spectra, axis = 0)
 
-def deconvolve_spectra2(spectra, window, band_limit, correction_weight=1e-15, correction_weight2=1e6):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error. All fft will be along first axis of spectra. Input and outputs are in real space, window also in real space
+def deconvolve_spectra2(spectra, window, band_limit, var = None, correction_weight=1e-15, correction_weight2=1e6):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error. All fft will be along first axis of spectra. Input and outputs are in real space, window also in real space
     if len(spectra) != len(window):
         raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
     #if np.sum(window) <= 2* band_limit - 1:
         #return np.zeros(2*band_limit - 1, dtype=np.array(spectra).dtype), np.inf
+    if var is None:
+        var = np.ones(len(window))
+    elif len(var) != len(window):
+        raise ValueError("Input var and window function have unequal lengths %i %i."%(len(var), len(window)))
+
+    if np.sum(window) == 0:
+        return np.zeros([2* band_limit - 1] + list(spectra.shape[1:])), np.zeros(spectra.shape[1:]), np.zeros_like(spectra), np.zeros((2* band_limit - 1, 2* band_limit - 1))+np.inf
+
     fwindow = np.fft.fft(window) / len(window)
     band_limit_pass = np.zeros(len(fwindow), dtype='bool')
     band_limit_pass[:band_limit] = True
@@ -3696,11 +3704,16 @@ def deconvolve_spectra2(spectra, window, band_limit, correction_weight=1e-15, co
 
     #m = la.inv(la.dft(len(window))).dot(la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass].dot(la.dft(2*band_limit - 1)))
     m = np.fft.ifft(la.toeplitz(fwindow, np.roll(fwindow[::-1], 1)).astype('complex128')[:, band_limit_pass].dot(la.dft(2*band_limit - 1)), axis=0)
-    Ni = np.ones_like(window) + (1-window) * correction_weight2
-    mmi = la.inv((m.transpose().conjugate() * Ni).dot(m) + np.identity(m.shape[1])*correction_weight)
-    deconv_fdata = (mmi.dot(m.transpose().conjugate()) * Ni).dot(spectra)
+    Ni = 1./np.copy(var)
+    Ni[window==0] = np.nanmax(Ni) * correction_weight2
+
+    #Ni = np.ones_like(window) + (1-window) * correction_weight2
+    mmi = la.inv((m.transpose().conjugate() * Ni).dot(m) + np.identity(m.shape[1])*np.median(Ni[window==1])*correction_weight)
+    mult_window = np.copy(window)
+    mult_window.shape = [len(mult_window)] + [1]*(spectra.ndim-1)
+    deconv_fdata = (mmi.dot(m.transpose().conjugate()) * Ni).dot(spectra*mult_window)
     model_fdata = m.dot(deconv_fdata)
-    return deconv_fdata, np.linalg.norm(model_fdata-spectra, axis = 0), model_fdata-spectra, mmi
+    return deconv_fdata, np.linalg.norm(model_fdata-spectra*mult_window, axis = 0), model_fdata-spectra*mult_window, mmi
 ##########################################################################################
 ##########################################################################################
 ##################           Timer             ###########################################

@@ -311,7 +311,13 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
 
         flags[pol] = calibrators[pol].flag(nsigma = nsigma, fwindow=3, twindow=99999)
         if input_type == 'odf' and .137 > startfreq and .137 < endfreq:
-            flags[pol][:, int((.137-startfreq)/dfreq):int((.138-startfreq)/dfreq)] = True
+            flags[pol][:, int((.137-startfreq)/dfreq):int((.1385-startfreq)/dfreq)] = True
+        if input_type == 'odf' and .15 > startfreq and .15 < endfreq:
+            flags[pol][:, int((.149-startfreq)/dfreq):int((.151-startfreq)/dfreq)] = True
+        if input_type == 'odf' and .174 < startfreq:
+            flags[pol][:, int((.174-startfreq)/dfreq):] = True
+        if input_type == 'odf' and .126 > startfreq:
+            flags[pol][:, :int((.126-startfreq)/dfreq)] = True
         #################degeneracy removal on 3 antennas [initant, degen[0], degen[1]]######################################
         print FILENAME + " MSG: Performing additional degeneracy removal on %s"%pol,
         sys.stdout.flush()
@@ -695,7 +701,7 @@ with warnings.catch_warnings():
     overall_angle = omni.medianAngle(omni.medianAngle(xy_candidates, axis = -1), axis = 0) / 2
 prev_valid = -1
 for i in range(1, len(overall_angle)):
-    if not np.isnan(overall_angle[i-1]):
+    if not (np.isnan(overall_angle[i-1]) or (prev_valid >= 0 and abs((overall_angle[i-1] - overall_angle[prev_valid] + PI/2)%PI-PI/2) > PI/4)):
         prev_valid = i - 1
     if prev_valid >= 0:
         offset = overall_angle[prev_valid]-PI/2
