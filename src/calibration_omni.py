@@ -377,6 +377,7 @@ def read_redundantinfo_old(infopath, verbose = False):
     return info
 
 
+# XXX all these different read/writes should be subclasses of Info
 def read_redundantinfo(infopath, verbose = False, DoF_only = False):
     '''XXX DOCSTRING'''
     METHODNAME = "read_redundantinfo"
@@ -1265,6 +1266,11 @@ def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):
     opchisq.tofile(outputPath + '.omnichisq')
     opomnigain.tofile(outputPath + '.omnigain')
     opomnifit.tofile(outputPath + '.omnifit')
+
+#  ___        _              _          _   ___       __     
+# | _ \___ __| |_  _ _ _  __| |__ _ _ _| |_|_ _|_ _  / _|___ 
+# |   / -_) _` | || | ' \/ _` / _` | ' \  _|| || ' \|  _/ _ \
+# |_|_\___\__,_|\_,_|_||_\__,_\__,_|_||_\__|___|_||_|_| \___/
 
 class RedundantInfo(_O.RedundantInfo):
     '''a class that contains redundant calibration information that should only be passed into C++'''
