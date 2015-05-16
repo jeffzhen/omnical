@@ -5,7 +5,9 @@ import aipy as ap
 import numpy.linalg as la
 import commands, os, time, math, ephem, shutil
 import omnical.calibration_omni as omni
+
 print "#Omnical Version %s#"%omni.__version__
+
 class TestMethods(unittest.TestCase):
     def setUp(self):
         self.i = _O.RedundantInfo()
@@ -385,6 +387,10 @@ class TestRedInfo(unittest.TestCase):
         self.assertEqual(i.nUBL, 3)
         i.nCross = 3
         self.assertEqual(i.nCross, 3)
+    def test_nosegfault(self):
+        i = _O.RedundantInfo()
+        for k in ['antloc', 'autoindex', 'bl1dmatrix', 'bl2d', 'bltoubl', 'crossindex', 'nAntenna', 'nBaseline', 'nCross', 'nUBL', 'readredundantinfo', 'reversed', 'reversedauto', 'subsetant', 'subsetbl', 'totalVisibilityId', 'ubl', 'ublcount', 'ublindex']:
+            i.__getattribute__(k)
     def test_getset_int1d(self):
         i = _O.RedundantInfo()
         ints = np.array([1,2,3], dtype=np.int32)
