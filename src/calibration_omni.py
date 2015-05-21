@@ -1322,7 +1322,7 @@ class RedundantInfo(_O.RedundantInfo):
         if verbose:
             print "Done."
             sys.stdout.flush()
-
+    def __getitem__(self,k): return self.__getattribute__(k)
     def __getattribute__(self, key):
         try:
             if key in ['A','B']:

@@ -136,7 +136,7 @@ PyObject *RedInfoObject_get_antloc(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
     if (self->info.antloc.size() == 0) {
         npy_intp data_dims[1] = {self->info.autoindex.size()};
-        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
+        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_FLOAT);
     } else {
         npy_intp data_dims[2] = {self->info.antloc.size(), self->info.antloc[0].size()};
         rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
@@ -209,7 +209,7 @@ PyObject *RedInfoObject_get_ubl(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
     if (self->info.ubl.size() == 0) {
         npy_intp data_dims[1] = {self->info.ubl.size()};
-        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
+        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_FLOAT);
     } else {
         npy_intp data_dims[2] = {self->info.ubl.size(), self->info.ubl[0].size()};
         rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
@@ -447,7 +447,7 @@ int RedInfoObject_set_bl2d(RedInfoObject *self, PyObject *value, void *closure) 
 PyObject *RedInfoObject_get_totalVisibilityId(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
     if (self->info.totalVisibilityId.size() == 0) {
-        npy_intp data_dims[1] = {self->info.bl2d.size()};
+        npy_intp data_dims[1] = {self->info.totalVisibilityId.size()};
         rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
     } else {
         npy_intp data_dims[2] = {self->info.totalVisibilityId.size(), self->info.totalVisibilityId[0].size()};
@@ -519,18 +519,23 @@ int RedInfoObject_set_ublcount(RedInfoObject *self, PyObject *value, void *closu
 // RedundantInfo.ublindex
 PyObject *RedInfoObject_get_ublindex(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.crossindex.size(), 5};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
-    int cnter = 0;
-    for (unsigned int i=0; i < self->info.ublindex.size(); i++) {
-      for (unsigned int j=0; j < self->info.ublindex[i].size(); j++) {
-            ((int *) PyArray_GETPTR2(rv,cnter,0))[0] = i;
-            ((int *) PyArray_GETPTR2(rv,cnter,1))[0] = j;
-            ((int *) PyArray_GETPTR2(rv,cnter,2))[0] = self->info.ublindex[i][j][0];
-            ((int *) PyArray_GETPTR2(rv,cnter,3))[0] = self->info.ublindex[i][j][1];
-            ((int *) PyArray_GETPTR2(rv,cnter,4))[0] = self->info.ublindex[i][j][2];
-            cnter ++;
-      }
+    if (self->info.crossindex.size() == 0) {
+        npy_intp data_dims[1] = {self->info.crossindex.size()};
+        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
+    } else {
+        npy_intp data_dims[2] = {self->info.crossindex.size(), 5};
+        rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
+        int cnter = 0;
+        for (unsigned int i=0; i < self->info.ublindex.size(); i++) {
+          for (unsigned int j=0; j < self->info.ublindex[i].size(); j++) {
+                ((int *) PyArray_GETPTR2(rv,cnter,0))[0] = i;
+                ((int *) PyArray_GETPTR2(rv,cnter,1))[0] = j;
+                ((int *) PyArray_GETPTR2(rv,cnter,2))[0] = self->info.ublindex[i][j][0];
+                ((int *) PyArray_GETPTR2(rv,cnter,3))[0] = self->info.ublindex[i][j][1];
+                ((int *) PyArray_GETPTR2(rv,cnter,4))[0] = self->info.ublindex[i][j][2];
+                cnter ++;
+          }
+        }
     }
     return PyArray_Return(rv);
 }
@@ -624,12 +629,17 @@ int RedInfoObject_set_bl1dmatrix(RedInfoObject *self, PyObject *value, void *clo
 // RedundantInfo.degenM (1D integer array)
 PyObject *RedInfoObject_get_degenM(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.degenM.size(), self->info.degenM[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.degenM[i][j];
-      }
+    if (self->info.degenM.size() == 0) {
+        npy_intp data_dims[1] = {self->info.degenM.size()};
+        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_FLOAT);
+    } else {
+        npy_intp data_dims[2] = {self->info.degenM.size(), self->info.degenM[0].size()};
+        rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+        for (int i=0; i < data_dims[0]; i++) {
+          for (int j=0; j < data_dims[1]; j++) {
+            ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.degenM[i][j];
+          }
+        }
     }
     return PyArray_Return(rv);
 }
@@ -738,8 +748,8 @@ PyObject *RedInfoObject_get_Atsparse(RedInfoObject *self, void *closure) {
     npy_intp data_dims[2] = {3 * (self->info.crossindex.size()), 3};
     rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
     int cnter = 0;
-    for (unsigned int i=0; i < self->info.Atsparse.size(); i++) {
-      for (unsigned int j=0; j < self->info.Atsparse[i].size(); j++) {
+    for (uint i=0; i < self->info.Atsparse.size(); i++) {
+      for (uint j=0; j < self->info.Atsparse[i].size(); j++) {
             ((int *) PyArray_GETPTR2(rv,cnter,0))[0] = i;
             ((int *) PyArray_GETPTR2(rv,cnter,0))[1] = self->info.Atsparse[i][j];
             ((int *) PyArray_GETPTR2(rv,cnter,0))[2] = 1;
@@ -826,12 +836,17 @@ int RedInfoObject_set_Btsparse(RedInfoObject *self, PyObject *value, void *closu
 // RedundantInfo.AtAi (1D integer array)
 PyObject *RedInfoObject_get_AtAi(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.AtAi.size(), self->info.AtAi[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.AtAi[i][j];
-      }
+    if (self->info.AtAi.size() == 0) {
+        npy_intp data_dims[1] = {self->info.AtAi.size()};
+        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_FLOAT);
+    } else {
+        npy_intp data_dims[2] = {self->info.AtAi.size(), self->info.AtAi[0].size()};
+        rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+        for (int i=0; i < data_dims[0]; i++) {
+          for (int j=0; j < data_dims[1]; j++) {
+            ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.AtAi[i][j];
+          }
+        }
     }
     return PyArray_Return(rv);
 }
@@ -863,12 +878,17 @@ int RedInfoObject_set_AtAi(RedInfoObject *self, PyObject *value, void *closure) 
 // RedundantInfo.BtBi (1D integer array)
 PyObject *RedInfoObject_get_BtBi(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
-    npy_intp data_dims[2] = {self->info.BtBi.size(), self->info.BtBi[0].size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-    for (int i=0; i < data_dims[0]; i++) {
-      for (int j=0; j < data_dims[1]; j++) {
-        ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.BtBi[i][j];
-      }
+    if (self->info.BtBi.size() == 0) {
+        npy_intp data_dims[1] = {self->info.BtBi.size()};
+        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_FLOAT);
+    } else {
+        npy_intp data_dims[2] = {self->info.BtBi.size(), self->info.BtBi[0].size()};
+        rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+        for (int i=0; i < data_dims[0]; i++) {
+          for (int j=0; j < data_dims[1]; j++) {
+            ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.BtBi[i][j];
+          }
+        }
     }
     return PyArray_Return(rv);
 }
