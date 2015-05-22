@@ -1,5 +1,6 @@
 import _omnical as _O
 import numpy as np, numpy.linalg as la
+from array import array # XXX what does array do that np.array does not?
 import warnings
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
@@ -134,12 +135,15 @@ class RedundantInfo(_O.RedundantInfo):
         self.bl2d = d[12].reshape(self.nBaseline,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
         self.ublcount = d[13].astype(np.int32) # for each ubl, number of corresponding good cross bls
         # XXX i think this could be done more elegantly
-        tmp = d[14].reshape(ncross,3).astype(np.int32)
-        cnt = 0
-        ublindex = [] # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
-        for i in range(self.nUBL):
-            for j in range(self.ublcount[i]):
-                ublindex.append([i,j,tmp[cnt][0],tmp[cnt][1],tmp[cnt][2]])
+        try: # XXX this is hacky for backward compatibility
+            tmp = d[14].reshape(ncross,3).astype(np.int32)
+            cnt = 0
+            ublindex = [] # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
+            for i in range(self.nUBL):
+                for j in range(self.ublcount[i]):
+                    ublindex.append([i,j,tmp[cnt][0],tmp[cnt][1],tmp[cnt][2]])
+        except(ValueError): # means this is the new ublindex that already has i,j in it
+            ublindex = d[14].reshape(ncross,5).astype(np.int32)
         self.ublindex = np.asarray(ublindex, dtype=np.int32)
         self.bl1dmatrix = d[15].reshape((self.nAntenna,self.nAntenna)).astype(np.int32) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
         self.degenM = d[16].reshape((self.nAntenna+self.nUBL,self.nAntenna)).astype(np.float32)
