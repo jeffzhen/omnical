@@ -1,7 +1,7 @@
 import _omnical as _O
 import numpy as np, numpy.linalg as la
 from array import array # XXX what does array do that np.array does not?
-import warnings
+import warnings, os
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import scipy.sparse as sps

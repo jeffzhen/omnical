@@ -45,6 +45,13 @@ class TestRedundantInfo(unittest.TestCase):
         i2.from_array(d)
         i2.update()
         self.assertTrue(i1.compare(i2, verbose=True))
+    def test_tofromfile(self):
+        i1 = Oi.RedundantInfo()
+        i1.fromfile_txt(redinfo_psa32)
+        i2 = Oi.RedundantInfo()
+        i1.tofile('test')
+        i2.fromfile('test')
+        self.assertTrue(i1.compare(i2, verbose=True))
 
 if __name__ == '__main__':
     unittest.main()        
