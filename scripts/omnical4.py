@@ -445,6 +445,14 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
     if need_new_flag:
         print "%s flagged fraction in uv: "%(pol), float(np.sum(uvflags[pol]))/uvflags[pol].shape[0]/uvflags[pol].shape[1]
         flags[pol] = calibrators[pol].flag(nsigma = flag_thresh, twindow=flagt, fwindow=flagf)#True if bad and flagged
+        if input_type == 'odf' and .137 > startfreq and .137 < endfreq:
+            flags[pol][:, int((.137-startfreq)/dfreq):int((.1385-startfreq)/dfreq)] = True
+        if input_type == 'odf' and .15 > startfreq and .15 < endfreq:
+            flags[pol][:, int((.149-startfreq)/dfreq):int((.151-startfreq)/dfreq)] = True
+        if input_type == 'odf' and .174 < startfreq:
+            flags[pol][:, int((.174-startfreq)/dfreq):] = True
+        if input_type == 'odf' and .126 > startfreq:
+            flags[pol][:, :int((.126-startfreq)/dfreq)] = True
         flags[pol] = flags[pol] | uvflags[pol]
     else:
         flags[pol] = uvflags[pol]
@@ -602,7 +610,7 @@ with warnings.catch_warnings():
     median_overall_angle = omni.medianAngle(omni.medianAngle(xy_candidates, axis = -1), axis = 0) / 2
     prev_valid = -1
     for i in range(1, len(median_overall_angle)):
-        if not np.isnan(median_overall_angle[i-1]):
+        if not (np.isnan(median_overall_angle[i-1]) or (prev_valid >= 0 and abs((median_overall_angle[i-1] - median_overall_angle[prev_valid] + PI/2)%PI-PI/2) > PI/4)):
             prev_valid = i - 1
         if prev_valid >= 0:
             offset = median_overall_angle[prev_valid]-PI/2
@@ -615,7 +623,7 @@ with warnings.catch_warnings():
 if make_plots:
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore",category=RuntimeWarning)
-        plt.imshow(overall_angle, vmin = -PI, vmax = PI)
+        plt.imshow(overall_angle, vmin = -PI, vmax = PI);plt.colorbar()
     plt.title('overall angle solution between xx and yy')
     plt.show()
 
@@ -697,6 +705,7 @@ for p, pol in enumerate(wantpols.keys()):
                 omnichisq[:, 3:] = phs_cal[...,i]
                 omnichisq.tofile(oppath + '/' + dataano + '_' + ano + "_%s.absp%i.omnichisq"%(pol,i))
 
+
     flags[pol].tofile(oppath + '/' + dataano + '_' + ano + "_%s.omniflag"%pol)
     calibrators[pol].write_redundantinfo(oppath + '/' + dataano + '_' + ano + "_%s.binfo"%pol, overwrite=True)
     diag_txt = calibrators[pol].diagnose(data = data[p], additiveout = additiveout, flag = flags[pol], healthbar = healthbar, ubl_healthbar = ubl_healthbar, ouput_txt = True)
@@ -712,6 +721,13 @@ for p, pol in enumerate(wantpols.keys()):
         calibrators[pol].update_treasure(treasurePath, np.array(lst)*TPI/24., flags[pol], pol, verbose = True)
         print "Done."
         sys.stdout.flush()
+
+
+for i in range(len(sol)):
+    omnichisq[:, 3:] = sol[i]
+    omnichisq.tofile(oppath + '/' + dataano + '_' + ano + ".cp%i.omnichisq"%(i))
+omnichisq[:, 3:] = overall_angle
+omnichisq.tofile(oppath + '/' + dataano + '_' + ano + ".cp2.omnichisq")
 
 for p, pol in enumerate(crosspols.keys()):
     omnichisq[:, 3:] = cross_chisq[p]
@@ -817,10 +833,10 @@ if make_plots:
 
         plt.subplot(3, len(wantpols), 0 * len(wantpols) + p + 1)
         flag_plot_data = (calibrators[pol].rawCalpar[:,:,2]/(len(calibrators[pol].Info.subsetbl)-calibrators[pol].Info.nAntenna - calibrators[pol].Info.nUBL))**.5
-        vmax = np.percentile(flag_plot_data, 95)
+        vmax = np.percentile(flag_plot_data.flatten()[~np.isnan(flag_plot_data.flatten())], 95)
         vmin = np.percentile(flag_plot_data, 5)
         flag_plot_data[flags[pol]] = np.nan
-        plt.imshow(flag_plot_data, vmin = vmin, vmax = vmax, interpolation='nearest')
+        plt.imshow(flag_plot_data, vmin = vmin, vmax = vmax, interpolation='none')
         plt.title('flagged RMS fitting error per baseline %s'%pol)
         plt.colorbar()
 
