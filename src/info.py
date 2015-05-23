@@ -117,6 +117,7 @@ class RedundantInfo(_O.RedundantInfo):
             print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes." % (len(self.subsetant),self.nUBL,self.nBaseline,(time.time()-timer)/60.)
     def from_array(self, d, verbose=False, preview_only=False): 
         '''Initialize fields from data contained in 2D float array used to store data to file.'''
+        # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
         self.nAntenna = int(d[0][0]) # XXX did we mean d[0,0]?
         self.nUBL = int(d[1][0]) # XXX
         self.nBaseline = int(d[2][0]) # XXX
@@ -196,6 +197,7 @@ class RedundantInfo(_O.RedundantInfo):
         if verbose:
             print "Info file successfully written to %s. Time taken: %f minutes."%(filename, (time.time()-timer)/60.)
     def to_array(self, verbose=False):
+        # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
         binaryinfokeysnew = binaryinfokeys[:]
         if self.nAntenna > self.threshold: binaryinfokeysnew.extend(['AtAi','BtBi'])
         binaryinfokeysnew.extend(['totalVisibilityId']) # XXX propose that when writing, can break backward compatibility
@@ -293,8 +295,35 @@ class RedundantInfo(_O.RedundantInfo):
         except(ValueError):
             print "info doesn't have the same shape"
             return False
+    def get_xy_AB(self):
+        '''return xyA, xyB, yxA, yxB for logcal cross polarizations'''
+        na = self.nAntenna
+        nu = self.nUBL
+        A = self.A.todense()
+        B = self.B.todense()
+        bl2dcross = self.bl2d[self.crossindex]
+        #print na, nu, B.shape wesdcxaz
+        xyA = np.zeros((len(self.crossindex), 2*na+nu), dtype='int8')
+        yxA = np.zeros_like(xyA)
+        xyB = np.zeros_like(xyA)
+        yxB = np.zeros_like(xyA)
+        xyA[:, 2*na:] = A[:, na:]
+        xyB[:, 2*na:] = B[:, na:]
+        for i in range(len(xyA)):
+            xyA[i, bl2dcross[i,0]] = A[i, bl2dcross[i,0]]
+            xyA[i, na + bl2dcross[i,1]] = A[i, bl2dcross[i,1]]
+            xyB[i, bl2dcross[i,0]] = B[i, bl2dcross[i,0]]
+            xyB[i, na + bl2dcross[i,1]] = B[i, bl2dcross[i,1]]
+        yxA[:, :na] = xyA[:, na:2*na]
+        yxA[:, na:2*na] = xyA[:, :na]
+        yxA[:, 2*na:] = xyA[:, 2*na:]
+        yxB[:, :na] = xyB[:, na:2*na]
+        yxB[:, na:2*na] = xyB[:, :na]
+        yxB[:, 2*na:] = xyB[:, 2*na:]
+        return xyA, xyB, yxA, yxB
     def remove_one_antenna(self,badant):
         '''XXX DOCSTRING'''
+        # XXX this function is never called anywhere, as far as I can tell
         #nAntenna and antloc
         nAntenna = self.nAntenna-1
         badindex = list(self.subsetant).index(badant) # index of badant in prev subsetant
