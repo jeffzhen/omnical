@@ -800,43 +800,32 @@ class RedundantCalibrator:
         self.omnigain = None
         self.omnifit = None
 
-        if info is not None:
-            if type(info) == type({}):
-
-                self.Info = RedundantInfo(info)
-            elif type(info) == type('a'):
+        if info is not None: # XXX what is the point of leaving info == None?
+            if type(info) == str:
                 self.read_redundantinfo(info)
             else:
-                raise Exception(self.className + methodName + "Error: info argument not recognized. It must be of either dictionary type (an info dictionary) *OR* string type (path to the info file).")
-
-    def __repr__(self,):
-        return self.__str__()
-
+                self.Info = info
+    def __repr__(self,): return self.__str__()
     def __str__(self,):
         if self.Info is None:
             return "<Uninitialized %i antenna RedundantCalibrator with no RedundantInfo.>"%self.nTotalAnt
         else:
             return "<RedundantCalibrator for an %i antenna array: %i good baselines including %i good antennas and %i unique baselines.>"%(self.nTotalAnt, len(self.Info.crossindex), self.Info.nAntenna, self.Info.nUBL)
 
-    def __getattr__(self, name):
-        try:
-            return self.Info.__getattribute__(name)
-        except:
-            raise AttributeError("RedundantCalibrator has no attribute named %s"%name)
+    def __getattr__(self, name): # XXX why not just inherit from info if accessing all attributes of info?
+        try: return self.Info.__getattribute__(name)
+        except: raise AttributeError("RedundantCalibrator has no attribute named %s"%name)
 
-    def read_redundantinfo(self, infopath, verbose = False):
+    def read_redundantinfo(self, filename, verbose=False):
         '''redundantinfo is necessary for running redundant calibration. The text file 
         should contain 29 lines each describes one item in the info.'''
-        info = read_redundantinfo(infopath, verbose = verbose)
-        try:
-            self.totalVisibilityId = info['totalVisibilityId']
-        except KeyError:
-            info['totalVisibilityId'] = self.totalVisibilityId
-        self.Info = RedundantInfo(info, verbose = verbose)
+        self.Info = RedundantInfo(filename=filename, verbose=verbose)
+        self.totalVisibilityId = self.Info.totalVisibilityId # XXX might this raise an exception?
+        #try: self.totalVisibilityId = self.Info.totalVisibilityId
+        #except(KeyError): self.Info.totalVisibilityId = self.totalVisibilityId
 
-    def write_redundantinfo(self, infoPath, overwrite = False, verbose = False):
-        methodName = '.write_redundantinfo.'
-        write_redundantinfo(self.Info.get_info(), infoPath, overwrite = overwrite, verbose = verbose)
+    def write_redundantinfo(self, filename, overwrite=False, verbose=False):
+        self.Info.tofile(filename, overwrite=overwrite, verbose=verbose)
 
     def read_arrayinfo(self, arrayinfopath, verbose = False):
         '''array info is the minimum set of information to uniquely describe a 
@@ -1689,7 +1678,9 @@ class RedundantCalibrator:
             timer.tick('k')
         ###########################################################################
         #create info dictionary
-        info={}
+        #info={}
+        # XXX could interleave info assignment with variables above
+        info = RedundantInfo()
         info['nAntenna']=nAntenna
         info['nUBL']=nUBL
         info['nBaseline']=nBaseline
@@ -1735,7 +1726,7 @@ class RedundantCalibrator:
         info['totalVisibilityId'] = self.totalVisibilityId
         if verbose:
             timer.tick('m')
-        self.Info = RedundantInfo(info)
+        self.Info = info
         if verbose:
             timer.tick('n')
 
