@@ -1,7 +1,7 @@
 import _omnical as _O
 import numpy as np, numpy.linalg as la
 from array import array # XXX what does array do that np.array does not?
-import warnings, os
+import warnings, os, time
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import scipy.sparse as sps
@@ -148,8 +148,8 @@ class RedundantInfo(_O.RedundantInfo):
             sparse_entries = d[18].reshape((-1,3))
             row,column,value = sparse_entries[:,0],sparse_entries[:,1],sparse_entries[:,2]
             self.B = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL))
-            self.AtAi = d[19].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL))
-            self.BtBi = d[20].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL))
+            self.AtAi = d[19].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL)).astype(np.float32)
+            self.BtBi = d[20].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL)).astype(np.float32)
             self.totalVisibilityId = d[21].reshape(-1,2).astype(np.int32)
         else:
             # XXX why astype(int) here, but not above?
@@ -163,7 +163,8 @@ class RedundantInfo(_O.RedundantInfo):
             warnings.filterwarnings("ignore",category=DeprecationWarning)
             self.At = self.A.T # do we really need this? yes, b/c A is never used
             self.Bt = self.B.T 
-            if self.nAntenna <= self.threshold:
+            #if self.nAntenna <= self.threshold:
+            if self.AtAi.size == 0:
                 self.AtAi = la.pinv(self.At.dot(self.A).todense(),rcond=1e-6).astype(np.float32)#(AtA)^-1
                 self.BtBi = la.pinv(self.Bt.dot(self.B).todense(),rcond=1e-6).astype(np.float32)#(BtB)^-1
             if txtmode: # XXX from here on, only in txt, probably not useful?
