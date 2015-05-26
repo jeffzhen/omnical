@@ -519,22 +519,20 @@ int RedInfoObject_set_ublcount(RedInfoObject *self, PyObject *value, void *closu
 // RedundantInfo.ublindex
 PyObject *RedInfoObject_get_ublindex(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
-    if (self->info.crossindex.size() == 0) {
-        npy_intp data_dims[1] = {self->info.crossindex.size()};
-        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
-    } else {
-        npy_intp data_dims[2] = {self->info.crossindex.size(), 5};
-        rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
-        int cnter = 0;
-        for (unsigned int i=0; i < self->info.ublindex.size(); i++) {
-          for (unsigned int j=0; j < self->info.ublindex[i].size(); j++) {
-                ((int *) PyArray_GETPTR2(rv,cnter,0))[0] = i;
-                ((int *) PyArray_GETPTR2(rv,cnter,1))[0] = j;
-                ((int *) PyArray_GETPTR2(rv,cnter,2))[0] = self->info.ublindex[i][j][0];
-                ((int *) PyArray_GETPTR2(rv,cnter,3))[0] = self->info.ublindex[i][j][1];
-                ((int *) PyArray_GETPTR2(rv,cnter,4))[0] = self->info.ublindex[i][j][2];
-                cnter ++;
-          }
+    int cnt=0;
+    int i,j;
+    for (i=0; i < self->info.ublcount.size(); i++) {
+        cnt += self->info.ublcount[i];
+    }
+    npy_intp data_dims[2] = {cnt, 3};
+    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
+    cnt = 0;
+    for (i=0; i < self->info.ublindex.size(); i++) {
+        for (j=0; j < self->info.ublindex[i].size(); j++) {
+            ((int *) PyArray_GETPTR2(rv,cnt,0))[0] = self->info.ublindex[i][j][0];
+            ((int *) PyArray_GETPTR2(rv,cnt,1))[0] = self->info.ublindex[i][j][1];
+            ((int *) PyArray_GETPTR2(rv,cnt,2))[0] = self->info.ublindex[i][j][2];
+            cnt++;
         }
     }
     return PyArray_Return(rv);
@@ -542,45 +540,35 @@ PyObject *RedInfoObject_get_ublindex(RedInfoObject *self, void *closure) {
 
 int RedInfoObject_set_ublindex(RedInfoObject *self, PyObject *value, void *closure) {
     PyArrayObject *v;
-    npy_intp dim1;
+    int cnt=0;
+    int i,j;
+    vector<int> dummy (3,0);
+    
     if (!PyArray_Check(value)) {
         PyErr_Format(PyExc_ValueError, "ublindex must be a numpy array");
         return -1;
     }
     v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT || PyArray_DIM(v,1) != 5) {
-        PyErr_Format(PyExc_ValueError, "ublindex must be a 2D array of ints consisting of (ublindex, index in this ubl, a1, a2, bl)");
+    // Tally up expected size based on ublcount
+    for (i=0; i < self->info.ublcount.size(); i++) {
+        cnt += self->info.ublcount[i];
+    }
+    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT || PyArray_DIM(v,0) != cnt || PyArray_DIM(v,1) != 3) {
+        PyErr_Format(PyExc_ValueError, "ublindex must (%d,3) array of ints, based on ublcount", cnt);
         return -1;
     }
-    dim1 = PyArray_DIM(v,0);
-    //dim2 = PyArray_DIM(v,1);//always5
-    vector<int> dummy (3,0);
-
-
-    for (int n=0; n < dim1; n++) {
-        uint i = ((uint *) PyArray_GETPTR2(v,n,0))[0];
-        uint j = ((uint *) PyArray_GETPTR2(v,n,1))[0];
-        dummy[0] = ((int *) PyArray_GETPTR2(v,n,2))[0];
-        dummy[1] = ((int *) PyArray_GETPTR2(v,n,3))[0];
-        dummy[2] = ((int *) PyArray_GETPTR2(v,n,4))[0];
-        if (self->info.ublindex.size() < i + 1){
-            self->info.ublindex.resize(i + 1);
+    self->info.ublindex.resize(self->info.ublcount.size()); // XXX bother checking size before resizing?
+    cnt = 0;
+    for (i=0; i < self->info.ublcount.size(); i++) {
+        self->info.ublindex[i].resize(self->info.ublcount[i]); // XXX bother checking size before resizing?
+        for (j=0; j < self->info.ublcount[i]; j++) {
+            dummy[0] = ((int *) PyArray_GETPTR2(v,cnt,0))[0];
+            dummy[1] = ((int *) PyArray_GETPTR2(v,cnt,1))[0];
+            dummy[2] = ((int *) PyArray_GETPTR2(v,cnt,2))[0];
+            self->info.ublindex[i][j] = dummy;
+            cnt++;
         }
-        if(self->info.ublindex[i].size() < j + 1){
-            self->info.ublindex[i].resize(j + 1);
-        }
-        self->info.ublindex[i][j] = dummy;
     }
-    //self->info.ublindex.resize(dim1);
-    //for (int i=0; i < dim1; i++) {
-      //self->info.ublindex[i].resize(dim2);
-      //for (int j=0; j < dim2; j++) {
-        //self->info.ublindex[i][j].resize(dim3);
-        //for (int k=0; k < dim3; k++) {
-            //self->info.ublindex[i][j][k] = ((int *) PyArray_GETPTR3(v,i,j,k))[0];
-        //}
-      //}
-    //}
     return 0;
 }
 

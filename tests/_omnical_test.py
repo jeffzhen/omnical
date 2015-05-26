@@ -8,6 +8,22 @@ import omnical.calibration_omni as omni
 
 print "#Omnical Version %s#"%omni.__version__
 
+class TestRedundantInfo(unittest.TestCase):
+    def test_getset_ublindex(self):
+        ublcount = np.array([2,1], dtype=np.int32)
+        ublindex = np.array([(1,2,3),(4,5,6),(7,8,9)], dtype=np.int32)
+        i = _O.RedundantInfo()
+        self.assertEqual(i.ublindex.size, 0)
+        def f(val): i.ublindex = val
+        self.assertRaises(ValueError, f, ublindex) # gotta set ublcount first
+        i.ublcount = ublcount
+        i.ublindex = ublindex
+        self.assertTrue(np.all(i.ublindex == ublindex))
+        self.assertRaises(ValueError, f, ublindex.flatten())
+        self.assertRaises(ValueError, f, ublindex.astype(np.float))
+        self.assertRaises(ValueError, f, ublindex[:-1])
+        self.assertRaises(ValueError, f, ublindex[:,:-1])
+
 class TestMethods(unittest.TestCase):
     def setUp(self):
         self.i = _O.RedundantInfo()

@@ -1684,29 +1684,31 @@ class RedundantCalibrator:
         info['nAntenna']=nAntenna
         info['nUBL']=nUBL
         info['nBaseline']=nBaseline
-        info['subsetant']=subsetant
-        info['antloc']=antloc
-        info['subsetbl']=subsetbl
-        info['ubl']=ubl
-        info['bltoubl']=bltoubl
-        info['reversed']=reverse
-        info['reversedauto']=reversedauto
-        info['autoindex']=autoindex
-        info['crossindex']=crossindex
+        info['subsetant'] = np.array(subsetant,dtype=np.int32)
+        info['antloc'] = np.array(antloc, dtype=np.float32)
+        info['subsetbl'] = np.array(subsetbl, dtype=np.int32)
+        info['ubl'] = np.array(ubl, dtype=np.float32)
+        info['bltoubl'] = np.array(bltoubl, dtype=np.int32)
+        info['reversed'] = np.array(reverse, dtype=np.int32)
+        info['reversedauto'] = np.array(reversedauto, dtype=np.int32)
+        info['autoindex'] = np.array(autoindex, dtype=np.int32)
+        info['crossindex'] = np.array(crossindex, dtype=np.int32)
         #info['ncross']=ncross
-        info['bl2d']=bl2d
-        info['ublcount']=ublcount
-        info['ublindex']=ublindex
-        info['bl1dmatrix']=bl1dmatrix
-        info['degenM']=degenM
-        info['A']=A
-        info['B']=B
+        info['bl2d'] = np.array(bl2d, dtype=np.int32)
+        info['ublcount'] = np.array(ublcount, dtype=np.int32)
+        #info['ublindex'] = ublindex # XXX got to get this working
+        info['bl1dmatrix'] = np.array(bl1dmatrix, dtype=np.int32)
+        info['degenM'] = np.array(degenM, dtype=np.float32)
+        info['A'] = A # XXX depreciated
+        info['B'] = B # XXX depreciated
         if verbose:
             timer.tick('l')
+        info.update()
+        '''
         with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=DeprecationWarning)
-                info['At'] = info['A'].transpose()
-                info['Bt'] = info['B'].transpose()
+                info['At'] = A.transpose()
+                info['Bt'] = B.transpose()
                 if verbose:
                     timer.tick('m')
                 info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
@@ -1724,6 +1726,7 @@ class RedundantCalibrator:
                 #info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
                 #info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
         info['totalVisibilityId'] = self.totalVisibilityId
+        '''
         if verbose:
             timer.tick('m')
         self.Info = info

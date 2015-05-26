@@ -36,6 +36,11 @@ struct redundantinfo{
 	vector<vector<int> > bl2d;//from 1d bl to a pair of antenna numbers, (0,0), (0,1) (0,2) etc
 	vector<vector<int> > totalVisibilityId;//totalVisibilityId
 	vector<int> ublcount;//for each ubl, the number of good cross bls corresponding to it
+    // ublindex looks like this:
+    // 0: [(i0a,j0a,k0a), (i0b,j0b,k0b), ... ]
+    // 1: [(i1a,j1a,k1a), (i1b,j1b,k1b), ... ]
+    // and so on, with i,j = ant indices, and k = index of this bl in bl2dmatrix?
+    // the front index is the unique baseline index
 	vector<vector<vector<int> > > ublindex;//for each ubl, the vector<int> contains (ant1, ant2, crossbl)
 	vector<vector<int> > bl1dmatrix;//a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
 	vector<vector<float> > degenM;//degenM.(phase calibrations as a vector of nAnt) will generate a vector of length (nAnt + nUBL) which, when added to the existing calibration parameters' phases, will remove the linear phase field

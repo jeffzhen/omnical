@@ -1301,11 +1301,12 @@ class RedundantInfo(_O.RedundantInfo):
                 elif key in ['A','B']:
                     self.__setattr__(key, info[key].todense().astype('int32'))
                 elif key in ['ublindex']:
-                    tmp = []
-                    for i in range(len(info[key])):
-                        for j in range(len(info[key][i])):
-                            tmp += [[i, j, info[key][i][j][0], info[key][i][j][1], info[key][i][j][2]]]
-                    self.__setattr__(key, np.array(tmp, dtype='int32'))
+                    #tmp = []
+                    #for i in range(len(info[key])):
+                    #    for j in range(len(info[key][i])):
+                    #        tmp += [[i, j, info[key][i][j][0], info[key][i][j][1], info[key][i][j][2]]]
+                    #self.__setattr__(key, np.array(tmp, dtype='int32'))
+                    self.__setattr__(key, np.concatenate(info[key]).astype(np.int32))
                 elif key in int_infokeys:
                     self.__setattr__(key, int(info[key]))
                 elif key in intarray_infokeys and key != 'ublindex':

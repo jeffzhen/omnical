@@ -64,13 +64,13 @@ class RedundantInfo(_O.RedundantInfo):
                 #if info[key][i,j] != 0:
                     #tmp += [[i, j, info[key][i,j]]]
         self.__setattr__(key+'sparse', np.array(tmp, dtype = 'int32'))
-    def _get_ublindex(self):
-        ublindex = []
-        for i in self.ublindex: # XXX careful about hooking this method to __getattribute__ !
-            while len(ublindex) < i[0] + 1: ublindex.append(np.zeros((1,3)))
-            while len(ublindex[i[0]]) < i[1] + 1: ublindex[i[0]] = np.array(ublindex[i[0]].tolist() + [[0,0,0]])
-            ublindex[i[0]][i[1]] = np.array(i[2:])
-        return ublindex
+    #def _get_ublindex(self):
+    #    ublindex = []
+    #    for i in self.ublindex: # XXX careful about hooking this method to __getattribute__ !
+    #        while len(ublindex) < i[0] + 1: ublindex.append(np.zeros((1,3)))
+    #        while len(ublindex[i[0]]) < i[1] + 1: ublindex[i[0]] = np.array(ublindex[i[0]].tolist() + [[0,0,0]])
+    #        ublindex[i[0]][i[1]] = np.array(i[2:])
+    #    return ublindex
     def __getattribute__(self, key):
         if key in ['A','B']: return self._get_AB(key) # XXX depricated
         elif key in ['At','Bt']: return self._get_AtBt(key)
@@ -135,17 +135,7 @@ class RedundantInfo(_O.RedundantInfo):
         if preview_only: return ncross - self.nUBL - self.nAntenna + 2 # XXX return value here, normally not returning anything
         self.bl2d = d[12].reshape(self.nBaseline,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
         self.ublcount = d[13].astype(np.int32) # for each ubl, number of corresponding good cross bls
-        # XXX i think this could be done more elegantly
-        try: # XXX this is hacky for backward compatibility
-            tmp = d[14].reshape(ncross,3).astype(np.int32)
-            cnt = 0
-            ublindex = [] # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
-            for i in range(self.nUBL):
-                for j in range(self.ublcount[i]):
-                    ublindex.append([i,j,tmp[cnt][0],tmp[cnt][1],tmp[cnt][2]])
-        except(ValueError): # means this is the new ublindex that already has i,j in it
-            ublindex = d[14].reshape(ncross,5).astype(np.int32)
-        self.ublindex = np.asarray(ublindex, dtype=np.int32)
+        self.ublindex = d[14].reshape(ncross,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
         self.bl1dmatrix = d[15].reshape((self.nAntenna,self.nAntenna)).astype(np.int32) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
         self.degenM = d[16].reshape((self.nAntenna+self.nUBL,self.nAntenna)).astype(np.float32)
         if self.nAntenna > self.threshold:
