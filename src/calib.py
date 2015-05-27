@@ -1701,8 +1701,8 @@ class RedundantCalibrator:
         info['ublindex'] = ublindex
         info['bl1dmatrix'] = np.array(bl1dmatrix, dtype=np.int32)
         info['degenM'] = np.array(degenM, dtype=np.float32)
-        info['A'] = A # XXX deprecated
-        info['B'] = B # XXX deprecated
+        info['At'] = A.T
+        info['Bt'] = B.T
         if verbose:
             timer.tick('l')
         info.update()

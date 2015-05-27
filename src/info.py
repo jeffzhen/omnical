@@ -9,7 +9,7 @@ with warnings.catch_warnings():
 # XXX all this meta stuff about "info" almost assuredly means info needs to be a class
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 infokeys_optional = ['totalVisibilityId']
-binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
+binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','At','Bt']
 cal_name = {0: "Lincal", 1: "Logcal"}
 
 int_infokeys = ['nAntenna','nUBL','nBaseline']
@@ -33,9 +33,6 @@ class RedundantInfo(_O.RedundantInfo):
         if filename:
             if txtmode: self.fromfile_txt(filename, verbose=verbose, preview_only=preview_only)
             else: self.fromfile(filename, verbose=verbose, preview_only=preview_only)
-    #def _get_AB(self, key): # XXX access to A,B is deprecated.  should remove
-    #    assert(key in ['A','B'])
-    #    return sps.csr_matrix(_O.RedundantInfo.__getattribute__(self, key))
     def _get_AtBt(self, key):
         assert(key in ['At','Bt'])
         tmp = _O.RedundantInfo.__getattribute__(self, key+'sparse')
@@ -47,11 +44,9 @@ class RedundantInfo(_O.RedundantInfo):
         nonzeros = np.array(val.nonzero()).transpose()
         self.__setattr__(key+'sparse', np.array([[i,j,val[i,j]] for i,j in nonzeros], dtype=np.int32))
     def __getattribute__(self, key):
-        #if key in ['A','B']: return self._get_AB(key) # XXX depricated
         if key in ['At','Bt']: return self._get_AtBt(key)
         else: return _O.RedundantInfo.__getattribute__(self, key)
     def __setattr__(self, key, val):
-        #if key in ['A','B']: return self._set_AB(key,val) # XXX depricated
         if key in ['At','Bt']: return self._set_AtBt(key, val)
         else: return _O.RedundantInfo.__setattr__(self, key, val)
     #def keys(self): return [k for k in dir(self) if not k.startswith('_')] # XXX should exclude functions
@@ -60,10 +55,7 @@ class RedundantInfo(_O.RedundantInfo):
     def fromfile(self, filename, verbose=False, preview_only=False): # XXX what is preview?
         '''Initialize from (binary) file.'''
         if verbose: print 'Reading redundant info from %s' % filename
-        f = open(filename)
-        farray = array.array('d')
-        farray.fromstring(f.read())
-        datachunk = np.array(farray)
+        datachunk = np.fromfile(filename)
         markerindex = np.where(datachunk == MARKER)[0]
         # XXX uneven array
         d = np.array([np.array(datachunk[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
@@ -73,8 +65,7 @@ class RedundantInfo(_O.RedundantInfo):
     def fromfile_txt(self, filename, verbose=False):
         '''Initialize from (txt) file.'''
         if verbose: print 'Reading redundant info from %s' % filename
-        f = open(filename)
-        d = np.array([np.array(map(float, line.split())) for line in f])
+        d = np.array([np.array(map(float, line.split())) for line in open(filename)])
         #assert(len(d) >= len(self.keys)) # did we get the expected number of rows?  XXX is this check necessary?
         self.from_array(d, verbose=verbose)
         self.update(txtmode=True)
@@ -107,35 +98,35 @@ class RedundantInfo(_O.RedundantInfo):
             sparse_entries = d[17].reshape((-1,3))
             row,column,value = sparse_entries[:,0],sparse_entries[:,1],sparse_entries[:,2]
             # XXX A and B are never accessed, only At and Bt
-            self.A = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL))
+            #self.A = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL))
+            self.At = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL)).T
             #sparse_entries = d[17].reshape((len(d[17])/3,3))
             sparse_entries = d[18].reshape((-1,3))
             row,column,value = sparse_entries[:,0],sparse_entries[:,1],sparse_entries[:,2]
-            self.B = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL))
+            #self.B = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL))
+            self.Bt = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL)).T
             self.AtAi = d[19].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL)).astype(np.float32)
             self.BtBi = d[20].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL)).astype(np.float32)
             self.totalVisibilityId = d[21].reshape(-1,2).astype(np.int32)
         else:
             # XXX why astype(int) here, but not above?
-            self.A = sps.csr_matrix(d[17].reshape((ncross,self.nAntenna+self.nUBL)).astype(np.int32)) # A matrix for logcal amplitude
-            self.B = sps.csr_matrix(d[18].reshape((ncross,self.nAntenna+self.nUBL)).astype(np.int32)) # B matrix for logcal phase
+            self.At = sps.csr_matrix(d[17].reshape((ncross,self.nAntenna+self.nUBL)).astype(np.int32)).T # A matrix for logcal amplitude
+            self.Bt = sps.csr_matrix(d[18].reshape((ncross,self.nAntenna+self.nUBL)).astype(np.int32)).T # B matrix for logcal phase
             self.totalVisibilityId = d[19].reshape(-1,2).astype(np.int32)
     def update(self, txtmode=False):
         '''Initialize other arrays from fundamental arrays'''
         #The sparse matrices are treated a little differently because they are not rectangular
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore",category=DeprecationWarning)
-            self.At = self.A.T # do we really need this? yes, b/c A is never used
-            self.Bt = self.B.T 
             #if self.nAntenna <= self.threshold:
             if self.AtAi.size == 0:
-                self.AtAi = la.pinv(self.At.dot(self.A).todense(),rcond=1e-6).astype(np.float32)#(AtA)^-1
-                self.BtBi = la.pinv(self.Bt.dot(self.B).todense(),rcond=1e-6).astype(np.float32)#(BtB)^-1
+                self.AtAi = la.pinv(self.At.dot(self.At.T).todense(),rcond=1e-6).astype(np.float32)#(AtA)^-1
+                self.BtBi = la.pinv(self.Bt.dot(self.Bt.T).todense(),rcond=1e-6).astype(np.float32)#(BtB)^-1
             if txtmode: # XXX from here on, only in txt, probably not useful?
                 self.AtAiAt = self.AtAi.dot(self.At.todense())#(AtA)^-1At
                 self.BtBiBt = self.BtBi.dot(self.Bt.todense())#(BtB)^-1Bt
-                self.PA = self.A.dot(self.AtAiAt)#A(AtA)^-1At
-                self.PB = self.B.dot(self.BtBiBt)#B(BtB)^-1Bt
+                self.PA = self.At.T.dot(self.AtAiAt)#A(AtA)^-1At
+                self.PB = self.Bt.T.dot(self.BtBiBt)#B(BtB)^-1Bt
                 ncross = len(self.crossindex)
                 self.ImPA = sps.identity(ncross) - self.PA#I-PA
                 self.ImPB = sps.identity(ncross) - self.PB#I-PB
@@ -175,16 +166,17 @@ class RedundantInfo(_O.RedundantInfo):
                 datachunk[count] = add
                 count += 1
                 if verbose: print key,
-            elif key in ['A','B']: # XXX do we need to write A,B to file?
+            elif key in ['At','Bt']: # XXX do we need to write A,B to file?
+                sk = self[key].T
                 if self.nAntenna > self.threshold:
-                    row = self[key].nonzero()[0]           #row index of non zero entries
-                    column = self[key].nonzero()[1]        #column index of non zero entries
+                    row = sk.nonzero()[0]           #row index of non zero entries
+                    column = sk.nonzero()[1]        #column index of non zero entries
                     nonzero = np.transpose(np.array([row,column]))       #a list of non zero entries
-                    temp = np.array([np.array([row[i],column[i],self[key][nonzero[i,0],nonzero[i,1]]]) for i in range(len(nonzero))])
+                    temp = np.array([np.array([row[i],column[i],sk[nonzero[i,0],nonzero[i,1]]]) for i in range(len(nonzero))])
                     add = np.append(np.array(temp.flatten()),[MARKER])
                     datachunk[count] = add
                 else:
-                    add = np.append(np.array(self[key].todense().flatten()).flatten(),[MARKER])
+                    add = np.append(np.array(sk.todense().flatten()).flatten(),[MARKER])
                     datachunk[count] = add
                 count += 1
                 if verbose: print key,
@@ -253,8 +245,8 @@ class RedundantInfo(_O.RedundantInfo):
         '''return xyA, xyB, yxA, yxB for logcal cross polarizations'''
         na = self.nAntenna
         nu = self.nUBL
-        A = self.A.todense()
-        B = self.B.todense()
+        A = self.At.T.todense()
+        B = self.Bt.T.todense()
         bl2dcross = self.bl2d[self.crossindex]
         #print na, nu, B.shape wesdcxaz
         xyA = np.zeros((len(self.crossindex), 2*na+nu), dtype='int8')

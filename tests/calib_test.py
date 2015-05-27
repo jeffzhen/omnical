@@ -133,8 +133,8 @@ class TestRedundantCalibrator(unittest.TestCase):
             calibrator.logcal(data, np.zeros_like(data), verbose=VERBOSE)
             calibrator.lincal(data, np.zeros_like(data), verbose=VERBOSE)
 
-            linchi2 = (calibrator.rawCalpar[0,0,2]/(info['A'].shape[0] - info['A'].shape[1])/(2*std**2))**0.5
-            logchi2 = (calibrator.rawCalpar[0,0,1]/(info['A'].shape[0] - info['A'].shape[1])/(2*std**2))**0.5
+            linchi2 = (calibrator.rawCalpar[0,0,2]/(info['At'].shape[1] - info['At'].shape[0])/(2*std**2))**0.5
+            logchi2 = (calibrator.rawCalpar[0,0,1]/(info['At'].shape[1] - info['At'].shape[0])/(2*std**2))**0.5
             linlist[i] = linchi2
             loglist[i] = logchi2
         self.assertTrue(abs(np.mean(linlist)-1.0) < 0.01)        #check that chi2 of lincal is close enough to 1
