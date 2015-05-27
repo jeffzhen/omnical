@@ -29,10 +29,12 @@ def dis(a1,a2): # XXX this never used?
 
 class RedundantInfo(_O.RedundantInfo):
     '''Container for metadata used by redundant calibrator, which is eventually passed into C++ routines.'''
-    def __init__(self, filename=None, verbose=False, preview_only=False, threshold=128):
+    def __init__(self, filename=None, verbose=False, preview_only=False, txtmode=False, threshold=128):
         _O.RedundantInfo.__init__(self)
         self.threshold = threshold # XXX move to versions
-        if filename: self.fromfile(filename, verbose=verbose, preview_only=preview_only)
+        if filename:
+            if txtmode: self.fromfile_txt(filename, verbose=verbose, preview_only=preview_only)
+            else: self.fromfile(filename, verbose=verbose, preview_only=preview_only)
         # XXX don't know if we should be in the business of automatic casting.
         #elif key in int_infokeys:
         #    self.__setattr__(key, int(info[key]))

@@ -30,9 +30,12 @@ class TestRedundantCalibrator(unittest.TestCase):
             ####Import arrayinfo##########################
             arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_array_info.txt'
             nant = 56
-            calibrator = omni.RedundantCalibrator(nant)
+            #calibrator = omni.RedundantCalibrator(nant)
+            calibrator = Oc.RedundantCalibrator(nant)
             calibrator.compute_redundantinfo(arrayinfopath)
-            info = calibrator.Info.get_info()
+            #self.assertTrue(calibrator2.Info.compare(calibrator.Info, tol=1e-3))
+            #info = calibrator.Info.get_info()
+            info = calibrator.Info
             ####Config parameters###################################
             removedegen = True
             removeadditive = False
@@ -58,6 +61,7 @@ class TestRedundantCalibrator(unittest.TestCase):
             calibrator.stepSize = step_size
             calibrator.computeUBLFit = True
 
+            #calibrator.logcal(data, np.zeros_like(data), nthread=1, verbose=True)
             calibrator.logcal(data, np.zeros_like(data), verbose=True)
             log = np.copy(calibrator.rawCalpar)
             log = np.copy(calibrator.rawCalpar)

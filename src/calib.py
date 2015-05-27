@@ -816,10 +816,10 @@ class RedundantCalibrator:
         try: return self.Info.__getattribute__(name)
         except: raise AttributeError("RedundantCalibrator has no attribute named %s"%name)
 
-    def read_redundantinfo(self, filename, verbose=False):
+    def read_redundantinfo(self, filename, txtmode=False, verbose=False):
         '''redundantinfo is necessary for running redundant calibration. The text file 
         should contain 29 lines each describes one item in the info.'''
-        self.Info = RedundantInfo(filename=filename, verbose=verbose)
+        self.Info = RedundantInfo(filename=filename, txtmode=txtmode, verbose=verbose)
         self.totalVisibilityId = self.Info.totalVisibilityId # XXX might this raise an exception?
         #try: self.totalVisibilityId = self.Info.totalVisibilityId
         #except(KeyError): self.Info.totalVisibilityId = self.totalVisibilityId
@@ -1625,13 +1625,15 @@ class RedundantCalibrator:
             ant2=crosspair[i][1]
             countdict[bltoubl[i]].append([ant1,ant2,i])  #([ant1,ant2,i])
 
+        # XXX clean this up
         ublindex=[]
         for i in range(nUBL):
             ublindex.append(countdict[i])
         #turn each list in ublindex into np array
         for i in range(len(ublindex)):
             ublindex[i]=np.array(ublindex[i])
-        ublindex=np.array(ublindex)
+        #ublindex=np.array(ublindex)
+        ublindex=np.concatenate(ublindex).astype(np.int32)
         if verbose:
             timer.tick('i')
         ###############################################################################
@@ -1696,11 +1698,11 @@ class RedundantCalibrator:
         #info['ncross']=ncross
         info['bl2d'] = np.array(bl2d, dtype=np.int32)
         info['ublcount'] = np.array(ublcount, dtype=np.int32)
-        #info['ublindex'] = ublindex # XXX got to get this working
+        info['ublindex'] = ublindex
         info['bl1dmatrix'] = np.array(bl1dmatrix, dtype=np.int32)
         info['degenM'] = np.array(degenM, dtype=np.float32)
-        info['A'] = A # XXX depreciated
-        info['B'] = B # XXX depreciated
+        info['A'] = A # XXX deprecated
+        info['B'] = B # XXX deprecated
         if verbose:
             timer.tick('l')
         info.update()
