@@ -1,10 +1,34 @@
 import _omnical as _O
 import numpy as np, numpy.linalg as la
 import warnings, os, time
-import array # XXX need to remove this dependency
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import scipy.sparse as sps
+
+KEYS = [
+    'nAntenna', # number of usable ants (not total number)
+    'nUBL', # number of unique bls
+    'nBaseline', # ??
+    'subsetant', # (total_ants,) int indicates which antennas to use, XXX unused
+    'antloc', # (nAntenna,3) float,  idealized antpos from which redundancy is determined
+    'subsetbl', # (nBaselines,) int, indicates which bls to use
+    'ubl', # (nUBL,3) float, vectors for unique baselines
+    'bltoubl', # (nBaseline,) int, for each bl, the index of corresponding unique bl
+    'reversed',
+    'reversedauto',
+    'autoindex',
+    'crossindex',
+    'bl2d',
+    'ublcount', # (nUBL,) int, number of bls contributing to each ubl
+    'ublindex', # (nUBL, ublcount[i], 3) int, ant1,ant2,blindex for each bl contributing to each ubl
+    'bl1dmatrix',
+    'degenM',
+    'At',
+    'Bt',
+    'AtAi',
+    'BtBi',
+    'totalVisibilityId',
+]
 
 # XXX all this meta stuff about "info" almost assuredly means info needs to be a class
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
@@ -34,6 +58,7 @@ class RedundantInfo(_O.RedundantInfo):
             if txtmode: self.fromfile_txt(filename, verbose=verbose, preview_only=preview_only)
             else: self.fromfile(filename, verbose=verbose, preview_only=preview_only)
     def _get_AtBt(self, key):
+        # XXX why are we doing this, again?
         assert(key in ['At','Bt'])
         tmp = _O.RedundantInfo.__getattribute__(self, key+'sparse')
         matrix = np.zeros((self.nAntenna + self.nUBL, len(self.crossindex)))
@@ -52,6 +77,21 @@ class RedundantInfo(_O.RedundantInfo):
     #def keys(self): return [k for k in dir(self) if not k.startswith('_')] # XXX should exclude functions
     def __getitem__(self,k): return self.__getattribute__(k)
     def __setitem__(self,k,val): return self.__setattr__(k,val)
+    def to_npz(self, filename):
+        def fmt(k):
+            if k in ['At','Bt']: return _O.RedundantInfo.__getattribute__(self,k+'sparse')
+            else: return self[k]
+        d = {}
+        for k in KEYS: d[k] = fmt(k)
+        np.savez(filename, **d)
+    def from_npz(self, filename):
+        npz = np.load(filename)
+        def fmt(npz,k):
+            if k in ['nAntenna','nUBL','nBaseline']: self[k] = int(npz[k])
+            elif k in ['At','Bt']: _O.RedundantInfo.__setattr__(self,k+'sparse', npz[k])
+            else: self[k] = npz[k]
+        for k in KEYS: fmt(npz,k)
+        self.update()
     def fromfile(self, filename, verbose=False, preview_only=False): # XXX what is preview?
         '''Initialize from (binary) file.'''
         if verbose: print 'Reading redundant info from %s' % filename
@@ -73,6 +113,8 @@ class RedundantInfo(_O.RedundantInfo):
     def from_array(self, d, verbose=False, preview_only=False): 
         '''Initialize fields from data contained in 2D float array used to store data to file.'''
         # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
+        # XXX maybe not all of these variables should be exposed (i.e. some could be C only)
+        # XXX at the least, should validate array dimensions in C wrapper
         self.nAntenna = int(d[0][0]) # XXX did we mean d[0,0]?
         self.nUBL = int(d[1][0]) # XXX
         self.nBaseline = int(d[2][0]) # XXX
@@ -130,7 +172,7 @@ class RedundantInfo(_O.RedundantInfo):
         if verbose: print "Info file successfully written to", filename
     def to_array(self, verbose=False):
         # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
-        d = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','At','Bt','AtAi','BtBi','totalVisibilityId']
+        d = KEYS
         if self.nAntenna <= self.threshold: d = d[:-3] + d[-1:]
         def fmt(k):
             if k in ['At','Bt']: 

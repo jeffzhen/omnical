@@ -5,11 +5,13 @@ import os
 
 redinfo_psa32 = os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt'
 tmpfile = 'aiwvlkasfdlk'
+tmpnpz = 'xcmowtpqpow.npz'
 VERBOSE = False
 
-class TestRedundantInfo(unittest.TestCase):
+class TestRedInfo(unittest.TestCase):
     def tearDown(self):
         if os.path.exists(tmpfile): os.remove(tmpfile)
+        if os.path.exists(tmpnpz): os.remove(tmpnpz)
     def test_init(self):
         i = Oi.RedundantInfo(threshold=64)
         self.assertEqual(i.threshold, 64)
@@ -43,8 +45,7 @@ class TestRedundantInfo(unittest.TestCase):
         d = i1.to_array(verbose=VERBOSE)
         # XXX yuck
         d = np.array(d)
-        marker = 9999999
-        markerindex = np.where(d == marker)[0]
+        markerindex = np.where(d == Oi.MARKER)[0]
         d = np.array([np.array(d[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
         i2.from_array(d)
         i2.update()
@@ -55,6 +56,13 @@ class TestRedundantInfo(unittest.TestCase):
         i2 = Oi.RedundantInfo()
         i1.tofile(tmpfile)
         i2.fromfile(tmpfile)
+        self.assertTrue(i1.compare(i2, verbose=VERBOSE))
+    def test_tofromnpz(self):
+        i1 = Oi.RedundantInfo()
+        i1.fromfile_txt(redinfo_psa32)
+        i2 = Oi.RedundantInfo()
+        i1.to_npz(tmpnpz)
+        i2.from_npz(tmpnpz)
         self.assertTrue(i1.compare(i2, verbose=VERBOSE))
 
 if __name__ == '__main__':

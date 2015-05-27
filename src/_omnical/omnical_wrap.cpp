@@ -50,11 +50,14 @@ PyObject *RedInfoObject_get_nAntenna(RedInfoObject *self, void *closure) {
 }
 
 int RedInfoObject_set_nAntenna(RedInfoObject *self, PyObject *value, void *closure) {
-    if (!PyInt_Check(value)) {
+    if (PyInt_Check(value)) {
+        self->info.nAntenna = (int) PyInt_AsLong(value);
+    } else if (PyLong_Check(value)) {
+        self->info.nAntenna = (int) PyLong_AsLong(value);
+    } else {
         PyErr_Format(PyExc_ValueError, "nAntenna must be an integer");
         return -1;
     }
-    self->info.nAntenna = (int) PyInt_AsLong(value);
     return 0;
 }
 
@@ -87,18 +90,18 @@ int RedInfoObject_set_nBaseline(RedInfoObject *self, PyObject *value, void *clos
 }
 
 // RedundantInfo.nCross
-PyObject *RedInfoObject_get_nCross(RedInfoObject *self, void *closure) {
-    return Py_BuildValue("l", self->info.nCross);
-}
-
-int RedInfoObject_set_nCross(RedInfoObject *self, PyObject *value, void *closure) {
-    if (!PyInt_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "nCross must be an integer");
-        return -1;
-    }
-    self->info.nCross = (int) PyInt_AsLong(value);
-    return 0;
-}
+//PyObject *RedInfoObject_get_nCross(RedInfoObject *self, void *closure) {
+//    return Py_BuildValue("l", self->info.nCross);
+//}
+//
+//int RedInfoObject_set_nCross(RedInfoObject *self, PyObject *value, void *closure) {
+//    if (!PyInt_Check(value)) {
+//        PyErr_Format(PyExc_ValueError, "nCross must be an integer");
+//        return -1;
+//    }
+//    self->info.nCross = (int) PyInt_AsLong(value);
+//    return 0;
+//}
 
 // RedundantInfo.subsetant (1D integer array)
 PyObject *RedInfoObject_get_subsetant(RedInfoObject *self, void *closure) {
@@ -1160,7 +1163,7 @@ static PyGetSetDef RedInfoObject_getseters[] = {
     {"nAntenna", (getter)RedInfoObject_get_nAntenna, (setter)RedInfoObject_set_nAntenna, "nAntenna", NULL},
     {"nUBL", (getter)RedInfoObject_get_nUBL, (setter)RedInfoObject_set_nUBL, "nUBL", NULL},
     {"nBaseline", (getter)RedInfoObject_get_nBaseline, (setter)RedInfoObject_set_nBaseline, "nBaseline", NULL},
-    {"nCross", (getter)RedInfoObject_get_nCross, (setter)RedInfoObject_set_nCross, "nCross", NULL},
+    //{"nCross", (getter)RedInfoObject_get_nCross, (setter)RedInfoObject_set_nCross, "nCross", NULL},
     {"subsetant", (getter)RedInfoObject_get_subsetant, (setter)RedInfoObject_set_subsetant, "subsetant", NULL},
     {"antloc", (getter)RedInfoObject_get_antloc, (setter)RedInfoObject_set_antloc, "antloc", NULL},
     {"subsetbl", (getter)RedInfoObject_get_subsetbl, (setter)RedInfoObject_set_subsetbl, "subsetbl", NULL},
