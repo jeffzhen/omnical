@@ -90,9 +90,11 @@ class TestRedundantCalibrator(unittest.TestCase):
         ####import arrayinfo################
         arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_array_info.txt'
         nant = 56
-        calibrator = omni.RedundantCalibrator(nant)
+        #calibrator = omni.RedundantCalibrator(nant)
+        calibrator = Oc.RedundantCalibrator(nant)
         calibrator.compute_redundantinfo(arrayinfopath)
-        info = calibrator.Info.get_info()
+        #info = calibrator.Info.get_info()
+        info = calibrator.Info
 
         ####Config parameters###################################
         removedegen = True
