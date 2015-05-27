@@ -130,57 +130,25 @@ class RedundantInfo(_O.RedundantInfo):
         if verbose: print "Info file successfully written to", filename
     def to_array(self, verbose=False):
         # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
-        binaryinfokeysnew = binaryinfokeys[:]
-        if self.nAntenna > self.threshold: binaryinfokeysnew.extend(['AtAi','BtBi'])
-        binaryinfokeysnew.extend(['totalVisibilityId']) # XXX propose that when writing, can break backward compatibility
-        #if 'totalVisibilityId' in info.keys(): binaryinfokeysnew.extend(['totalVisibilityId'])
-        #else: print "warning: info doesn't have the key 'totalVisibilityId'"
-        #XXX need to do the rest more elegantly
-        datachunk = [0 for i in range(len(binaryinfokeysnew)+1)]
-        count = 0
-        datachunk[count] = np.array([MARKER])         #start with a marker
-        count += 1
-        if verbose: print "appending",
-        for key in binaryinfokeysnew:
-            if key in ['antloc', 'ubl','degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','totalVisibilityId']:  #'antloc',
-                add = np.append(np.array(self[key]).flatten(),[MARKER])
-                datachunk[count] = add
-                count += 1
-                if verbose: print key,
-            elif key == 'ublindex':
-                add = np.append(np.vstack(self[key]).flatten(),[MARKER])
-                datachunk[count] = add
-                count += 1
-                if verbose: print key,
-            elif key in ['At','Bt']: # XXX do we need to write A,B to file?
-                sk = self[key].T
+        d = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','At','Bt','AtAi','BtBi','totalVisibilityId']
+        if self.nAntenna <= self.threshold: d = d[:-3] + d[-1:]
+        def fmt(k):
+            if k in ['At','Bt']: 
+                sk = self[k].T
                 if self.nAntenna > self.threshold:
-                    row = sk.nonzero()[0]           #row index of non zero entries
-                    column = sk.nonzero()[1]        #column index of non zero entries
-                    nonzero = np.transpose(np.array([row,column]))       #a list of non zero entries
-                    temp = np.array([np.array([row[i],column[i],sk[nonzero[i,0],nonzero[i,1]]]) for i in range(len(nonzero))])
-                    add = np.append(np.array(temp.flatten()),[MARKER])
-                    datachunk[count] = add
-                else:
-                    add = np.append(np.array(sk.todense().flatten()).flatten(),[MARKER])
-                    datachunk[count] = add
-                count += 1
-                if verbose: print key,
-            else:
-                add = np.append(np.array(self[key]).flatten(),[MARKER])
-                datachunk[count] = add
-                count += 1
-                if verbose: print key,
-        if verbose: print ""
-        datachunkarray = array.array('d',np.concatenate(tuple(datachunk)))
-        return datachunkarray
+                    row,col = sk.nonzero()
+                    return np.vstack([row,col,sk[row,col]]).T
+                else: return sk.todense()
+            else: return self[k]
+        d = [fmt(k) for k in d]
+        d = [[MARKER]]+[k for i in zip(d,[[MARKER]]*len(d)) for k in i]
+        return np.concatenate([np.asarray(k).flatten() for k in d])
     def compare(self, info, verbose=False, tol=1e-5):
         '''compare with another RedundantInfo, output True if they are the same and False if they are different'''
         try:
             floatkeys = float_infokeys#['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
             intkeys = ['nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix']
-            #infomatrices=['A','B','At','Bt']
-            infomatrices=['At','Bt'] # XXX access to A,B depreciated, right?
+            infomatrices=['At','Bt']
             specialkeys = ['ublindex']
             allkeys = floatkeys + intkeys + infomatrices + specialkeys#['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
             diff = []
