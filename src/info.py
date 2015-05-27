@@ -1,7 +1,7 @@
 import _omnical as _O
 import numpy as np, numpy.linalg as la
-from array import array # XXX what does array do that np.array does not?
 import warnings, os, time
+import array # XXX need to remove this dependency
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import scipy.sparse as sps
@@ -18,9 +18,7 @@ intarray_infokeys_optional = ['totalVisibilityId']
 
 float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 
-def dis(a1,a2): # XXX this never used?
-    '''calculate the norm of the difference of two vectors'''
-    return np.linalg.norm(np.array(a1)-np.array(a2))
+MARKER = 9999999
 
 #  ___        _              _          _   ___       __     
 # | _ \___ __| |_  _ _ _  __| |__ _ _ _| |_|_ _|_ _  / _|___ 
@@ -35,21 +33,9 @@ class RedundantInfo(_O.RedundantInfo):
         if filename:
             if txtmode: self.fromfile_txt(filename, verbose=verbose, preview_only=preview_only)
             else: self.fromfile(filename, verbose=verbose, preview_only=preview_only)
-        # XXX don't know if we should be in the business of automatic casting.
-        #elif key in int_infokeys:
-        #    self.__setattr__(key, int(info[key]))
-        #elif key in intarray_infokeys and key != 'ublindex':
-        #    self.__setattr__(key, np.array(info[key]).astype('int32'))
-        #elif key in intarray_infokeys_optional:
-        #    try:
-        #        self.__setattr__(key, np.array(info[key]).astype('int32'))
-        #    except KeyError:
-        #        pass
-        #elif key in float_infokeys:
-        #    self.__setattr__(key, np.array(info[key]).astype('float32'))
-    def _get_AB(self, key): # XXX access to A,B is deprecated.  should remove
-        assert(key in ['A','B'])
-        return sps.csr_matrix(_O.RedundantInfo.__getattribute__(self, key))
+    #def _get_AB(self, key): # XXX access to A,B is deprecated.  should remove
+    #    assert(key in ['A','B'])
+    #    return sps.csr_matrix(_O.RedundantInfo.__getattribute__(self, key))
     def _get_AtBt(self, key):
         assert(key in ['At','Bt'])
         tmp = _O.RedundantInfo.__getattribute__(self, key+'sparse')
@@ -58,65 +44,41 @@ class RedundantInfo(_O.RedundantInfo):
         return sps.csr_matrix(matrix)
     def _set_AtBt(self, key, val):
         assert(key in ['At','Bt'])
-        tmp = []
         nonzeros = np.array(val.nonzero()).transpose()
-        for i,j in nonzeros:tmp += [[i, j, val[i,j]]]
-        #for i in range(info[key].shape[0]):
-            #for j in range(info[key].shape[1]):
-                #if info[key][i,j] != 0:
-                    #tmp += [[i, j, info[key][i,j]]]
-        self.__setattr__(key+'sparse', np.array(tmp, dtype = 'int32'))
-    #def _get_ublindex(self):
-    #    ublindex = []
-    #    for i in self.ublindex: # XXX careful about hooking this method to __getattribute__ !
-    #        while len(ublindex) < i[0] + 1: ublindex.append(np.zeros((1,3)))
-    #        while len(ublindex[i[0]]) < i[1] + 1: ublindex[i[0]] = np.array(ublindex[i[0]].tolist() + [[0,0,0]])
-    #        ublindex[i[0]][i[1]] = np.array(i[2:])
-    #    return ublindex
+        self.__setattr__(key+'sparse', np.array([[i,j,val[i,j]] for i,j in nonzeros], dtype=np.int32))
     def __getattribute__(self, key):
-        if key in ['A','B']: return self._get_AB(key) # XXX depricated
-        elif key in ['At','Bt']: return self._get_AtBt(key)
-        #elif key in ['ublindex']: # XXX
-            # self._get_ublindex(self)
+        #if key in ['A','B']: return self._get_AB(key) # XXX depricated
+        if key in ['At','Bt']: return self._get_AtBt(key)
         else: return _O.RedundantInfo.__getattribute__(self, key)
     def __setattr__(self, key, val):
         #if key in ['A','B']: return self._set_AB(key,val) # XXX depricated
         if key in ['At','Bt']: return self._set_AtBt(key, val)
-        #elif key in ['ublindex']: # XXX
-            # self._get_ublindex(self)
         else: return _O.RedundantInfo.__setattr__(self, key, val)
     #def keys(self): return [k for k in dir(self) if not k.startswith('_')] # XXX should exclude functions
     def __getitem__(self,k): return self.__getattribute__(k)
     def __setitem__(self,k,val): return self.__setattr__(k,val)
     def fromfile(self, filename, verbose=False, preview_only=False): # XXX what is preview?
         '''Initialize from (binary) file.'''
-        if verbose:
-            print 'Reading redundant info from %s' % filename
-            time = time.time()
+        if verbose: print 'Reading redundant info from %s' % filename
         f = open(filename)
-        farray = array('d')
+        farray = array.array('d')
         farray.fromstring(f.read())
         datachunk = np.array(farray)
-        marker = 9999999
-        markerindex = np.where(datachunk == marker)[0]
+        markerindex = np.where(datachunk == MARKER)[0]
         # XXX uneven array
         d = np.array([np.array(datachunk[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
         self.from_array(d, verbose=verbose, preview_only=preview_only) # XXX do i need to store preview return case?
         self.update()
-        if verbose:
-            print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes." % (len(self.subsetant),self.nUBL,self.nBaseline,(time.time()-timer)/60.)
+        if verbose: print "done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),self.nUBL,self.nBaseline)
     def fromfile_txt(self, filename, verbose=False):
         '''Initialize from (txt) file.'''
-        if verbose: 
-            print 'Reading redundant info from %s' % filename
-            time = time.time()
+        if verbose: print 'Reading redundant info from %s' % filename
         f = open(filename)
         d = np.array([np.array(map(float, line.split())) for line in f])
         #assert(len(d) >= len(self.keys)) # did we get the expected number of rows?  XXX is this check necessary?
         self.from_array(d, verbose=verbose)
         self.update(txtmode=True)
-        if verbose:
-            print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes." % (len(self.subsetant),self.nUBL,self.nBaseline,(time.time()-timer)/60.)
+        if verbose: print "done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),self.nUBL,self.nBaseline)
     def from_array(self, d, verbose=False, preview_only=False): 
         '''Initialize fields from data contained in 2D float array used to store data to file.'''
         # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
@@ -196,21 +158,20 @@ class RedundantInfo(_O.RedundantInfo):
         binaryinfokeysnew.extend(['totalVisibilityId']) # XXX propose that when writing, can break backward compatibility
         #if 'totalVisibilityId' in info.keys(): binaryinfokeysnew.extend(['totalVisibilityId'])
         #else: print "warning: info doesn't have the key 'totalVisibilityId'"
-        marker = 9999999 # XXX what is this magic number for?
         #XXX need to do the rest more elegantly
         datachunk = [0 for i in range(len(binaryinfokeysnew)+1)]
         count = 0
-        datachunk[count] = np.array([marker])         #start with a marker
+        datachunk[count] = np.array([MARKER])         #start with a marker
         count += 1
         if verbose: print "appending",
         for key in binaryinfokeysnew:
             if key in ['antloc', 'ubl','degenM', 'AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','totalVisibilityId']:  #'antloc',
-                add = np.append(np.array(self[key]).flatten(),[marker])
+                add = np.append(np.array(self[key]).flatten(),[MARKER])
                 datachunk[count] = add
                 count += 1
                 if verbose: print key,
             elif key == 'ublindex':
-                add = np.append(np.vstack(self[key]).flatten(),[marker])
+                add = np.append(np.vstack(self[key]).flatten(),[MARKER])
                 datachunk[count] = add
                 count += 1
                 if verbose: print key,
@@ -220,20 +181,20 @@ class RedundantInfo(_O.RedundantInfo):
                     column = self[key].nonzero()[1]        #column index of non zero entries
                     nonzero = np.transpose(np.array([row,column]))       #a list of non zero entries
                     temp = np.array([np.array([row[i],column[i],self[key][nonzero[i,0],nonzero[i,1]]]) for i in range(len(nonzero))])
-                    add = np.append(np.array(temp.flatten()),[marker])
+                    add = np.append(np.array(temp.flatten()),[MARKER])
                     datachunk[count] = add
                 else:
-                    add = np.append(np.array(self[key].todense().flatten()).flatten(),[marker])
+                    add = np.append(np.array(self[key].todense().flatten()).flatten(),[MARKER])
                     datachunk[count] = add
                 count += 1
                 if verbose: print key,
             else:
-                add = np.append(np.array(self[key]).flatten(),[marker])
+                add = np.append(np.array(self[key]).flatten(),[MARKER])
                 datachunk[count] = add
                 count += 1
                 if verbose: print key,
         if verbose: print ""
-        datachunkarray = array('d',np.concatenate(tuple(datachunk)))
+        datachunkarray = array.array('d',np.concatenate(tuple(datachunk)))
         return datachunkarray
     # XXX part of Info class?
     def compare(self, info, verbose=False, tol=1e-5):
@@ -248,8 +209,8 @@ class RedundantInfo(_O.RedundantInfo):
             diff = []
             for key in floatkeys:
                 if verbose: print key, 'checking'
-                #ok = np.allclose(self[key], info[key], tol) # XXX segfaults
-                ok = round(la.norm(np.array(self[key])-np.array(info[key]))/tol) == 0 # XXX also segfaults
+                #ok = np.allclose(self[key], info[key], tol)
+                ok = round(la.norm(np.array(self[key])-np.array(info[key]))/tol) == 0
                 if verbose: print key, ok
                 if not ok: return False
                 #try: diff.append(round(la.norm(np.array(self[key])-np.array(info[key]))/tol)==0)

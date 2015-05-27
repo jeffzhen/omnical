@@ -9,15 +9,19 @@ import commands, os, time, math, ephem, shutil
 redinfo_psa32 = os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt'
 infotestpath = os.path.dirname(os.path.realpath(__file__)) + '/redundantinfo_test.bin'
 
+VERBOSE = False
+
 class TestRedundantCalibrator(unittest.TestCase):
     def setUp(self):
         self.i = Oi.RedundantInfo()
         self.i.fromfile_txt(redinfo_psa32)
+    def tearDown(self):
+        if os.path.exists(infotestpath): os.remove(infotestpath)
 
     def test_large_info_IO(self):
         calibrator = Oc.RedundantCalibrator(150)
         calibrator.compute_redundantinfo()
-        calibrator.write_redundantinfo(infotestpath, verbose=True)
+        calibrator.write_redundantinfo(infotestpath, verbose=VERBOSE)
         info2 = Oi.RedundantInfo(filename=infotestpath)
         self.assertTrue(calibrator.Info.compare(info2, tol=1e-3))
         os.remove(infotestpath)
@@ -61,8 +65,7 @@ class TestRedundantCalibrator(unittest.TestCase):
             calibrator.stepSize = step_size
             calibrator.computeUBLFit = True
 
-            #calibrator.logcal(data, np.zeros_like(data), nthread=1, verbose=True)
-            calibrator.logcal(data, np.zeros_like(data), verbose=True)
+            calibrator.logcal(data, np.zeros_like(data), verbose=VERBOSE)
             log = np.copy(calibrator.rawCalpar)
             log = np.copy(calibrator.rawCalpar)
             ampcal = log[0,0,3:info['nAntenna']+3]
@@ -127,8 +130,8 @@ class TestRedundantCalibrator(unittest.TestCase):
         for i in range(length):
             noise = (np.random.normal(scale = std, size = data.shape) + 1.0j*np.random.normal(scale = std, size = data.shape)).astype('complex64')
             data = truedata + noise
-            calibrator.logcal(data, np.zeros_like(data), verbose=True)
-            calibrator.lincal(data, np.zeros_like(data), verbose=True)
+            calibrator.logcal(data, np.zeros_like(data), verbose=VERBOSE)
+            calibrator.lincal(data, np.zeros_like(data), verbose=VERBOSE)
 
             linchi2 = (calibrator.rawCalpar[0,0,2]/(info['A'].shape[0] - info['A'].shape[1])/(2*std**2))**0.5
             logchi2 = (calibrator.rawCalpar[0,0,1]/(info['A'].shape[0] - info['A'].shape[1])/(2*std**2))**0.5
