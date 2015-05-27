@@ -97,13 +97,10 @@ class RedundantInfo(_O.RedundantInfo):
             #sparse_entries = d[16].reshape((len(d[16])/3,3))
             sparse_entries = d[17].reshape((-1,3))
             row,column,value = sparse_entries[:,0],sparse_entries[:,1],sparse_entries[:,2]
-            # XXX A and B are never accessed, only At and Bt
-            #self.A = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL))
             self.At = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL)).T
             #sparse_entries = d[17].reshape((len(d[17])/3,3))
             sparse_entries = d[18].reshape((-1,3))
             row,column,value = sparse_entries[:,0],sparse_entries[:,1],sparse_entries[:,2]
-            #self.B = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL))
             self.Bt = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL)).T
             self.AtAi = d[19].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL)).astype(np.float32)
             self.BtBi = d[20].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL)).astype(np.float32)
@@ -122,26 +119,15 @@ class RedundantInfo(_O.RedundantInfo):
             if self.AtAi.size == 0:
                 self.AtAi = la.pinv(self.At.dot(self.At.T).todense(),rcond=1e-6).astype(np.float32)#(AtA)^-1
                 self.BtBi = la.pinv(self.Bt.dot(self.Bt.T).todense(),rcond=1e-6).astype(np.float32)#(BtB)^-1
-            if txtmode: # XXX from here on, only in txt, probably not useful?
-                self.AtAiAt = self.AtAi.dot(self.At.todense())#(AtA)^-1At
-                self.BtBiBt = self.BtBi.dot(self.Bt.todense())#(BtB)^-1Bt
-                self.PA = self.At.T.dot(self.AtAiAt)#A(AtA)^-1At
-                self.PB = self.Bt.T.dot(self.BtBiBt)#B(BtB)^-1Bt
-                ncross = len(self.crossindex)
-                self.ImPA = sps.identity(ncross) - self.PA#I-PA
-                self.ImPB = sps.identity(ncross) - self.PB#I-PB
     def tofile(self, filename, overwrite=False, verbose=False):
         '''XXX DOCSTRING'''
         assert(not os.path.exists(filename) or overwrite)
-        if verbose:
-            timer = time.time()
-            print 'Writing info to', filename
+        if verbose: print 'Writing info to', filename
         d = self.to_array(verbose=verbose)
         f = open(filename,'wb')
         d.tofile(f)
         f.close()
-        if verbose:
-            print "Info file successfully written to %s. Time taken: %f minutes."%(filename, (time.time()-timer)/60.)
+        if verbose: print "Info file successfully written to", filename
     def to_array(self, verbose=False):
         # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
         binaryinfokeysnew = binaryinfokeys[:]
@@ -188,7 +174,6 @@ class RedundantInfo(_O.RedundantInfo):
         if verbose: print ""
         datachunkarray = array.array('d',np.concatenate(tuple(datachunk)))
         return datachunkarray
-    # XXX part of Info class?
     def compare(self, info, verbose=False, tol=1e-5):
         '''compare with another RedundantInfo, output True if they are the same and False if they are different'''
         try:
@@ -267,167 +252,4 @@ class RedundantInfo(_O.RedundantInfo):
         yxB[:, na:2*na] = xyB[:, :na]
         yxB[:, 2*na:] = xyB[:, 2*na:]
         return xyA, xyB, yxA, yxB
-    def remove_one_antenna(self,badant):
-        '''XXX DOCSTRING'''
-        # XXX this function is never called anywhere, as far as I can tell
-        #nAntenna and antloc
-        nAntenna = self.nAntenna-1
-        badindex = list(self.subsetant).index(badant) # index of badant in prev subsetant
-        subsetant = list(self.subsetant)[:]
-        subsetant.pop(badindex) #delete the bad antenna from subsetant
-        antloc = np.delete(np.array(self.antloc),badindex,0) #delete the bad antenna from antloc
-        #ubl and nUBL
-        index = 0 #to keep track of the index of ubl the loop is at
-        deletelist = []
-        for ubl in self.ublindex:
-            if len(ubl) > 1: index += 1
-            elif ubl[0,0] == subsetant[badant] or ubl[0,1] == subsetant[badant] :
-                deletelist.append(index)
-                index += 1
-        ubl = self.ubl[:]
-        ubl = np.array([ubl[i] for i in range(len(ubl)) if i not in deletelist])
-        nUBL=len(ubl);
-        #subsetbl and nBaseline
-        goodpairs_old = [i[::-1] for i in self.bl2d]    #the old goodpairs
-        #the index of goodpairs that doesn't contain the bad antenna
-        goodpairs_index = [i for i in range(len(goodpairs_old)) if badindex not in goodpairs_old[i]]
-        #the new goodpairs with antenna number (all antenna)
-        temp = np.array([goodpairs_old[i] for i in goodpairs_index])
-        goodpairs = np.zeros(temp.shape)
-        for i in range(len(temp)):
-            for j in range(len(temp[i])):
-                if temp[i,j] > badindex: goodpairs[i,j] = temp[i,j]-1
-                else: goodpairs[i,j] = temp[i,j]
-        subsetbl = [self.subsetbl[i] for i in goodpairs_index]  #the new subsetbl
-        nBaseline = len(subsetbl)
-        counter = 0
-        ubl_old2new = np.zeros([len(self.ubl)], dtype='int') #from old ubl index to new ubl index
-        for i in range(len(self.ubl)):
-            if i in deletelist: ubl_old2new[i] = counter
-            else:
-                ubl_old2new[i] = counter
-                counter += 1
-        bltoubl = []
-        for i in range(len(self.crossindex)):
-            #get the pair of antenna from each crossindex
-            pair = [self.subsetant[index] for index in self.bl2d[self.crossindex[i]]]
-            #append the new ubl index that doesn't have the bad antenna
-            if not badant in pair: bltoubl.append(ubl_old2new[self.bltoubl[i]]) 
-        bltoubl = np.array(bltoubl)
-        #################################################################################
-        #reversed:   cross only bl if reversed -1, otherwise 1
-        crosspair_old = []
-        for p in goodpairs_old:
-            if p[0] != p[1]: crosspair_old.append(p)
-        goodcross = []
-        for i in range(len(crosspair_old)):
-            if badindex not in crosspair_old[i]: goodcross.append(i)
-        crosspair=[]
-        for p in goodpairs:
-            if p[0] != p[1]: crosspair.append(p)
-        reverse=[self.reversed[i] for i in goodcross]
-        ######################################################################################
-        #reversedauto: the index of good baselines (auto included) in all baselines
-        #autoindex: index of auto bls among good bls
-        #crossindex: index of cross bls among good bls
-        #ncross
-        reversedauto = range(len(goodpairs))
-        #find the autoindex and crossindex in goodpairs
-        autoindex = []
-        crossindex = []
-        for i in range(len(goodpairs)):
-            if goodpairs[i][0] == goodpairs[i][1]: autoindex.append(i)
-            else: crossindex.append(i)
-        for i in autoindex: reversedauto[i] = 1
-        for i in range(len(crossindex)): reversedauto[crossindex[i]] = reverse[i]
-        reversedauto = np.array(reversedauto)
-        autoindex = np.array(autoindex)
-        crossindex = np.array(crossindex)
-        ncross = len(crossindex)
-        ###################################################
-        #bl2d:  from 1d bl index to a pair of antenna numbers
-        bl2d = []
-        for pair in goodpairs: bl2d.append(pair[::-1])
-        bl2d = np.array(bl2d)
-        ###################################################
-        #ublcount:  for each ubl, the number of good cross bls corresponding to it
-        countdict = {}
-        for bl in bltoubl: countdict[bl] = 0
-        for bl in bltoubl: countdict[bl] += 1
-        ublcount=[]
-        for i in range(nUBL): ublcount.append(countdict[i])
-        ublcount = np.array(ublcount)
-        ####################################################################################
-        #ublindex:  //for each ubl, the vector<int> contains (ant1, ant2, crossbl)
-        countdict = {}
-        for bl in bltoubl: countdict[bl] = []
-        for i in range(len(crosspair)):
-            ant1 = crosspair[i][1]
-            ant2 = crosspair[i][0]
-            countdict[bltoubl[i]].append([ant1,ant2,i])
-        ublindex=[]
-        for i in range(nUBL): ublindex.append(countdict[i])
-        #turn each list in ublindex into np array
-        for i in range(len(ublindex)): ublindex[i]=np.array(ublindex[i])
-        ublindex = np.array(ublindex)
-        ###############################################################################
-        #bl1dmatrix: a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
-        #I suppose 99999 for bad and auto baselines?
-        bl1dmatrix = 99999*np.ones([nAntenna,nAntenna],dtype='int16') # XXX don't like magic numbers
-        for i in range(len(crosspair)):
-            bl1dmatrix[crosspair[i][1]][crosspair[i][0]] = i
-            bl1dmatrix[crosspair[i][0]][crosspair[i][1]] = i
-        ####################################################################################3
-        #degenM:
-        a = []
-        for i in range(len(antloc)): a.append(np.append(antloc[i],1))
-        a = np.array(a)
-        d = []
-        for i in range(len(ubl)): d.append(np.append(ubl[i],0))
-        d = np.array(d)
-        m1 = -a.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
-        m2 = d.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
-        degenM = np.append(m1,m2,axis=0)
-        #####################################################################################
-        #A: A matrix for logcal amplitude
-        A = np.zeros([len(crosspair),nAntenna+len(ubl)])
-        for i in range(len(crosspair)):
-            A[i][crosspair[i][0]] = 1
-            A[i][crosspair[i][1]] = 1
-            A[i][nAntenna+bltoubl[i]] = 1
-        A = sps.csr_matrix(A)
-        #################################################################################
-        #B: B matrix for logcal phase
-        B = np.zeros([len(crosspair),nAntenna+len(ubl)])
-        for i in range(len(crosspair)):
-            B[i][crosspair[i][0]] = reverse[i]*1 # XXX wha?
-            B[i][crosspair[i][1]] = reverse[i]*-1 # XXX wha?
-            B[i][nAntenna+bltoubl[i]] = 1
-        B = sps.csr_matrix(B)
-        ############################################################################
-        #create info dictionary
-        i = RedundantInfo(threshold=self.threshold)
-        i.nAntenna = nAntenna
-        i.nUBL = nUBL
-        i.nBaseline = nBaseline
-        i.subsetant = subsetant
-        i.antloc = antloc
-        i.subsetbl = subsetbl
-        i.ubl = ubl
-        i.bltoubl = bltoubl
-        i.reversed = reverse
-        i.reversedauto = reversedauto
-        i.autoindex = autoindex
-        i.crossindex = crossindex
-        #i.ncross = ncross
-        i.bl2d = bl2d
-        i.ublcount = ublcount
-        i.ublindex = ublindex
-        i.bl1dmatrix = bl1dmatrix
-        i.degenM = degenM
-        i.A = A
-        i.B = B
-        i.totalVisibilityId = self.totalVisibilityId
-        i.update()
-        return i
     
