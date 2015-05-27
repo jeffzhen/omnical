@@ -180,6 +180,57 @@ class RedundantCalibrator:
             dof = (len(self.crossindex)-self.nAntenna-self.nUBL+2)
             treasure.update_coin((pol, ublvec), lsts, visibilities, self.rawCalpar[..., 2]/2./abscal_factor/dof/self.ublcount[i], nsigma_cut = nsigma_cut,verbose=verbose)#divide by 2 because epsilon^2 should be for real/imag separately
 
+# XXX utility function belongs in another file
+def read_ndarray(path, shape, dtype, ranges):
+    '''read middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)'''
+    if not os.path.isfile(path):
+        raise IOError(path + 'doesnt exist.')
+    if len(ranges) != 2 or ranges[0] < 0 or ranges[0] >= ranges[1] or ranges[1] > shape[0]:
+        raise ValueError("%s is not a vlid range."%ranges)
+    nbytes = np.dtype(dtype).itemsize
+    higher_dim_chunks = 1 # product of higher dimensions. if array is (2,3,4,5), this is 3*4*5
+    for m in shape[1:]:
+        higher_dim_chunks = higher_dim_chunks * m
+
+    #print np.fromfile(path, dtype = dtype).shape
+    with open(path, 'r') as f:
+        f.seek(higher_dim_chunks * nbytes * ranges[0])
+        #print higher_dim_chunks * nbytes * ranges[0]
+        result = np.fromfile(f, dtype = dtype, count = (ranges[1] - ranges[0]) * higher_dim_chunks)
+    new_shape = np.array(shape)
+    new_shape[0] = (ranges[1] - ranges[0])
+    #print result.shape,tuple(new_shape)
+    return result.reshape(tuple(new_shape))
+
+# XXX utility function belongs in another file
+def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3, task = 'unkown'):
+    '''write middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)'''
+    if not os.path.isfile(path):
+        raise IOError(path + 'doesnt exist.')
+    if len(ranges) != 2 or ranges[0] < 0 or ranges[0] >= ranges[1] or ranges[1] > shape[0]:
+        raise ValueError("%s is not a vlid range."%ranges)
+    if data.dtype != dtype or data.shape[1:] != shape[1:] or data.shape[0] != ranges[1] - ranges[0]:
+        raise ValueError("data shape %s cannot be fit into data file shape %s."%(data.shape, shape))
+    nbytes = np.dtype(dtype).itemsize
+    higher_dim_chunks = 1 # product of higher dimensions. if array is (2,3,4,5), this is 3*4*5
+    for m in shape[1:]:
+        higher_dim_chunks = higher_dim_chunks * m
+    with open(path, 'r+') as f:
+        f.seek(higher_dim_chunks * nbytes * ranges[0])
+        data.tofile(f)
+    if check:
+        tries = 0
+        while not (data == read_ndarray(path, shape, dtype, ranges)).all() and tries < max_retry:
+
+            time.sleep(1)
+            tries = tries + 1
+            with open(path, 'r+') as f:
+                f.seek(higher_dim_chunks * nbytes * ranges[0])
+                data.tofile(f)
+        if not (data == read_ndarray(path, shape, dtype, ranges)).all():
+            raise IOError("write_ndarray failed on %s with shape %s between %s with task %s."%(path, shape, ranges, task))
+    return
+
 #  _____                             
 # |_   _| _ ___ __ _ ____  _ _ _ ___ 
 #   | || '_/ -_) _` (_-< || | '_/ -_)

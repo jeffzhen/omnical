@@ -13,7 +13,6 @@ import os, sys
 import _omnical as _O
 from info import RedundantInfo
 import warnings
-from array import array
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import scipy as sp
@@ -62,64 +61,65 @@ def apply_calpar2(data, calpar, calpar2, visibilityID):
     else:
         raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
-# XXX utility function, should be separate file
-def stdmatrix(length, polydegree):
-    '''to find out the error in fitting y by a polynomial poly(x), one compute error vector by (I-A.(At.A)^-1 At).y, where Aij = i^j. This function returns (I-A.(At.A)^-1 At)'''
-    A = np.array([[i**j for j in range(polydegree + 1)] for i in range(length)], dtype='int')
-    At = A.transpose()
-    return np.identity(length) - A.dot(la.pinv(At.dot(A), cond = 10**(-6)).dot(At))
+# XXX utility function, should be separate file XXX appears to be unused
+#def stdmatrix(length, polydegree):
+#    '''to find out the error in fitting y by a polynomial poly(x), one compute error vector by (I-A.(At.A)^-1 At).y, where Aij = i^j. This function returns (I-A.(At.A)^-1 At)'''
+#    A = np.array([[i**j for j in range(polydegree + 1)] for i in range(length)], dtype='int')
+#    At = A.transpose()
+#    return np.identity(length) - A.dot(la.pinv(At.dot(A), cond = 10**(-6)).dot(At))
 
-def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):
-    '''outputPath should be a path without extensions like .omnigain which will be appended'''
-    if outputPath is None:
-        outputPath = omnicalPath.replace('.omnical', '')
-
-    #info = redundantCalibrator.info
-
-    if not os.path.isfile(utctimePath):
-        raise Exception("File %s does not exist!"%utctimePath)
-    with open(utctimePath) as f:
-        utctimes = f.readlines()
-    calpars = np.fromfile(omnicalPath, dtype='float32')
-
-    nT = len(utctimes)
-    nF = len(calpars) / nT / (3 + 2 * info['nAntenna'] + 2 * info['nUBL'])
-    #if nF != redundantCalibrator.nFrequency:
-        #raise Exception('Error: time and frequency count implied in the infput files (%d %d) does not agree with those speficied in redundantCalibrator (%d %d). Exiting!'%(nT, nF, redundantCalibrator.nTime, redundantCalibrator.nFrequency))
-    calpars = calpars.reshape((nT, nF, (3 + 2 * info['nAntenna'] + 2 * info['nUBL'])))
-
-    jd = np.zeros((len(utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
-    sa = ephem.Observer()
-    for utctime, t in zip(utctimes, range(len(utctimes))):
-        sa.date = utctime
-        jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
-
-    opchisq = np.zeros((nT, 2 + 1 + 2 * nF), dtype = 'float32')
-    opomnigain = np.zeros((nT, info['nAntenna'], 2 + 1 + 1 + 2 * nF), dtype = 'float32')
-    opomnifit = np.zeros((nT, info['nUBL'], 2 + 3 + 1 + 2 * nF), dtype = 'float32')
-
-    opchisq[:, :2] = jd
-    opchisq[:, 2] = float(nF)
-    #opchisq[:, 3::2] = calpars[:, :, 0]#number of lincal iters
-    opchisq[:, 3:] = calpars[:, :, 2]#chisq which is sum of squares of errors in each visbility
-
-    opomnigain[:, :, :2] = jd[:, None]
-    opomnigain[:, :, 2] = np.array(info['subsetant']).astype('float32')
-    opomnigain[:, :, 3] = float(nF)
-    gains = (10**calpars[:, :, 3:(3 + info['nAntenna'])] * np.exp(1.j * math.pi * calpars[:, :, (3 + info['nAntenna']):(3 + 2 * info['nAntenna'])] / 180)).transpose((0,2,1))
-    opomnigain[:, :, 4::2] = np.real(gains)
-    opomnigain[:, :, 5::2] = np.imag(gains)
-
-    opomnifit[:, :, :2] = jd[:, None]
-    opomnifit[:, :, 2:5] = np.array(info['ubl']).astype('float32')
-    opomnifit[:, :, 5] = float(nF)
-    opomnifit[:, :, 6::2] = calpars[:, :, 3 + 2 * info['nAntenna']::2].transpose((0,2,1))
-    opomnifit[:, :, 7::2] = calpars[:, :, 3 + 2 * info['nAntenna'] + 1::2].transpose((0,2,1))
-
-
-    opchisq.tofile(outputPath + '.omnichisq')
-    opomnigain.tofile(outputPath + '.omnigain')
-    opomnifit.tofile(outputPath + '.omnifit')
+# XXX appears to be unused
+#def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):
+#    '''outputPath should be a path without extensions like .omnigain which will be appended'''
+#    if outputPath is None:
+#        outputPath = omnicalPath.replace('.omnical', '')
+#
+#    #info = redundantCalibrator.info
+#
+#    if not os.path.isfile(utctimePath):
+#        raise Exception("File %s does not exist!"%utctimePath)
+#    with open(utctimePath) as f:
+#        utctimes = f.readlines()
+#    calpars = np.fromfile(omnicalPath, dtype='float32')
+#
+#    nT = len(utctimes)
+#    nF = len(calpars) / nT / (3 + 2 * info['nAntenna'] + 2 * info['nUBL'])
+#    #if nF != redundantCalibrator.nFrequency:
+#        #raise Exception('Error: time and frequency count implied in the infput files (%d %d) does not agree with those speficied in redundantCalibrator (%d %d). Exiting!'%(nT, nF, redundantCalibrator.nTime, redundantCalibrator.nFrequency))
+#    calpars = calpars.reshape((nT, nF, (3 + 2 * info['nAntenna'] + 2 * info['nUBL'])))
+#
+#    jd = np.zeros((len(utctimes), 2), dtype='float32')#Julian dat is the only double in this whole thing so im storing it in two chunks as float
+#    sa = ephem.Observer()
+#    for utctime, t in zip(utctimes, range(len(utctimes))):
+#        sa.date = utctime
+#        jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
+#
+#    opchisq = np.zeros((nT, 2 + 1 + 2 * nF), dtype = 'float32')
+#    opomnigain = np.zeros((nT, info['nAntenna'], 2 + 1 + 1 + 2 * nF), dtype = 'float32')
+#    opomnifit = np.zeros((nT, info['nUBL'], 2 + 3 + 1 + 2 * nF), dtype = 'float32')
+#
+#    opchisq[:, :2] = jd
+#    opchisq[:, 2] = float(nF)
+#    #opchisq[:, 3::2] = calpars[:, :, 0]#number of lincal iters
+#    opchisq[:, 3:] = calpars[:, :, 2]#chisq which is sum of squares of errors in each visbility
+#
+#    opomnigain[:, :, :2] = jd[:, None]
+#    opomnigain[:, :, 2] = np.array(info['subsetant']).astype('float32')
+#    opomnigain[:, :, 3] = float(nF)
+#    gains = (10**calpars[:, :, 3:(3 + info['nAntenna'])] * np.exp(1.j * math.pi * calpars[:, :, (3 + info['nAntenna']):(3 + 2 * info['nAntenna'])] / 180)).transpose((0,2,1))
+#    opomnigain[:, :, 4::2] = np.real(gains)
+#    opomnigain[:, :, 5::2] = np.imag(gains)
+#
+#    opomnifit[:, :, :2] = jd[:, None]
+#    opomnifit[:, :, 2:5] = np.array(info['ubl']).astype('float32')
+#    opomnifit[:, :, 5] = float(nF)
+#    opomnifit[:, :, 6::2] = calpars[:, :, 3 + 2 * info['nAntenna']::2].transpose((0,2,1))
+#    opomnifit[:, :, 7::2] = calpars[:, :, 3 + 2 * info['nAntenna'] + 1::2].transpose((0,2,1))
+#
+#
+#    opchisq.tofile(outputPath + '.omnichisq')
+#    opomnigain.tofile(outputPath + '.omnigain')
+#    opomnifit.tofile(outputPath + '.omnifit')
 
 def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit = 1, trust_period = 1):
     '''same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container'''
@@ -1246,57 +1246,6 @@ class RedundantCalibrator_X5(RedundantCalibrator):
 
         self.badAntenna = range(16) + range(56,60) + [16,19,50]
 
-# XXX utility function belongs in another file
-def read_ndarray(path, shape, dtype, ranges):
-    '''read middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)'''
-    if not os.path.isfile(path):
-        raise IOError(path + 'doesnt exist.')
-    if len(ranges) != 2 or ranges[0] < 0 or ranges[0] >= ranges[1] or ranges[1] > shape[0]:
-        raise ValueError("%s is not a vlid range."%ranges)
-    nbytes = np.dtype(dtype).itemsize
-    higher_dim_chunks = 1 # product of higher dimensions. if array is (2,3,4,5), this is 3*4*5
-    for m in shape[1:]:
-        higher_dim_chunks = higher_dim_chunks * m
-
-    #print np.fromfile(path, dtype = dtype).shape
-    with open(path, 'r') as f:
-        f.seek(higher_dim_chunks * nbytes * ranges[0])
-        #print higher_dim_chunks * nbytes * ranges[0]
-        result = np.fromfile(f, dtype = dtype, count = (ranges[1] - ranges[0]) * higher_dim_chunks)
-    new_shape = np.array(shape)
-    new_shape[0] = (ranges[1] - ranges[0])
-    #print result.shape,tuple(new_shape)
-    return result.reshape(tuple(new_shape))
-
-# XXX utility function belongs in another file
-def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3, task = 'unkown'):
-    '''write middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)'''
-    if not os.path.isfile(path):
-        raise IOError(path + 'doesnt exist.')
-    if len(ranges) != 2 or ranges[0] < 0 or ranges[0] >= ranges[1] or ranges[1] > shape[0]:
-        raise ValueError("%s is not a vlid range."%ranges)
-    if data.dtype != dtype or data.shape[1:] != shape[1:] or data.shape[0] != ranges[1] - ranges[0]:
-        raise ValueError("data shape %s cannot be fit into data file shape %s."%(data.shape, shape))
-    nbytes = np.dtype(dtype).itemsize
-    higher_dim_chunks = 1 # product of higher dimensions. if array is (2,3,4,5), this is 3*4*5
-    for m in shape[1:]:
-        higher_dim_chunks = higher_dim_chunks * m
-    with open(path, 'r+') as f:
-        f.seek(higher_dim_chunks * nbytes * ranges[0])
-        data.tofile(f)
-    if check:
-        tries = 0
-        while not (data == read_ndarray(path, shape, dtype, ranges)).all() and tries < max_retry:
-
-            time.sleep(1)
-            tries = tries + 1
-            with open(path, 'r+') as f:
-                f.seek(higher_dim_chunks * nbytes * ranges[0])
-                data.tofile(f)
-        if not (data == read_ndarray(path, shape, dtype, ranges)).all():
-            raise IOError("write_ndarray failed on %s with shape %s between %s with task %s."%(path, shape, ranges, task))
-    return
-
 def load_omnichisq(path):
     '''XXX DOCSTRING'''
     path = os.path.expanduser(path)
@@ -1650,15 +1599,15 @@ def medianAngle(a, axis = -1):
     #np_result[:] = medianAngle(data, axis = axis).reshape(result_shape)
     #return
 
-# XXX utility function belongs in another file
-def collapse_shape(shape, axis):
-    '''XXX DOCSTRING'''
-    if axis == 0 or axis == -len(shape):
-        return tuple(list(shape)[1:])
-    elif axis == -1 or axis == len(shape) - 1:
-        return tuple(list(shape)[:-1])
-    else:
-        return tuple(list(shape)[:axis] + list(shape)[axis+1:])
+# XXX utility function belongs in another file XXX appears unused
+#def collapse_shape(shape, axis):
+#    '''XXX DOCSTRING'''
+#    if axis == 0 or axis == -len(shape):
+#        return tuple(list(shape)[1:])
+#    elif axis == -1 or axis == len(shape) - 1:
+#        return tuple(list(shape)[:-1])
+#    else:
+#        return tuple(list(shape)[:axis] + list(shape)[axis+1:])
 
 ###curerntly suffering from slow initialization which is probably due to copying data into shared array. worth further investigation.
 #def medianAngle_multithread(data, axis = -1, nthread = None, verbose = False):
@@ -1757,54 +1706,54 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
     result[info['subsetant']] = np.exp(1.j*calpar)# * result[info['subsetant']]
     return result
 
-# XXX utility class belongs in another file
-class InverseCholeskyMatrix:
-    '''for a positive definite matrix, Cholesky decomposition is M = L.Lt, where L
-    lower triangular. This decomposition helps computing inv(M).v faster, by
-    avoiding calculating inv(M). Once we have L, the product is simply
-    inv(Lt).inv(L).v, and inverse of triangular matrices multiplying a vector is
-    fast. sla.solve_triangular(M, v) = inv(M).v'''
-    def __init__(self, matrix):
-        if type(matrix).__module__ != np.__name__ or len(matrix.shape) != 2:
-            raise TypeError("matrix must be a 2D numpy array");
-        try:
-            self.L = la.cholesky(matrix)#L.dot(L.conjugate().transpose()) = matrix, L lower triangular
-            self.Lt = self.L.conjugate().transpose()
-            #print la.norm(self.L.dot(self.Lt)-matrix)/la.norm(matrix)
-        except:
-            raise TypeError("cholesky failed. matrix is not positive definite.")
-
-    @classmethod
-    def fromfile(cls, filename, n, dtype):
-        if not os.path.isfile(filename):
-            raise IOError("%s file not found!"%filename)
-        matrix = cls(np.array([[1,0],[0,1]]))
-        try:
-            matrix.L = np.fromfile(filename, dtype=dtype).reshape((n,n))#L.dot(L.conjugate().transpose()) = matrix, L lower triangular
-            matrix.Lt = matrix.L.conjugate().transpose()
-            #print la.norm(self.L.dot(self.Lt)-matrix)/la.norm(matrix)
-        except:
-            raise TypeError("cholesky import failed. matrix is not %i by %i with dtype=%s."%(n, n, dtype))
-        return matrix
-
-    def dotv(self, vector):
-        try:
-            return la.solve_triangular(self.Lt, la.solve_triangular(self.L, vector, lower=True), lower=False)
-        except:
-            return np.empty_like(vector)+np.nan
-
-    def dotM(self, matrix):
-        return np.array([self.dotv(v) for v in matrix.transpose()]).transpose()
-
-    def astype(self, t):
-        self.L = self.L.astype(t)
-        self.Lt = self.Lt.astype(t)
-        return self
-
-    def tofile(self, filename, overwrite = False):
-        if os.path.isfile(filename) and not overwrite:
-            raise IOError("%s file exists!"%filename)
-        self.L.tofile(filename)
+# XXX utility class belongs in another file XXX appears unused
+#class InverseCholeskyMatrix:
+#    '''for a positive definite matrix, Cholesky decomposition is M = L.Lt, where L
+#    lower triangular. This decomposition helps computing inv(M).v faster, by
+#    avoiding calculating inv(M). Once we have L, the product is simply
+#    inv(Lt).inv(L).v, and inverse of triangular matrices multiplying a vector is
+#    fast. sla.solve_triangular(M, v) = inv(M).v'''
+#    def __init__(self, matrix):
+#        if type(matrix).__module__ != np.__name__ or len(matrix.shape) != 2:
+#            raise TypeError("matrix must be a 2D numpy array");
+#        try:
+#            self.L = la.cholesky(matrix)#L.dot(L.conjugate().transpose()) = matrix, L lower triangular
+#            self.Lt = self.L.conjugate().transpose()
+#            #print la.norm(self.L.dot(self.Lt)-matrix)/la.norm(matrix)
+#        except:
+#            raise TypeError("cholesky failed. matrix is not positive definite.")
+#
+#    @classmethod
+#    def fromfile(cls, filename, n, dtype):
+#        if not os.path.isfile(filename):
+#            raise IOError("%s file not found!"%filename)
+#        matrix = cls(np.array([[1,0],[0,1]]))
+#        try:
+#            matrix.L = np.fromfile(filename, dtype=dtype).reshape((n,n))#L.dot(L.conjugate().transpose()) = matrix, L lower triangular
+#            matrix.Lt = matrix.L.conjugate().transpose()
+#            #print la.norm(self.L.dot(self.Lt)-matrix)/la.norm(matrix)
+#        except:
+#            raise TypeError("cholesky import failed. matrix is not %i by %i with dtype=%s."%(n, n, dtype))
+#        return matrix
+#
+#    def dotv(self, vector):
+#        try:
+#            return la.solve_triangular(self.Lt, la.solve_triangular(self.L, vector, lower=True), lower=False)
+#        except:
+#            return np.empty_like(vector)+np.nan
+#
+#    def dotM(self, matrix):
+#        return np.array([self.dotv(v) for v in matrix.transpose()]).transpose()
+#
+#    def astype(self, t):
+#        self.L = self.L.astype(t)
+#        self.Lt = self.Lt.astype(t)
+#        return self
+#
+#    def tofile(self, filename, overwrite = False):
+#        if os.path.isfile(filename) and not overwrite:
+#            raise IOError("%s file exists!"%filename)
+#        self.L.tofile(filename)
 
 # XXX utility function belongs elsewhere
 def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
