@@ -1,6 +1,5 @@
 '''XXX DOCSTRING'''
 # XXX lots of imports... are all necessary?  can code be separated into files with smaller dependency lists?
-# XXX this file has gotten huge. need to break into smaller files
 # XXX clean house on commented code?
 # XXX obey python style conventions
 import math, ephem, resource, time
@@ -32,7 +31,7 @@ julDelta = 2415020.# =julian date - pyephem's Observer date
 PI = np.pi
 
 def apply_calpar(data, calpar, visibilityID):
-    '''apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq'''
+    '''apply complex calpar for all antennas onto all bls, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq'''
     METHODNAME = "*apply_calpar*"
     if calpar.shape[-1] <= np.amax(visibilityID) or data.shape[-1] != len(visibilityID):
         raise Exception("Dimension mismatch! Either number of antennas in calpar " + str(calpar.shape[-1]) + " is less than implied in visibility ID "  + str(1 + np.amax(visibilityID)) + ", or the length of the last axis of data "  + str(data.shape[-1]) + " is not equal to length of visibilityID "  + str(len(visibilityID)) + ".")
@@ -46,7 +45,7 @@ def apply_calpar(data, calpar, visibilityID):
         raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
 def apply_calpar2(data, calpar, calpar2, visibilityID):
-    '''apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq'''
+    '''apply complex calpar for all antennas onto all bls, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq'''
     METHODNAME = "*apply_calpar2*"
     if calpar.shape[-1] <= np.amax(visibilityID) or data.shape[-1] != len(visibilityID) or calpar.shape != calpar2.shape:
         raise Exception("Dimension mismatch! Either number of antennas in calpar " + str(calpar.shape[-1]) + " is less than implied in visibility ID "  + str(1 + np.amax(visibilityID)) + ", or the length of the last axis of data "  + str(data.shape[-1]) + " is not equal to length of visibilityID "  + str(len(visibilityID)) + ", or calpars have different dimensions:" + str(calpar.shape) + str(calpar.shape) + '.')
@@ -158,7 +157,7 @@ class RedundantCalibrator:
         self.badAntenna = []
         self.badUBLpair = []
         self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j+1)] for j in range(nTotalAnt)])#PAPER miriad convention by default
-        self.totalVisibilityId_dic = None
+        self._gen_totalVisibilityId_dic()
         self.totalVisibilityUBL = None
         self.Info = None
         self.removeDegeneracy = True
@@ -184,21 +183,25 @@ class RedundantCalibrator:
         if self.Info is None:
             return "<Uninitialized %i antenna RedundantCalibrator with no RedundantInfo.>"%self.nTotalAnt
         else:
-            return "<RedundantCalibrator for an %i antenna array: %i good baselines including %i good antennas and %i unique baselines.>"%(self.nTotalAnt, len(self.Info.crossindex), self.Info.nAntenna, self.Info.nUBL)
+            return "<RedundantCalibrator for an %i antenna array: %i good bls including %i good antennas and %i unique bls.>"%(self.nTotalAnt, len(self.Info.crossindex), self.Info.nAntenna, self.Info.nUBL)
     def __getattr__(self, name): # XXX why not just inherit from info if accessing all attributes of info?
         try: return self.Info.__getattribute__(name)
         except: raise AttributeError("RedundantCalibrator has no attribute named %s"%name)
+    def _gen_totalVisibilityId_dic(self):
+        self.totalVisibilityId_dic = {}
+        for bll, (a1,a2) in enumerate(self.totalVisibilityId): self.totalVisibilityId_dic[(a1,a2)] = bll
     def read_redundantinfo(self, filename, txtmode=False, verbose=False):
         '''redundantinfo is necessary for running redundant calibration. The text file 
         should contain 29 lines each describes one item in the info.'''
         self.Info = RedundantInfo(filename=filename, txtmode=txtmode, verbose=verbose)
         self.totalVisibilityId = self.Info.totalVisibilityId # XXX might this raise an exception?
+        self._gen_totalVisibilityId_dic()
     def write_redundantinfo(self, filename, overwrite=False, verbose=False):
         self.Info.tofile(filename, overwrite=overwrite, verbose=verbose)
     def read_arrayinfo(self, arrayinfopath, verbose = False):
         '''array info is the minimum set of information to uniquely describe a 
         redundant array, and is needed to compute redundant info. It includes, 
-        in each line, bad antenna indices, bad unique baseline indices, tolerance 
+        in each line, bad antenna indices, bad unique bl indices, tolerance 
         of error when checking redundancy, antenna locations, and visibility's 
         antenna pairing conventions. Unlike redundant info which is a self-contained 
         dictionary, items in array info each have their own fields in the instance.'''
@@ -225,11 +228,12 @@ class RedundantCalibrator:
         maxline = len(rawinfo)
         while len(rawinfo[bl + 3 + len(self.antennaLocation)]) == 2:
             if bl >= max_bl_cnt:
-                raise Exception("Number of total visibility ids exceeds the maximum possible number of baselines of %i"%(max_bl_cnt))
+                raise Exception("Number of total visibility ids exceeds the maximum possible number of bls of %i"%(max_bl_cnt))
             self.totalVisibilityId.append(np.array(rawinfo[bl + 3 + len(self.antennaLocation)]).astype(int))
             bl = bl + 1
             if bl + 3 + len(self.antennaLocation) >= maxline: break
         self.totalVisibilityId = np.array(self.totalVisibilityId).astype(int)
+        self._gen_totalVisibilityId_dic()
         if verbose:
             print "Total number of visibilities:", bl,
             print "Bad antenna indices:", self.badAntenna,
@@ -237,7 +241,7 @@ class RedundantCalibrator:
     def lincal(self, data, additivein, nthread = None, verbose = False):
         '''for best performance, try setting nthread to larger than number of cores.'''
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
-            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * bl(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
             raise ValueError("Data shape error: data and additive in have different shapes.")
         self.nTime = len(data)
@@ -255,7 +259,7 @@ class RedundantCalibrator:
     def logcal(self, data, additivein, nthread = None, verbose = False):
         '''XXX DOCSTRING'''
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
-            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
+            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * bl(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
             raise ValueError("Data shape error: data and additive in have different shapes.")
         self.nTime = len(data)
@@ -310,7 +314,7 @@ class RedundantCalibrator:
     def get_calibrated_data(self, data, additivein = None):
         '''XXX DOCSTRING'''
         if data.ndim != 3 or data.shape != (self.nTime, self.nFrequency, len(self.totalVisibilityId)):
-            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline (%i, %i, %i)"%(self.nTime, self.nFrequency, len(self.totalVisibilityId)))
+            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * bl(%i, %i, %i)"%(self.nTime, self.nFrequency, len(self.totalVisibilityId)))
         if additivein is not None and data.shape != additivein.shape:
             raise ValueError("Data shape error: data and additivein have different shapes.")
         if data.shape[:2] != self.rawCalpar.shape[:2]:
@@ -483,7 +487,7 @@ class RedundantCalibrator:
                 spike_flag = spike_flag | (np.abs(chisq - smoothed_chisq) >= np.minimum(smoothed_chisq * thresh, estimate_chisq_sigma * nsigma)) | (chisq == 0)
             if _dbg_plotter is not None:
                 _dbg_plotter.imshow(np.abs(chisq - smoothed_chisq)/smoothed_chisq, vmin=-thresh, vmax=thresh, interpolation='none')
-        #baseline fit flag
+        #bl fit flag
         if '2' in mode:
             nubl = 10
             short_ubl_index = np.argsort(np.linalg.norm(self.ubl, axis=1))[:min(nubl, self.nUBL)]
@@ -548,7 +552,7 @@ class RedundantCalibrator:
         for k in badUBL: ubl2goodubl[k] = -1
         info['nUBL'] = nUBL = ubl.shape[0] # XXX maybe have C api automatically infer this
         badubl = [ublall[i] for i in badUBL]
-        #find nBaseline (include auto baselines) and subsetbl
+        #find nBaseline (include auto bls) and subsetbl
         #bl2d:  from 1d bl index to a pair of antenna numbers
         bl2d = [] # XXX cleaner way to do this?
         for i,ai in enumerate(antloc):
@@ -560,8 +564,6 @@ class RedundantCalibrator:
                         flag = True
                         break
                 if not flag: bl2d.append((i,j))
-        self.totalVisibilityId_dic = {}
-        for bll, (a1,a2) in enumerate(self.totalVisibilityId): self.totalVisibilityId_dic[(a1,a2)] = bll
         # exclude pairs that are not in totalVisibilityId
         tmp = []
         for p in bl2d:
@@ -570,7 +572,7 @@ class RedundantCalibrator:
             elif self.totalVisibilityId_dic.has_key(bl[::-1]): tmp.append(p[::-1])
         info['bl2d'] = bl2d = np.array(tmp, dtype=np.int32)
         info['nBaseline'] = len(bl2d) # XXX maybe have C api infer this
-        # from a pair of good antenna index to baseline index
+        # from a pair of good antenna index to bl index
         info['subsetbl'] = np.array([self.get_baseline([subsetant[bl[0]],subsetant[bl[1]]]) 
                 for bl in bl2d], dtype=np.int32)
         #bltoubl: cross bl number to ubl index
@@ -591,7 +593,7 @@ class RedundantCalibrator:
         info['autoindex'] = autoindex = np.array([i for i,p in enumerate(bl2d) if p[0] == p[1]], dtype=np.int32)
         # crossindex: index of cross bls among good bls
         info['crossindex'] = crossindex = np.array([i for i,p in enumerate(bl2d) if p[0] != p[1]], dtype=np.int32)
-        # reversedauto: the index of good baselines (auto included) in all baselines
+        # reversedauto: the index of good bls (auto included) in all bls
         reversedauto = np.arange(info['nBaseline'], dtype=np.int32)
         for i in autoindex: reversedauto[i] = 1
         for i,c in enumerate(crossindex): reversedauto[c] = reverse[i]
@@ -625,83 +627,73 @@ class RedundantCalibrator:
         info['Bt'] = sps.csr_matrix(B).T
         info.update()
         self.Info = info
-    def get_baseline(self,pair):
-        '''inverse function of totalVisibilityId, calculate the baseline index from 
+    def get_baseline(self,bl):
+        '''inverse function of totalVisibilityId, calculate the bl index from 
         the antenna pair. It allows flipping of a1 and a2, will return same result'''
-        if not (type(pair) == list or type(pair) == np.ndarray or type(pair) == tuple):
-            raise Exception("input needs to be a list of two numbers")
-        elif len(np.array(pair)) != 2:
-            raise Exception("input needs to be a list of two numbers")
-        elif type(pair[0]) == str or type(pair[0]) == np.string_:
-            raise Exception("input needs to be number not string")
-        if self.totalVisibilityId_dic is None:
-            self.totalVisibilityId_dic = {}
-            for bll, (a1, a2) in enumerate(self.totalVisibilityId):
-                self.totalVisibilityId_dic[(a1,a2)] = bll
-        if (pair[0],pair[1]) in self.totalVisibilityId_dic:
-            return self.totalVisibilityId_dic[(pair[0],pair[1])]
-        elif (pair[1],pair[0]) in self.totalVisibilityId_dic:
-            return self.totalVisibilityId_dic[(pair[1],pair[0])]
-        else: return None
-    def compute_UBL_old2(self,tolerance = 0.1):
-        '''compute_UBL returns the average of all baselines in that ubl group'''
-        #check if the tolerance is not a string
-        if type(tolerance) == str: raise Exception("tolerance needs to be number not string")
-        #remove the bad antennas
-        nant=len(self.antennaLocation)
-        subsetant=[i for i in range(nant) if i not in self.badAntenna]
-        nAntenna=len(subsetant)
-        antloc = np.array([self.antennaLocation[ant] for ant in subsetant])
-        ubllist = np.array([np.array([np.array([0,0,0]),1])]);
-        for i in range(len(antloc)):
-            #for j in range(i+1,len(antloc)):    #(this gives the same redundant info as the correct info saved in test)
-            for j in range(i+1):
-                bool = True
-                for k in range(len(ubllist)):
-                    if  la.norm(antloc[i]-antloc[j]-ubllist[k][0])<tolerance:
-                        n=ubllist[k][1]
-                        ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]+antloc[i]-antloc[j])
-                        ubllist[k][1]+=1
-                        bool = False
-                    elif  la.norm(antloc[i]-antloc[j]+ubllist[k][0])<tolerance:
-                        n=ubllist[k][1]
-                        ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]-(antloc[i]-antloc[j]))
-                        ubllist[k][1]+=1
-                        bool = False
-                if bool :
-                    ubllist = np.append(ubllist,np.array([np.array([antloc[j]-antloc[i],1])]),axis=0)
-        ubllist = np.delete(ubllist,0,0)
-        ublall=[]
-        for ubl in ubllist: ublall.append(ubl[0])
-        ublall=np.array(ublall)
-        return ublall
-    def compute_UBL_old(self,tolerance = 0.1):
-        '''compute_UBL returns the average of all baselines in that ubl group'''
-        #check if the tolerance is not a string
-        if type(tolerance) == str: raise Exception("tolerance needs to be number not string")
-        ubllist = np.array([np.array([np.array([0,0,0]),1])]);
-        for pair in self.totalVisibilityId:
-            if pair[0] not in self.badAntenna and pair[1] not in self.badAntenna:
-                [i,j] = pair
-                bool = True
-                for k in range(len(ubllist)):
-                    if  la.norm(self.antennaLocation[i]-self.antennaLocation[j]-ubllist[k][0])<tolerance:
-                        n=ubllist[k][1]
-                        ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]+self.antennaLocation[i]-self.antennaLocation[j])
-                        ubllist[k][1]+=1
-                        bool = False
-                    elif  la.norm(self.antennaLocation[i]-self.antennaLocation[j]+ubllist[k][0])<tolerance:
-                        n=ubllist[k][1]
-                        ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]-(self.antennaLocation[i]-self.antennaLocation[j]))
-                        ubllist[k][1]+=1
-                        bool = False
-                if bool :
-                    ubllist = np.append(ubllist,np.array([np.array([self.antennaLocation[j]-self.antennaLocation[i],1])]),axis=0)
-        ubllist = np.delete(ubllist,0,0)
-        ublall=[]
-        for ubl in ubllist: ublall.append(ubl[0])
-        ublall=np.array(ublall)
-        return ublall
+        bl = tuple(bl)
+        try: return self.totalVisibilityId_dic[bl]
+        except(KeyError): pass
+        try: return self.totalVisibilityId_dic[bl[::-1]]
+        except(KeyError): return None
+    #def compute_UBL_old2(self,tolerance = 0.1):
+    #    '''compute_UBL returns the average of all bls in that ubl group'''
+    #    #check if the tolerance is not a string
+    #    if type(tolerance) == str: raise Exception("tolerance needs to be number not string")
+    #    #remove the bad antennas
+    #    nant=len(self.antennaLocation)
+    #    subsetant=[i for i in range(nant) if i not in self.badAntenna]
+    #    nAntenna=len(subsetant)
+    #    antloc = np.array([self.antennaLocation[ant] for ant in subsetant])
+    #    ubllist = np.array([np.array([np.array([0,0,0]),1])]);
+    #    for i in range(len(antloc)):
+    #        #for j in range(i+1,len(antloc)):    #(this gives the same redundant info as the correct info saved in test)
+    #        for j in range(i+1):
+    #            bool = True
+    #            for k in range(len(ubllist)):
+    #                if  la.norm(antloc[i]-antloc[j]-ubllist[k][0])<tolerance:
+    #                    n=ubllist[k][1]
+    #                    ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]+antloc[i]-antloc[j])
+    #                    ubllist[k][1]+=1
+    #                    bool = False
+    #                elif  la.norm(antloc[i]-antloc[j]+ubllist[k][0])<tolerance:
+    #                    n=ubllist[k][1]
+    #                    ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]-(antloc[i]-antloc[j]))
+    #                    ubllist[k][1]+=1
+    #                    bool = False
+    #            if bool :
+    #                ubllist = np.append(ubllist,np.array([np.array([antloc[j]-antloc[i],1])]),axis=0)
+    #    ubllist = np.delete(ubllist,0,0)
+    #    ublall=[]
+    #    for ubl in ubllist: ublall.append(ubl[0])
+    #    ublall=np.array(ublall)
+    #    return ublall
+    #def compute_UBL_old(self,tolerance = 0.1):
+    #    '''compute_UBL returns the average of all bls in that ubl group'''
+    #    #check if the tolerance is not a string
+    #    if type(tolerance) == str: raise Exception("tolerance needs to be number not string")
+    #    ubllist = np.array([np.array([np.array([0,0,0]),1])]);
+    #    for pair in self.totalVisibilityId:
+    #        if pair[0] not in self.badAntenna and pair[1] not in self.badAntenna:
+    #            [i,j] = pair
+    #            bool = True
+    #            for k in range(len(ubllist)):
+    #                if  la.norm(self.antennaLocation[i]-self.antennaLocation[j]-ubllist[k][0])<tolerance:
+    #                    n=ubllist[k][1]
+    #                    ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]+self.antennaLocation[i]-self.antennaLocation[j])
+    #                    ubllist[k][1]+=1
+    #                    bool = False
+    #                elif  la.norm(self.antennaLocation[i]-self.antennaLocation[j]+ubllist[k][0])<tolerance:
+    #                    n=ubllist[k][1]
+    #                    ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]-(self.antennaLocation[i]-self.antennaLocation[j]))
+    #                    ubllist[k][1]+=1
+    #                    bool = False
+    #            if bool :
+    #                ubllist = np.append(ubllist,np.array([np.array([self.antennaLocation[j]-self.antennaLocation[i],1])]),axis=0)
+    #    ubllist = np.delete(ubllist,0,0)
+    #    ublall=[]
+    #    for ubl in ubllist: ublall.append(ubl[0])
+    #    ublall=np.array(ublall)
+    #    return ublall
     def compute_UBL(self,tolerance = 0.1):
         '''XXX DOCSTRING'''
         if tolerance == 0:
@@ -716,7 +708,7 @@ class RedundantCalibrator:
                 else:
                     if loc_tuple[0] >= 0: ubl[loc_tuple] = set([bl + 1])
                     else: ubl[neg_loc_tuple] = set([-bl - 1])
-        #calculate actual average of the gridded baseline vectors to get an accurate representation of the ubl vector
+        #calculate actual average of the gridded bls vectors to get an accurate representation of the ubl vector
         ubl_vec = np.zeros((len(ubl), 3))
         self.totalVisibilityUBL = {}
         ublcount = np.zeros(len(ubl))
@@ -771,7 +763,7 @@ class RedundantCalibrator:
         return self.Info.bltoubl[crossblindex]
     def get_reversed(self,antpair):
         '''need to do compute_redundantinfo first
-        input the antenna pair, return -1 if it is a reversed baseline and 1 if it is not reversed'''
+        input the antenna pair, return -1 if it is a reversed bl and 1 if it is not reversed'''
         #check if the input is a list, tuple, np.array of two numbers
         if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
             raise Exception("input needs to be a list of two numbers")
@@ -823,6 +815,7 @@ class RedundantCalibrator_X5(RedundantCalibrator):
         RedundantCalibrator.__init__(self, nant)
         self.antennaLocation = antennaLocation
         self.totalVisibilityId = np.concatenate([[[i,j] for j in range(i, nant)] for i in range(nant)])
+        self._gen_totalVisibilityId_dic()
 
         self.badAntenna = range(16) + range(56,60) + [16,19,50]
 
@@ -866,7 +859,7 @@ def get_omnitime(omnistuff):
 
 # XXX utility function belongs in another file
 def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False, plot_3 = False, plot_1 = -1):
-    '''plot_3: only plot the 3 most redundant ones. plot_1: counting start from 0 the most redundant baseline'''
+    '''plot_3: only plot the 3 most redundant ones. plot_1: counting start from 0 the most redundant bl'''
     import matplotlib.pyplot as plt
     data = np.array(data_in)
     try:#in case info is Info class
@@ -963,8 +956,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
     calpar. Afterwards, use mean angle on calpars'''
     ###select 2 ubl for calibration
     rawcal_ubl = list(input_rawcal_ubl)
-    if verbose and rawcal_ubl != []:
-        print "Starting ubl:", rawcal_ubl
+    if verbose and rawcal_ubl != []: print "Starting ubl:", rawcal_ubl
     if rawcal_ubl == []:
         ublcnt_tmp = info['ublcount'].astype('float')
         rawcal_ubl += [np.argmax(ublcnt_tmp)]
@@ -984,17 +976,15 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
                 if verbose:
                     print "Picking %s with redundancy %i as second ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]])
             # XXX this not good
-            except: raise Exception("Cannot find two unique baselines that are linearly independent!")
+            except: raise Exception("Cannot find two unique bls that are linearly independent!")
             ublcnt_tmp[rawcal_ubl[-1]] = np.nan
-    if verbose:
-        print "ubl:", info['ubl'][rawcal_ubl[0]], info['ubl'][rawcal_ubl[1]]
-
+    if verbose: print "ubl:", info['ubl'][rawcal_ubl[0]], info['ubl'][rawcal_ubl[1]]
     if info['ublcount'][rawcal_ubl[0]] + info['ublcount'][rawcal_ubl[1]] <= info['nAntenna'] + 2:
-        raise Exception('Array not redundant enough! Two most redundant baselines %s and %s have %i and %i baselines, which is not larger than 2 + %i'%(info['ubl'][rawcal_ubl[0]],info['ubl'][rawcal_ubl[1]], info['ublcount'][rawcal_ubl[0]],info['ublcount'][rawcal_ubl[1]], info['nAntenna']))
+        raise Exception('Array not redundant enough! Two most redundant bls %s and %s have %i and %i bls, which is not larger than 2 + %i'%(info['ubl'][rawcal_ubl[0]],info['ubl'][rawcal_ubl[1]], info['ublcount'][rawcal_ubl[0]],info['ublcount'][rawcal_ubl[1]], info['nAntenna']))
 
     ublindex = np.concatenate((np.array(info['ublindex'][rawcal_ubl[0]]).astype('int'), np.array(info['ublindex'][rawcal_ubl[1]]).astype('int')))#merge ublindex since we set both ubl phase to 0
 
-    ###The overarching goal is to find a solution path (a sequence of unique baselines to solve) that can get multiple solutions to multiple antennas using just two sets of ubls
+    ###The overarching goal is to find a solution path (a sequence of unique bls to solve) that can get multiple solutions to multiple antennas using just two sets of ubls
     solution_path = []
 
     antcnt = np.bincount(np.array(ublindex)[:,:2].flatten(), minlength = info['nAntenna'])#how many times each antenna appear in the two sets of ubls. at most 4. not useful if < 2
@@ -1002,8 +992,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
     for a in range(len(antcnt)):
         if antcnt[a] == 0:
             unsolved_ant.append(a)
-    if verbose:
-        print "antcnt", antcnt, "Antennas", np.array(info['subsetant'])[unsolved_ant], "not directly solvable."
+    if verbose: print "antcnt", antcnt, "Antennas", np.array(info['subsetant'])[unsolved_ant], "not directly solvable."
 
 
     ###Status string for ubl: NoUse: none of the two ants have been solved; Solvable: at least one of the ants have solutions; Done: used to generate one antennacalpar
@@ -1013,17 +1002,15 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
     calpar = np.array([[]] * info['nAntenna']).tolist()
     ###select initial antenna
     initialant = int(np.argmax(antcnt))
-    if verbose:
-        print "initialant", np.array(info['subsetant'])[initialant]
+    if verbose: print "initialant", np.array(info['subsetant'])[initialant]
     calpar[initialant].append(0)
     for i in range(len(ublstatus)):
         if initialant in ublindex[i, 0:2]:
             ublstatus[i] = "Solvable"
 
     ###start looping
-    solvecnt = 10#number of solved baselines in each loop, 10 is an arbitrary starting point
-    if verbose:
-        print "new ant solved",
+    solvecnt = 10#number of solved bls in each loop, 10 is an arbitrary starting point
+    if verbose: print "new ant solved",
     while solvecnt > 0:
         solvecnt = 0
         for i in range(len(ublstatus)):
@@ -1036,8 +1023,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
                     solution_path.append([ublindex[i], 0])
                     #print len(calpar[ublindex[i, 1]]), calpar[ublindex[i, 1]]
                     if len(calpar[ublindex[i, 1]]) == 1:
-                        if verbose:
-                            print np.array(info['subsetant'])[ublindex[i, 1]],
+                        if verbose: print np.array(info['subsetant'])[ublindex[i, 1]],
                         for j in range(len(ublstatus)):
                             if (ublindex[i, 1] in ublindex[j, 0:2]) and ublstatus[j] == "NoUse":
                                 ublstatus[j] = "Solvable"
@@ -1048,15 +1034,14 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
                     solution_path.append([ublindex[i], 1])
                     #print len(calpar[ublindex[i, 0]]), calpar[ublindex[i, 0]]
                     if len(calpar[ublindex[i, 0]]) == 1:
-                        if verbose:
-                            print np.array(info['subsetant'])[ublindex[i, 0]],
+                        if verbose: print np.array(info['subsetant'])[ublindex[i, 0]],
                         for j in range(len(ublstatus)):
                             if (ublindex[i, 0] in ublindex[j, 0:2]) and ublstatus[j] == "NoUse":
                                 ublstatus[j] = "Solvable"
     if verbose:
         print ""
         if len(solution_path) != len(ublindex):
-            print "Solution path has %i entries where as total candidates in ublindex have %i. The following baselines form their isolated isaland:"%(len(solution_path), len(ublindex))
+            print "Solution path has %i entries where as total candidates in ublindex have %i. The following bls form their isolated isaland:"%(len(solution_path), len(ublindex))
             unsolved_ubl = []
             for i in range(len(ublstatus)):
                 if ublstatus[i] != "Done":
@@ -1072,8 +1057,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
 
         ant_solved = 0
         for a in unsolved_ant:
-            if verbose:
-                print "trying to solve for ", np.array(info['subsetant'])[a],
+            if verbose: print "trying to solve for ", np.array(info['subsetant'])[a],
             ublcnt_tmp = info['ublcount'].astype('float')
             third_ubl_good = False
             tried_all_ubl = False
@@ -1084,9 +1068,8 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
                 except:
                     tried_all_ubl = True
                     break
-                if verbose:
-                    print "trying ubl ", third_ubl,
-                third_ubl_good = False #assume false and start checking if this ubl 1) has this antenna 2) has another baseline whose two ants are both solved
+                if verbose: print "trying ubl ", third_ubl,
+                third_ubl_good = False #assume false and start checking if this ubl 1) has this antenna 2) has another bls whose two ants are both solved
                 if (len(info['ublindex'][third_ubl]) < 2) or (a not in info['ublindex'][third_ubl]):
                     continue
                 third_ubl_good1 = False
@@ -1119,7 +1102,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
                 ant_solved += 1
                 unsolved_ant.remove(a)
 
-    #remove the effect of enforcing the two baselines to be 0, rather, set the first two linearly independent antennas w.r.t initant to be 0
+    #remove the effect of enforcing the two bls to be 0, rather, set the first two linearly independent antennas w.r.t initant to be 0
     # find two antennas:
     a1 = initialant
     a2 = initialant
@@ -1144,8 +1127,7 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
     A = np.array([bl1, bl2])
     remove_Matrix = (np.array(info['antloc'])- info['antloc'][initialant]).dot(la.pinv(A.transpose().dot(A)).dot(A.transpose()))
     degeneracy_remove = [a1, a2, remove_Matrix]
-    if verbose:
-        print "Degeneracy: a1 = %i, a2 = %i"%(info['subsetant'][a1], info['subsetant'][a2])
+    if verbose: print "Degeneracy: a1 = %i, a2 = %i"%(info['subsetant'][a1], info['subsetant'][a2])
     return initialant, solution_path, additional_solution_path, degeneracy_remove, (unsolved_ant == [])
 
 def meanAngle(a, weights = None, axis = -1):
@@ -1262,7 +1244,7 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
         #print calpar[solution[-1][solution[-1][-1]]][0], ((solution[-1][-1]-0.5)/-.5),d[solution[-1][2]] , ubl_phase * (solution[-1][-2]), calpar[solution[-1][1-solution[-1][-1]]]
 
     calpar = (np.array(calpar).flatten() + np.pi) % (2 * np.pi) - np.pi
-    #remove the effect of enforcing the two baselines to be 0, rather, set the first two linearly independent antennas w.r.t initant to be 0
+    #remove the effect of enforcing the two bls to be 0, rather, set the first two linearly independent antennas w.r.t initant to be 0
 
     calpar = calpar - degeneracy_remove[2].dot([calpar[degeneracy_remove[0]],calpar[degeneracy_remove[1]]])
 
@@ -1331,7 +1313,7 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
     if A.shape[0] != b.shape[0]: raise TypeError("A and b has shape mismatch: %s and %s."%(A.shape, b.shape))
     if A.shape[1] != 2: raise TypeError("A matrix's second dimension must have size of 2. %i inputted."%A.shape[1])
     if verbose: timer.tick("a")
-    #find the shortest 2 non-parallel baselines, candidate_vecs have all combinations of vectors in a summation or subtraction. Each entry is i,j, v0,v1 where Ai+Aj=(v0,v1), negative j means subtraction. Identical i,j means vector itself without add or subtract
+    #find the shortest 2 non-parallel bls, candidate_vecs have all combinations of vectors in a summation or subtraction. Each entry is i,j, v0,v1 where Ai+Aj=(v0,v1), negative j means subtraction. Identical i,j means vector itself without add or subtract
     candidate_vecs = np.zeros((len(A)**2, 4), dtype = 'float32')
     n = 0
     for i in range(len(A)):
@@ -1427,7 +1409,7 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
     #if A.shape[1] != 2:
         #raise TypeError("A matrix's second dimension must have size of 2. %i inputted."%A.shape[1])
 
-    ##find the shortest 2 non-parallel baselines, candidate_vecs have all combinations of vectors in a summation or subtraction. Each entry is i,j, v0,v1 where Ai+Aj=(v0,v1), negative j means subtraction. Identical i,j means vector itself without add or subtract
+    ##find the shortest 2 non-parallel bls, candidate_vecs have all combinations of vectors in a summation or subtraction. Each entry is i,j, v0,v1 where Ai+Aj=(v0,v1), negative j means subtraction. Identical i,j means vector itself without add or subtract
     #candidate_vecs = np.zeros((len(A)**2, 4), dtype = 'float32')
     #n = 0
     #for i in range(len(A)):
