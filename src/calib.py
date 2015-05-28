@@ -3,9 +3,8 @@
 # XXX this file has gotten huge. need to break into smaller files
 # XXX clean house on commented code?
 # XXX obey python style conventions
-import math, random, traceback, ephem, string, commands, shutil, resource, threading, time
+import math, ephem, resource, time
 import multiprocessing as mp
-from time import ctime
 import aipy as ap
 import struct
 import numpy as np
@@ -31,7 +30,6 @@ __version__ = '4.0.4'
 
 julDelta = 2415020.# =julian date - pyephem's Observer date
 PI = np.pi
-TPI = 2 * np.pi
 
 def apply_calpar(data, calpar, visibilityID):
     '''apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq'''
@@ -148,22 +146,18 @@ class RedundantCalibrator:
     user should create one instance of Redundant calibrator and reuse it for all data 
     collected from that array. In general, upon creating an instance, the user need 
     to create the info field of the instance by either computing it or reading it 
-    from a text file. readyForCpp(verbose = True) should be a very helpful function 
-    to provide information on what information is missing for running the calibration.'''
+    from a text file.'''
     def __init__(self, nTotalAnt, info = None):
-        methodName = '.__init__.'
-        self.className = '.RedundantCalibrator.'
         self.nTotalAnt = nTotalAnt
-        self.nTotalBaselineAuto = (self.nTotalAnt + 1) * self.nTotalAnt / 2
-        self.nTotalBaselineCross = (self.nTotalAnt - 1) * self.nTotalAnt / 2
-        self.antennaLocation = np.zeros((self.nTotalAnt, 3))
+        self.nTotalBaselineAuto = (nTotalAnt + 1) * nTotalAnt / 2
+        self.nTotalBaselineCross = (nTotalAnt - 1) * nTotalAnt / 2
+        self.antennaLocation = np.zeros((nTotalAnt, 3))
         side = int(nTotalAnt**.5)
-        for a in range(nTotalAnt):
-            self.antennaLocation[a] = np.array([a/side, a%side, 0])
-        self.antennaLocationTolerance = 10**(-6)
+        for a in range(nTotalAnt): self.antennaLocation[a] = np.array([a/side, a%side, 0])
+        self.antennaLocationTolerance = 1e-6
         self.badAntenna = []
         self.badUBLpair = []
-        self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(self.nTotalAnt)])#PAPER miriad convention by default
+        self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j+1)] for j in range(nTotalAnt)])#PAPER miriad convention by default
         self.totalVisibilityId_dic = None
         self.totalVisibilityUBL = None
         self.Info = None
@@ -175,43 +169,32 @@ class RedundantCalibrator:
         self.stepSize = 0.3 #step size for lincal. (0, 1]. < 0.4 recommended.
         self.computeUBLFit = True
         self.trust_period = 1 #How many time slices does lincal start from logcal result rather than the previous time slice's lincal result. default 1 means always start from logcal. if 10, it means lincal start from logcal results (or g = 1's) every 10 time slices
-
         self.nTime = 0
         self.nFrequency = 0
-
         self.utctime = None
         self.rawCalpar = None
         self.omnichisq = None
         self.omnigain = None
         self.omnifit = None
-
         if info is not None: # XXX what is the point of leaving info == None?
-            if type(info) == str:
-                self.read_redundantinfo(info)
-            else:
-                self.Info = info
+            if type(info) == str: self.read_redundantinfo(info)
+            else: self.Info = info
     def __repr__(self,): return self.__str__()
     def __str__(self,):
         if self.Info is None:
             return "<Uninitialized %i antenna RedundantCalibrator with no RedundantInfo.>"%self.nTotalAnt
         else:
             return "<RedundantCalibrator for an %i antenna array: %i good baselines including %i good antennas and %i unique baselines.>"%(self.nTotalAnt, len(self.Info.crossindex), self.Info.nAntenna, self.Info.nUBL)
-
     def __getattr__(self, name): # XXX why not just inherit from info if accessing all attributes of info?
         try: return self.Info.__getattribute__(name)
         except: raise AttributeError("RedundantCalibrator has no attribute named %s"%name)
-
     def read_redundantinfo(self, filename, txtmode=False, verbose=False):
         '''redundantinfo is necessary for running redundant calibration. The text file 
         should contain 29 lines each describes one item in the info.'''
         self.Info = RedundantInfo(filename=filename, txtmode=txtmode, verbose=verbose)
         self.totalVisibilityId = self.Info.totalVisibilityId # XXX might this raise an exception?
-        #try: self.totalVisibilityId = self.Info.totalVisibilityId
-        #except(KeyError): self.Info.totalVisibilityId = self.totalVisibilityId
-
     def write_redundantinfo(self, filename, overwrite=False, verbose=False):
         self.Info.tofile(filename, overwrite=overwrite, verbose=verbose)
-
     def read_arrayinfo(self, arrayinfopath, verbose = False):
         '''array info is the minimum set of information to uniquely describe a 
         redundant array, and is needed to compute redundant info. It includes, 
@@ -219,39 +202,23 @@ class RedundantCalibrator:
         of error when checking redundancy, antenna locations, and visibility's 
         antenna pairing conventions. Unlike redundant info which is a self-contained 
         dictionary, items in array info each have their own fields in the instance.'''
-        methodName = ".read_arrayinfo."
         if not os.path.isfile(arrayinfopath):
-            raise IOError(self.className + methodName + "Error: Array info file " + arrayinfopath + " doesn't exist!")
+            raise IOError("Error: Array info file " + arrayinfopath + " doesn't exist!")
         with open(arrayinfopath) as f:
             rawinfo = [[float(x) for x in line.split()] for line in f]
-        if verbose:
-            print self.className + methodName + " MSG:",  "Reading", arrayinfopath, "...",
-
+        if verbose: print " MSG:",  "Reading", arrayinfopath, "...",
         self.badAntenna = np.array(rawinfo[0]).astype(int)
-        if self.badAntenna[0] < 0:
-            self.badAntenna = np.zeros(0)
-
+        if self.badAntenna[0] < 0: self.badAntenna = np.zeros(0)
         if len(np.array(rawinfo[1])) == 0 or len(np.array(rawinfo[1]))%2 != 0 or min(np.array(rawinfo[1]).astype(int)) < 0:
             self.badUBLpair = np.array([])
-            #raise Exception(self.className + methodName +"Error: Format error in " + arrayinfopath + "badUBL should be specified by pairs of antenna, not odd numbers of antenna")
         else:
             rawpair = np.array(rawinfo[1]).astype(int)
             self.badUBLpair = np.reshape(rawpair,(len(rawpair)/2,2))
-        #if self.badUBL[0] < 0:#todonow
-        #    self.badUBL = np.zeros(0)
-
         self.antennaLocationTolerance = rawinfo[2][0]
-
         for a in range(len(self.antennaLocation)):
             if len(rawinfo[a + 3]) != 3:
-                raise ValueError(self.className + methodName + "Error: Format error in " + arrayinfopath + ": The antenna locations should start on the 4th line, with 3 numbers in each line!")
-            else:
-                self.antennaLocation[a] = np.array(rawinfo[a + 3])
-
-        #for bl in range(len(self.totalVisibilityId)):
-            #if len(rawinfo[bl + 3 + len(self.antennaLocation)]) != 2:
-                #raise Exception(self.className + methodName + "Error: Format error in " + arrayinfopath + ": The baseline to antenna mapping should start after antenna locations, with 2 numbers (conj index, index) in each line!")
-            #else:
+                raise ValueError("Error: Format error in " + arrayinfopath + ": The antenna locations should start on the 4th line, with 3 numbers in each line!")
+            else: self.antennaLocation[a] = np.array(rawinfo[a + 3])
         bl = 0
         self.totalVisibilityId = []
         max_bl_cnt = self.nTotalAnt * (self.nTotalAnt + 1) / 2
@@ -261,15 +228,12 @@ class RedundantCalibrator:
                 raise Exception("Number of total visibility ids exceeds the maximum possible number of baselines of %i"%(max_bl_cnt))
             self.totalVisibilityId.append(np.array(rawinfo[bl + 3 + len(self.antennaLocation)]).astype(int))
             bl = bl + 1
-            if bl + 3 + len(self.antennaLocation) >= maxline:
-                break
+            if bl + 3 + len(self.antennaLocation) >= maxline: break
         self.totalVisibilityId = np.array(self.totalVisibilityId).astype(int)
         if verbose:
             print "Total number of visibilities:", bl,
             print "Bad antenna indices:", self.badAntenna,
             print "Bad UBL indices:", self.badUBLpair
-
-
     def lincal(self, data, additivein, nthread = None, verbose = False):
         '''for best performance, try setting nthread to larger than number of cores.'''
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
@@ -288,10 +252,6 @@ class RedundantCalibrator:
             return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit), trust_period = self.trust_period)
         else:
             return self._redcal_multithread(data, additivein, 0, nthread, verbose = verbose)        ##self.chisq = self.rawCalpar[:, :, 2]
-        ##self.calpar = np.zeros((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
-        ##self.calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
-        ##self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
-
     def logcal(self, data, additivein, nthread = None, verbose = False):
         '''XXX DOCSTRING'''
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
@@ -301,27 +261,16 @@ class RedundantCalibrator:
         self.nTime = len(data)
         self.nFrequency = len(data[0])
         self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
-
-        if nthread is None:
-            nthread = min(mp.cpu_count() - 1, self.nFrequency)
+        if nthread is None: nthread = min(mp.cpu_count() - 1, self.nFrequency)
         if nthread < 2:
             return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
         else:
             return self._redcal_multithread(data, additivein, 1, nthread, verbose = verbose)
-
     def _redcal_multithread(self, data, additivein, uselogcal, nthread, verbose = False):
         '''XXX DOCSTRING'''
-        #if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
-            #raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
-        #if data.shape != additivein.shape:
-            #raise ValueError("Data shape error: data and additive in have different shapes.")
-        #self.nTime = len(data)
-        #self.nFrequency = len(data[0])
-        #self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
         nthread = min(nthread, self.nFrequency)
         additiveouts = {}
         np_additiveouts = {}
-        #additiveout = np.zeros_like(data[:, :, self.Info.subsetbl])
         rawCalpar = {}
         np_rawCalpar = {}
         threads = {}
@@ -329,27 +278,18 @@ class RedundantCalibrator:
         chunk = int(self.nFrequency) / int(nthread)
         excess = int(self.nFrequency) % int(nthread)
         kwarg = {"removedegen": int(self.removeDegeneracy), "uselogcal": uselogcal, "maxiter": int(self.maxIteration), "conv": float(self.convergePercent), "stepsize": float(self.stepSize), "computeUBLFit": int(self.computeUBLFit), "trust_period": self.trust_period}
-
         for i in range(nthread):
-            if excess == 0:
-                fchunk[i] = (i * chunk, min((1 + i) * chunk, self.nFrequency),)
-            elif i < excess:
-                fchunk[i] = (i * (chunk+1), min((1 + i) * (chunk+1), self.nFrequency),)
-            else:
-                fchunk[i] = (fchunk[i-1][1], min(fchunk[i-1][1] + chunk, self.nFrequency),)
-            #if verbose:
-                #print fchunk[i],
+            if excess == 0: fchunk[i] = (i * chunk, min((1 + i) * chunk, self.nFrequency),)
+            elif i < excess: fchunk[i] = (i * (chunk+1), min((1 + i) * (chunk+1), self.nFrequency),)
+            else: fchunk[i] = (fchunk[i-1][1], min(fchunk[i-1][1] + chunk, self.nFrequency),)
             rawCalpar[i] = mp.RawArray('f', self.nTime * (fchunk[i][1] - fchunk[i][0]) * (self.rawCalpar.shape[2]))
             np_rawCalpar[i] = np.frombuffer(rawCalpar[i], dtype='float32')
             np_rawCalpar[i].shape = (self.rawCalpar.shape[0], fchunk[i][1]-fchunk[i][0], self.rawCalpar.shape[2])
             np_rawCalpar[i][:] = self.rawCalpar[:, fchunk[i][0]:fchunk[i][1]]
-
             additiveouts[i] = mp.RawArray('f', self.nTime * (fchunk[i][1] - fchunk[i][0]) * len(self.Info.subsetbl) * 2)#factor of 2 for re/im
             np_additiveouts[i] = np.frombuffer(additiveouts[i], dtype='complex64')
             np_additiveouts[i].shape = (data.shape[0], fchunk[i][1]-fchunk[i][0], len(self.Info.subsetbl))
-
             threads[i] = mp.Process(target = _redcal, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
-            #threads[i] = threading.Thread(target = _O.redcal2, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
         if verbose:
             print "Starting %s Process"%cal_name[uselogcal],
             sys.stdout.flush()
@@ -358,18 +298,15 @@ class RedundantCalibrator:
                 print "#%i"%i,
                 sys.stdout.flush()
             threads[i].start()
-        if verbose:
-            print "Finished Process",
+        if verbose: print "Finished Process",
         for i in range(nthread):
             threads[i].join()
-            if verbose:
-                print "#%i"%i,
+            if verbose: print "#%i"%i,
         if verbose:
             print ""
             sys.stdout.flush()
         self.rawCalpar = np.concatenate([np_rawCalpar[i] for i in range(nthread)],axis=1)
         return np.concatenate([np_additiveouts[i] for i in range(nthread)],axis=1)
-
     def get_calibrated_data(self, data, additivein = None):
         '''XXX DOCSTRING'''
         if data.ndim != 3 or data.shape != (self.nTime, self.nFrequency, len(self.totalVisibilityId)):
@@ -378,14 +315,10 @@ class RedundantCalibrator:
             raise ValueError("Data shape error: data and additivein have different shapes.")
         if data.shape[:2] != self.rawCalpar.shape[:2]:
             raise ValueError("Data shape error: data and self.rawCalpar have different first two dimensions.")
-
         calpar = np.ones((len(self.rawCalpar), len(self.rawCalpar[0]), self.nTotalAnt), dtype='complex64')
         calpar[:,:,self.Info.subsetant] = (10**(self.rawCalpar[:, :, 3: (3 + self.Info.nAntenna)])) * np.exp(1.j * self.rawCalpar[:, :, (3 + self.Info.nAntenna): (3 + 2 * self.Info.nAntenna)])
-        if additivein is None:
-            return apply_calpar(data, calpar, self.totalVisibilityId)
-        else:
-            return apply_calpar(data - additivein, calpar, self.totalVisibilityId)
-
+        if additivein is None: return apply_calpar(data, calpar, self.totalVisibilityId)
+        else: return apply_calpar(data - additivein, calpar, self.totalVisibilityId)
     def get_modeled_data(self):
         '''XXX DOCSTRING'''
         if self.rawCalpar is None:
@@ -396,8 +329,6 @@ class RedundantCalibrator:
         mdata[..., self.Info.subsetbl[self.Info.crossindex]] = (self.rawCalpar[..., 3 + 2 * (self.Info.nAntenna)::2] + 1.j * self.rawCalpar[..., 4 + 2 * (self.Info.nAntenna)::2])[..., self.Info.bltoubl]
         mdata[..., self.Info.subsetbl[self.Info.crossindex]] = np.abs(mdata[..., self.Info.subsetbl[self.Info.crossindex]]) * np.exp(self.Info.reversed * 1.j * np.angle(mdata[..., self.Info.subsetbl[self.Info.crossindex]])) * 10.**(self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,0]] + self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,1]]) * np.exp(-1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,0]] + 1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,1]])
         return mdata
-
-
     def get_omnichisq(self):
         '''XXX DOCSTRING'''
         if self.utctimes is None or self.rawCalpar is None:
@@ -409,13 +340,11 @@ class RedundantCalibrator:
         for utctime, t in zip(self.utctimes, range(len(self.utctimes))):
             sa.date = utctime
             jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
-
         omnichisq = np.zeros((self.nTime, 2 + 1 + self.nFrequency), dtype = 'float32')
         omnichisq[:, :2] = jd
         omnichisq[:, 2] = float(self.nFrequency)
         omnichisq[:, 3:] = self.rawCalpar[:, :, 2]#chisq which is sum of squares of errors in each visbility
         return omnichisq
-
     def get_omnigain(self):
         '''XXX DOCSTRING'''
         if self.utctimes is None or self.rawCalpar is None:
@@ -435,7 +364,6 @@ class RedundantCalibrator:
         omnigain[:, :, 4::2] = np.real(gains)
         omnigain[:, :, 5::2] = np.imag(gains)
         return omnigain
-
     def get_omnifit(self):
         '''XXX DOCSTRING'''
         if self.utctimes is None or self.rawCalpar is None:
@@ -458,24 +386,17 @@ class RedundantCalibrator:
         '''XXX DOCSTRING'''
         errstate = np.geterr()
         np.seterr(invalid = 'ignore')
-
         if self.rawCalpar is None:
             raise Exception("No calibration has been performed since rawCalpar does not exist.")
-
-        if flag is None:
-            flag = np.zeros(self.rawCalpar.shape[:2], dtype='bool')
+        if flag is None: flag = np.zeros(self.rawCalpar.shape[:2], dtype='bool')
         elif flag.shape != self.rawCalpar.shape[:2]:
             raise TypeError('flag and self.rawCalpar have different shapes %s %s.'%(flag.shape, self.rawCalpar.shape[:2]))
-
         checks = 1
         timer = Timer()
         bad_count = np.zeros((3,self.Info.nAntenna), dtype='int')
         bad_ubl_count = np.zeros(self.Info.nUBL, dtype='int')
         median_level = nanmedian(nanmedian(self.rawCalpar[:,:,3:3+self.Info.nAntenna], axis= 0), axis= 1)
         bad_count[0] = np.array([(np.abs(self.rawCalpar[:,:,3+a] - median_level) >= .15)[~flag].sum() for a in range(self.Info.nAntenna)])**2
-        #timer.tick(1)
-
-
         if data is not None and data.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
             subsetbl = self.Info.subsetbl
@@ -483,108 +404,83 @@ class RedundantCalibrator:
             ncross = len(self.Info.crossindex)
             bl1dmatrix = self.Info.bl1dmatrix
             ant_level = np.array([np.median(np.abs(data[:, :, [subsetbl[crossindex[bl]] for bl in bl1dmatrix[a] if (bl < ncross and bl >= 0)]]), axis = -1) for a in range(self.Info.nAntenna)])
-            #timer.tick(2)
             median_level = nanmedian(ant_level, axis = 0)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
                 bad_count[1] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667)[~flag].sum() for a in range(self.Info.nAntenna)])**2
-        #timer.tick(2)
-
         if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2]:
             checks += 1
-
             subsetbl = self.Info.subsetbl
             crossindex = self.Info.crossindex
             ncross = len(self.Info.crossindex)
             bl1dmatrix = self.Info.bl1dmatrix
             ant_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in bl1dmatrix[a] if bl < ncross]]), axis = 2) for a in range(self.Info.nAntenna)])
-            #timer.tick(3)
             median_level = np.median(ant_level, axis = 0)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
                 bad_count[2] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667)[~flag].sum() for a in range(self.Info.nAntenna)])**2
-            #timer.tick(3)
             ublindex = [np.array(index).astype('int')[:,2] for index in self.Info.ublindex]
             ubl_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in ublindex[u]]]), axis = 2) for u in range(self.Info.nUBL)])
             median_level = np.median(ubl_level, axis = 0)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
                 bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .667)[~flag].sum() for u in range(self.Info.nUBL)])**2
-            #print median_level
-        #timer.tick(3)
-
         np.seterr(invalid = errstate['invalid'])
         bad_count = (np.mean(bad_count,axis=0)/float(np.sum(~flag))**2 * 100).astype('int')
         bad_ubl_count = (bad_ubl_count/float(self.nTime * self.nFrequency)**2 * 100).astype('int')
         if verbose:
-            #print bad_ant_cnt, bad_ubl_cnt
             print "DETECTED BAD ANTENNA ABOVE HEALTH THRESHOLD %i: "%healthbar
             for a in range(len(bad_count)):
                 if bad_count[a] > healthbar:
                     print "antenna #%i, vector = %s, badness = %i"%(self.Info.subsetant[a], self.Info.antloc[a], bad_count[a])
-            #print ""
             if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2] and ubl_healthbar != 100:
                 print "DETECTED BAD BASELINE TYPE ABOVE HEALTH THRESHOLD %i: "%ubl_healthbar
                 for a in range(len(bad_ubl_count)):
                     if bad_ubl_count[a] > ubl_healthbar and (self.Info.ublcount[a] > 5 or (warn_low_redun)):
                         print "index #%i, vector = %s, redundancy = %i, badness = %i"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
-                #print ""
-        if not ouput_txt:
-            return bad_count, bad_ubl_count
+        if not ouput_txt: return bad_count, bad_ubl_count
         else:
             txt = ''
             txt += "DETECTED BAD ANTENNA ABOVE HEALTH THRESHOLD %i: \n"%healthbar
             for a in range(len(bad_count)):
                 if bad_count[a] > healthbar:
                     txt += "antenna #%i, vector = %s, badness = %i\n"%(self.Info.subsetant[a], self.Info.antloc[a], bad_count[a])
-            #print ""
             if additiveout is not None and additiveout.shape[:2] == self.rawCalpar.shape[:2] and ubl_healthbar != 100:
                 txt += "DETECTED BAD BASELINE TYPE ABOVE HEALTH THRESHOLD %i: \n"%ubl_healthbar
                 for a in range(len(bad_ubl_count)):
                     if bad_ubl_count[a] > ubl_healthbar and (self.Info.ublcount[a] > 5 or (warn_low_redun)):
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
             return txt
-
-    def flag(self, mode = '12', twindow = 5, fwindow = 5, nsigma = 4, _dbg_plotter = None, _niter = 3):
+    def flag(self, mode='12', twindow=5, fwindow=5, nsigma=4, _dbg_plotter=None, _niter=3):
         '''return true if flagged False if good and unflagged'''
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
-
         chisq = np.copy(self.rawCalpar[:,:,2])
         nan_flag = np.isnan(np.sum(self.rawCalpar,axis=-1))|np.isinf(np.sum(self.rawCalpar,axis=-1))
-
         #chisq flag: spike_flag
         spike_flag = np.zeros_like(nan_flag)
         if '1' in mode:
             median_level = nanmedian(nanmedian(chisq))
-
             thresh = nsigma * (2. / (len(self.subsetbl) - self.nAntenna - self.nUBL + 2))**.5 # relative sigma is sqrt(2/k)
-
             for i in range(_niter):
                 chisq[nan_flag|spike_flag] = 1e6 * median_level
-
                 if twindow >= self.nTime:
                     filtered_tdir = np.ones(self.nTime)#will rescale anyways * np.min(np.median(chisq, axis = 1))
                 else:
                     filtered_tdir = sfil.minimum_filter(np.median(chisq, axis = 1), size = twindow, mode='reflect')
-
                 if fwindow >= self.nFrequency:
                     filtered_fdir = np.ones(self.nFrequency)#will rescale anyways * np.min(np.median(chisq, axis = 0))
                 else:
                     filtered_fdir = sfil.minimum_filter(np.median(chisq, axis = 0), size = fwindow, mode='reflect')
-
                 smoothed_chisq = np.outer(filtered_tdir, filtered_fdir)
-
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore",category=RuntimeWarning)
                     smoothed_chisq = smoothed_chisq * np.median(chisq[~(nan_flag|spike_flag)] / smoothed_chisq[~(nan_flag|spike_flag)])
-
                     del_chisq = chisq - smoothed_chisq
                     del_chisq[(nan_flag|spike_flag)] = np.nan
                     estimate_chisq_sigma = np.nanstd(del_chisq,axis=0)
                     estimate_chisq_sigma[np.isnan(estimate_chisq_sigma)] = 0
                 spike_flag = spike_flag | (np.abs(chisq - smoothed_chisq) >= np.minimum(smoothed_chisq * thresh, estimate_chisq_sigma * nsigma)) | (chisq == 0)
-
             if _dbg_plotter is not None:
                 _dbg_plotter.imshow(np.abs(chisq - smoothed_chisq)/smoothed_chisq, vmin=-thresh, vmax=thresh, interpolation='none')
         #baseline fit flag
@@ -595,47 +491,41 @@ class RedundantCalibrator:
             change_rate = np.median(np.abs(shortest_ubl_vis[:-1] - shortest_ubl_vis[1:]), axis = 2)
             nan_mask2 = np.isnan(change_rate)|np.isinf(change_rate)
             change_rate[nan_mask2] = 0
-
             if twindow >= self.nTime:
                 filtered_tdir = np.ones(self.nTime - 1)#will rescale anyways * np.min(np.median(chisq, axis = 1))
             else:
                 filtered_tdir = sfil.minimum_filter(np.median(change_rate, axis = 1), size = twindow, mode='reflect')
-
             if fwindow >= self.nFrequency:
                 filtered_fdir = np.ones(self.nFrequency)#will rescale anyways * np.min(np.median(chisq, axis = 0))
             else:
                 filtered_fdir = sfil.minimum_filter(np.median(change_rate, axis = 0), size = fwindow, mode='reflect')
-
             smoothed_change_rate = np.outer(filtered_tdir, filtered_fdir)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
                 smoothed_change_rate = smoothed_change_rate * np.median(change_rate[~nan_mask2] / smoothed_change_rate[~nan_mask2])
-
             ubl_flag_short = (change_rate > 2 * smoothed_change_rate) | nan_mask2
             ubl_flag = np.zeros_like(spike_flag)
             ubl_flag[:-1] = ubl_flag_short
             ubl_flag[1:] = ubl_flag[1:] | ubl_flag_short
-        else:
-            ubl_flag = np.zeros_like(nan_flag)
-
+        else: ubl_flag = np.zeros_like(nan_flag)
         return_flag = (nan_flag|spike_flag|ubl_flag)
         return return_flag
-
     def compute_redundantinfo(self, arrayinfoPath=None, verbose=False, badAntenna=[], badUBLpair=[], antennaLocationTolerance=1e-6):
-        '''XXX DOCSTRING'''
+        '''Use provided antenna locations (in arrayinfoPath) to derive redundancy equations'''
         # XXX could these be set somewhere else so they aren't passed in?
         self.antennaLocationTolerance = tol = antennaLocationTolerance
         self.badAntenna += badAntenna
         self.badUBLpair += badUBLpair
         if arrayinfoPath is not None: self.read_arrayinfo(arrayinfoPath)
-        #antennalocation quality check: make sure there's no crazy constant added to antlocs
-        if np.linalg.norm(self.antennaLocation) == 0: # XXX gotta be a cheaper way to do this
-            raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
-        bad_ant_mask = np.array([a in self.badAntenna for a in range(len(self.antennaLocation))]).astype('bool')
-        array_center = la.norm(np.mean(self.antennaLocation[~bad_ant_mask], axis=0))
-        array_std = la.norm(np.std(self.antennaLocation[~bad_ant_mask], axis=0))
-        if array_std / array_center < 1e-3: # XXX magic number?
-            raise TypeError("Average antenna location is %s whereas the typical variation among locations is %s, which is too small and will cause many problems. Please remove the large overall offset from antenna locations." % (np.mean(self.antennaLocation[~bad_ant_mask], axis=0), np.std(self.antennaLocation[~bad_ant_mask], axis=0)))
+        # XXX propose that these quality checks are outside the scope of this function
+        ##antennalocation quality check: make sure there's no crazy constant added to antlocs
+        #if np.linalg.norm(self.antennaLocation) == 0: # XXX gotta be a cheaper way to do this
+        #    raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
+        #bad_ant_mask = np.array([a in self.badAntenna for a in range(len(self.antennaLocation))]).astype('bool')
+        #array_center = la.norm(np.mean(self.antennaLocation[~bad_ant_mask], axis=0))
+        #array_std = la.norm(np.std(self.antennaLocation[~bad_ant_mask], axis=0))
+        #if array_std / array_center < 1e-3: # XXX magic number?
+        #    raise TypeError("Average antenna location is %s whereas the typical variation among locations is %s, which is too small and will cause many problems. Please remove the large overall offset from antenna locations." % (np.mean(self.antennaLocation[~bad_ant_mask], axis=0), np.std(self.antennaLocation[~bad_ant_mask], axis=0)))
         info = RedundantInfo()
         # exclude bad antennas
         info['subsetant'] = subsetant = np.array([i for i in xrange(self.antennaLocation.shape[0]) 
@@ -679,7 +569,7 @@ class RedundantCalibrator:
             if self.totalVisibilityId_dic.has_key(bl): tmp.append(p)
             elif self.totalVisibilityId_dic.has_key(bl[::-1]): tmp.append(p[::-1])
         info['bl2d'] = bl2d = np.array(tmp, dtype=np.int32)
-        info['nBaseline'] = len(bl2d)
+        info['nBaseline'] = len(bl2d) # XXX maybe have C api infer this
         # from a pair of good antenna index to baseline index
         info['subsetbl'] = np.array([self.get_baseline([subsetant[bl[0]],subsetant[bl[1]]]) 
                 for bl in bl2d], dtype=np.int32)
@@ -726,36 +616,24 @@ class RedundantCalibrator:
         m2 = d.dot(la.pinv(a.T.dot(a))).dot(a.T)
         info['degenM'] = np.append(m1,m2,axis=0)
         #A: A matrix for logcal amplitude
-        A = np.zeros((len(crosspair),nAntenna+len(ubl)))
+        A = np.zeros((len(crosspair),nAntenna+nUBL))
         for i,cp in enumerate(crosspair): A[i,cp[0]], A[i,cp[1]], A[i,nAntenna+bltoubl[i]] = 1,1,1
         info['At'] = sps.csr_matrix(A).T
         #B: B matrix for logcal phase
-        B = np.zeros((len(crosspair),nAntenna+len(ubl)))
+        B = np.zeros((len(crosspair),nAntenna+nUBL))
         for i,cp in enumerate(crosspair): B[i,cp[0]], B[i,cp[1]], B[i,nAntenna+bltoubl[i]] = -reverse[i],reverse[i],1
         info['Bt'] = sps.csr_matrix(B).T
         info.update()
         self.Info = info
-
     def get_baseline(self,pair):
         '''inverse function of totalVisibilityId, calculate the baseline index from 
         the antenna pair. It allows flipping of a1 and a2, will return same result'''
         if not (type(pair) == list or type(pair) == np.ndarray or type(pair) == tuple):
             raise Exception("input needs to be a list of two numbers")
-            return
         elif len(np.array(pair)) != 2:
             raise Exception("input needs to be a list of two numbers")
-            return
         elif type(pair[0]) == str or type(pair[0]) == np.string_:
             raise Exception("input needs to be number not string")
-            return
-        ####try:
-            ####return self.totalVisibilityId.tolist().index([pair[0],pair[1]])
-        ####except:
-            ####try:
-                ####return self.totalVisibilityId.tolist().index([pair[1], pair[0]])
-            ####except:
-                #####raise Exception("Error: antenna pair %s not found in self.totalVisibilityId."%pair)
-                ####return None
         if self.totalVisibilityId_dic is None:
             self.totalVisibilityId_dic = {}
             for bll, (a1, a2) in enumerate(self.totalVisibilityId):
@@ -764,16 +642,11 @@ class RedundantCalibrator:
             return self.totalVisibilityId_dic[(pair[0],pair[1])]
         elif (pair[1],pair[0]) in self.totalVisibilityId_dic:
             return self.totalVisibilityId_dic[(pair[1],pair[0])]
-        else:
-            return None
-
-
+        else: return None
     def compute_UBL_old2(self,tolerance = 0.1):
         '''compute_UBL returns the average of all baselines in that ubl group'''
         #check if the tolerance is not a string
-        if type(tolerance) == str:
-            raise Exception("tolerance needs to be number not string")
-            return
+        if type(tolerance) == str: raise Exception("tolerance needs to be number not string")
         #remove the bad antennas
         nant=len(self.antennaLocation)
         subsetant=[i for i in range(nant) if i not in self.badAntenna]
@@ -799,18 +672,13 @@ class RedundantCalibrator:
                     ubllist = np.append(ubllist,np.array([np.array([antloc[j]-antloc[i],1])]),axis=0)
         ubllist = np.delete(ubllist,0,0)
         ublall=[]
-        for ubl in ubllist:
-            ublall.append(ubl[0])
+        for ubl in ubllist: ublall.append(ubl[0])
         ublall=np.array(ublall)
         return ublall
-
-
     def compute_UBL_old(self,tolerance = 0.1):
         '''compute_UBL returns the average of all baselines in that ubl group'''
         #check if the tolerance is not a string
-        if type(tolerance) == str:
-            raise Exception("tolerance needs to be number not string")
-            return
+        if type(tolerance) == str: raise Exception("tolerance needs to be number not string")
         ubllist = np.array([np.array([np.array([0,0,0]),1])]);
         for pair in self.totalVisibilityId:
             if pair[0] not in self.badAntenna and pair[1] not in self.badAntenna:
@@ -831,11 +699,9 @@ class RedundantCalibrator:
                     ubllist = np.append(ubllist,np.array([np.array([self.antennaLocation[j]-self.antennaLocation[i],1])]),axis=0)
         ubllist = np.delete(ubllist,0,0)
         ublall=[]
-        for ubl in ubllist:
-            ublall.append(ubl[0])
+        for ubl in ubllist: ublall.append(ubl[0])
         ublall=np.array(ublall)
         return ublall
-
     def compute_UBL(self,tolerance = 0.1):
         '''XXX DOCSTRING'''
         if tolerance == 0:
@@ -845,39 +711,29 @@ class RedundantCalibrator:
             if a1 != a2 and a1 not in self.badAntenna and a2 not in self.badAntenna:
                 loc_tuple = tuple(np.round((self.antennaLocation[a2] - self.antennaLocation[a1]) / float(tolerance)) * tolerance)
                 neg_loc_tuple = tuple(np.round((self.antennaLocation[a1] - self.antennaLocation[a2]) / float(tolerance)) * tolerance)
-                if loc_tuple in ubl:
-                    ubl[loc_tuple].add(bl + 1)
-                elif neg_loc_tuple in ubl:
-                    ubl[neg_loc_tuple].add(- bl - 1)
+                if loc_tuple in ubl: ubl[loc_tuple].add(bl + 1)
+                elif neg_loc_tuple in ubl: ubl[neg_loc_tuple].add(- bl - 1)
                 else:
-                    if loc_tuple[0] >= 0:
-                        ubl[loc_tuple] = set([bl + 1])
-                    else:
-                        ubl[neg_loc_tuple] = set([-bl - 1])
-
+                    if loc_tuple[0] >= 0: ubl[loc_tuple] = set([bl + 1])
+                    else: ubl[neg_loc_tuple] = set([-bl - 1])
         #calculate actual average of the gridded baseline vectors to get an accurate representation of the ubl vector
         ubl_vec = np.zeros((len(ubl), 3))
         self.totalVisibilityUBL = {}
-
         ublcount = np.zeros(len(ubl))
         for u, grid_ubl_vec in enumerate(ubl):
             for bl in ubl[grid_ubl_vec]:
                 assert bl != 0
                 a1, a2 = self.totalVisibilityId[abs(bl) - 1]
-                if bl > 0:
-                    ubl_vec[u] = ubl_vec[u] + self.antennaLocation[a2] - self.antennaLocation[a1]
-                else:
-                    ubl_vec[u] = ubl_vec[u] + self.antennaLocation[a1] - self.antennaLocation[a2]
+                if bl > 0: ubl_vec[u] = ubl_vec[u] + self.antennaLocation[a2] - self.antennaLocation[a1]
+                else: ubl_vec[u] = ubl_vec[u] + self.antennaLocation[a1] - self.antennaLocation[a2]
                 self.totalVisibilityUBL[(a1, a2)] = u
             ublcount[u] = len(ubl[grid_ubl_vec])
             ubl_vec[u] = ubl_vec[u] / ublcount[u]
-
         reorder = (ubl_vec[:,1]*1e9 + ubl_vec[:,0]).argsort()
         rereorder = reorder.argsort()
         for key in self.totalVisibilityUBL:
             self.totalVisibilityUBL[key] = rereorder[self.totalVisibilityUBL[key]]
         ubl_vec = ubl_vec[reorder]
-
         #now I need to deal with the fact that no matter how coarse my grid is, it's possible for a single group of ubl to fall into two adjacent grids. So I'm going to check if any of the final ubl vectors are seperated by less than tolerance. If so, merge them
         ublmap = {}
         for u1 in range(len(ubl_vec)):
@@ -887,74 +743,48 @@ class RedundantCalibrator:
                     ubl_vec[u2] = (ubl_vec[u1] * ublcount[u1] + ubl_vec[u2] * ublcount[u2]) / (ublcount[u1] + ublcount[u2])
                     break
             ublmap[u1] = u1
-
         merged_ubl_vec = []
         for u in range(len(ubl_vec)):
             if ublmap[u] == u:
                 merged_ubl_vec.append(ubl_vec[u])
                 ublmap[u] = len(merged_ubl_vec) - 1
-            else:
-                ublmap[u] = ublmap[ublmap[u]]
+            else: ublmap[u] = ublmap[ublmap[u]]
         merged_ubl_vec = np.array(merged_ubl_vec)
-
         for key in self.totalVisibilityUBL:
             self.totalVisibilityUBL[key] = ublmap[self.totalVisibilityUBL[key]]
         return ubl_vec
-
-
     def get_ublindex(self,antpair):
         '''need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
         input the antenna pair(as a list of two numbers), return the corresponding ubl index'''
         #check if the input is a list, tuple, np.array of two numbers
         if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
             raise Exception("input needs to be a list of two numbers")
-            return
         elif len(np.array(antpair)) != 2:
             raise Exception("input needs to be a list of two numbers")
-            return
         elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
             raise Exception("input needs to be number not string")
-            return
-
-        #check if self.info['bl1dmatrix'] exists
-        try:
-            _ = self.Info.bl1dmatrix
-        except:
-            raise Exception("needs Info.bl1dmatrix")
-
+        try: _ = self.Info.bl1dmatrix
+        except: raise Exception("needs Info.bl1dmatrix")
         crossblindex=self.Info.bl1dmatrix[antpair[0]][antpair[1]]
-        if antpair[0]==antpair[1]:
-            return "auto correlation"
-        elif crossblindex == 99999:
-            return "bad ubl"
+        if antpair[0]==antpair[1]: return "auto correlation"
+        elif crossblindex == 99999: return "bad ubl"
         return self.Info.bltoubl[crossblindex]
-
-
     def get_reversed(self,antpair):
         '''need to do compute_redundantinfo first
         input the antenna pair, return -1 if it is a reversed baseline and 1 if it is not reversed'''
         #check if the input is a list, tuple, np.array of two numbers
         if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
             raise Exception("input needs to be a list of two numbers")
-            return
         elif len(np.array(antpair)) != 2:
             raise Exception("input needs to be a list of two numbers")
-            return
         elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
             raise Exception("input needs to be number not string")
-            return
-
         #check if self.info['bl1dmatrix'] exists
-        try:
-            _ = self.Info.bl1dmatrix
-        except:
-            raise Exception("needs Info.bl1dmatrix")
-
+        try: _ = self.Info.bl1dmatrix
+        except: raise Exception("needs Info.bl1dmatrix")
         crossblindex=self.Info.bl1dmatrix[antpair[0]][antpair[1]]
-        if antpair[0] == antpair[1]:
-            return 1
-        if crossblindex == 99999:
-            return 'badbaseline'
+        if antpair[0] == antpair[1]: return 1
+        if crossblindex == 99999: return 'badbaseline'
         return self.Info.reversed[crossblindex]
 
 ##########################Sub-class#############################
@@ -999,9 +829,7 @@ class RedundantCalibrator_X5(RedundantCalibrator):
 def load_omnichisq(path):
     '''XXX DOCSTRING'''
     path = os.path.expanduser(path)
-    if not os.path.isfile(path):
-        raise IOError("Path %s does not exist."%path)
-
+    if not os.path.isfile(path): raise IOError("Path %s does not exist."%path)
     omnichisq = np.fromfile(path, dtype = 'float32')
     NF = int(omnichisq[2])
     omnichisq.shape = (len(omnichisq) / (NF + 3), (NF + 3))
@@ -1010,14 +838,9 @@ def load_omnichisq(path):
 def load_omnigain(path, info=None):
     '''XXX DOCSTRING'''
     path = os.path.expanduser(path)
-    if not os.path.isfile(path):
-        raise IOError("Path %s does not exist."%path)
-    if info is None:
-        info = path.replace('.omnigain', '.binfo')
-    if type(info) == type('a'):
-        info = read_redundantinfo(info)
-
-
+    if not os.path.isfile(path): raise IOError("Path %s does not exist."%path)
+    if info is None: info = path.replace('.omnigain', '.binfo')
+    if type(info) == type('a'): info = read_redundantinfo(info)
     omnigain = np.fromfile(path, dtype = 'float32')
     omnigain.shape = (omnigain.shape[0] / (info['nAntenna']) / (2 + 1 + 1 + 2 * int(omnigain[3])), info['nAntenna'], 2 + 1 + 1 + 2 * int(omnigain[3]))
     return omnigain
@@ -1025,14 +848,9 @@ def load_omnigain(path, info=None):
 def load_omnifit(path, info=None):
     '''XXX DOCSTRING'''
     path = os.path.expanduser(path)
-    if not os.path.isfile(path):
-        raise IOError("Path %s does not exist."%path)
-    if info is None:
-        info = path.replace('.omnifit', '.binfo')
-    if type(info) == type('a'):
-        info = read_redundantinfo(info)
-
-
+    if not os.path.isfile(path): raise IOError("Path %s does not exist."%path)
+    if info is None: info = path.replace('.omnifit', '.binfo')
+    if type(info) == type('a'): info = read_redundantinfo(info)
     omnifit = np.fromfile(path, dtype = 'float32')
     omnifit.shape = (omnifit.shape[0] / (info['nUBL']) / (2 + 3 + 1 + 2 * int(omnifit[5])), info['nUBL'], 2 + 3 + 1 + 2 * int(omnifit[3]))
     return omnifit
@@ -1125,21 +943,16 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
 # XXX utility function belongs in another file
 def lin_depend(v1, v2, tol = 0):
     '''whether v1 and v2 are linearly dependent'''
-    if len(v1) != len(v2):
-        raise Exception("Length mismatch %i vs %i."%(len(v1), len(v2)))
-    if la.norm(v1) == 0:
-        return True
+    if len(v1) != len(v2): raise Exception("Length mismatch %i vs %i."%(len(v1), len(v2)))
+    if la.norm(v1) == 0: return True
     return la.norm(np.dot(v1, v2)/np.dot(v1, v1) * v1 - v2) <= tol
 
 # XXX utility function belongs in another file
 def _f(rawcal_ubl=[], verbose=False):
     '''run this function twice in a row and its christmas'''
-    if verbose and rawcal_ubl != []:
-        print "Starting ubl:", rawcal_ubl
-    if rawcal_ubl == []:
-        rawcal_ubl += [2,3]
-    if verbose:
-        print "ubl:", rawcal_ubl
+    if verbose and rawcal_ubl != []: print "Starting ubl:", rawcal_ubl
+    if rawcal_ubl == []: rawcal_ubl += [2,3]
+    if verbose: print "ubl:", rawcal_ubl
 
 def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
     '''return (intialantenna, solution_path) for raw calibration. solution path
@@ -1170,8 +983,8 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
                 rawcal_ubl[1] = np.nanargmax(ublcnt_tmp)
                 if verbose:
                     print "Picking %s with redundancy %i as second ubl"%(info['ubl'][rawcal_ubl[-1]], ublcnt_tmp[rawcal_ubl[-1]])
-            except:
-                raise Exception("Cannot find two unique baselines that are linearly independent!")
+            # XXX this not good
+            except: raise Exception("Cannot find two unique baselines that are linearly independent!")
             ublcnt_tmp[rawcal_ubl[-1]] = np.nan
     if verbose:
         print "ubl:", info['ubl'][rawcal_ubl[0]], info['ubl'][rawcal_ubl[1]]
@@ -1514,42 +1327,29 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
     p = np.pi
     A = np.array(A_in)
     b = np.array(b_in + p) % (2*p) - p
-    if A.ndim != 2:
-        raise TypeError("A matrix must be 2 dimensional. Input A is %i dimensional."%A.ndim)
-    if A.shape[0] != b.shape[0]:
-        raise TypeError("A and b has shape mismatch: %s and %s."%(A.shape, b.shape))
-    if A.shape[1] != 2:
-        raise TypeError("A matrix's second dimension must have size of 2. %i inputted."%A.shape[1])
-    if verbose:
-        timer.tick("a")
+    if A.ndim != 2: raise TypeError("A matrix must be 2 dimensional. Input A is %i dimensional."%A.ndim)
+    if A.shape[0] != b.shape[0]: raise TypeError("A and b has shape mismatch: %s and %s."%(A.shape, b.shape))
+    if A.shape[1] != 2: raise TypeError("A matrix's second dimension must have size of 2. %i inputted."%A.shape[1])
+    if verbose: timer.tick("a")
     #find the shortest 2 non-parallel baselines, candidate_vecs have all combinations of vectors in a summation or subtraction. Each entry is i,j, v0,v1 where Ai+Aj=(v0,v1), negative j means subtraction. Identical i,j means vector itself without add or subtract
     candidate_vecs = np.zeros((len(A)**2, 4), dtype = 'float32')
     n = 0
     for i in range(len(A)):
         for j in range(len(A)):
-            if i < j:
-                candidate_vecs[n] = [i, j, A[i,0]+A[j,0], A[i,1]+A[j,1]]
-            elif i == j:
-                candidate_vecs[n] = [i, j, A[i,0], A[i,1]]
-            elif i > j:
-                candidate_vecs[n] = [i, -j, A[i,0]-A[j,0], A[i,1]-A[j,1]]
-
+            if i < j: candidate_vecs[n] = [i, j, A[i,0]+A[j,0], A[i,1]+A[j,1]]
+            elif i == j: candidate_vecs[n] = [i, j, A[i,0], A[i,1]]
+            elif i > j: candidate_vecs[n] = [i, -j, A[i,0]-A[j,0], A[i,1]-A[j,1]]
             n = n + 1
-    if verbose:
-        timer.tick("b")
+    if verbose: timer.tick("b")
     candidate_vecs = candidate_vecs[np.linalg.norm(candidate_vecs, axis=1)>tol]
-
     #construct coarse A that consists of the 2 shortest vecs
     coarseA = np.zeros((2,2), dtype = 'float32')
-    if b.ndim > 1:
-        coarseb = np.zeros(np.concatenate(([2], b.shape[1:])), dtype='float32')
-    else:
-        coarseb = np.zeros(2, dtype='float32')
+    if b.ndim > 1: coarseb = np.zeros(np.concatenate(([2], b.shape[1:])), dtype='float32')
+    else: coarseb = np.zeros(2, dtype='float32')
 
     for n in np.argsort(np.linalg.norm(candidate_vecs[:, 2:4], axis=1)):
         v = candidate_vecs[n, 2:4]
-        if la.norm(coarseA[0]) == 0:
-            coarseA[0] = v
+        if la.norm(coarseA[0]) == 0: coarseA[0] = v
         else:
             perp_component = v - v.dot(coarseA[0])/(coarseA[0].dot(coarseA[0])) * coarseA[0]
             if la.norm(perp_component) > tol:
@@ -1557,8 +1357,7 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
                 break
     if la.norm(coarseA[1]) == 0:
         raise Exception("Poorly constructed A matrix: cannot find a pair of orthogonal vectors")
-    if verbose:
-        timer.tick("c")
+    if verbose: timer.tick("c")
     #construct coarse b that contains medianAngle off all bs correponding to the 2 shortest bls
     coarseb0_candidate_indices = np.arange(len(candidate_vecs))[(np.linalg.norm(candidate_vecs[:, 2:4] - coarseA[0], axis=-1) < tol)|(np.linalg.norm(candidate_vecs[:, 2:4] + coarseA[0], axis=-1) < tol)]#stores the indices in candidate_vecs that is revelant to coarseb0
     coarseb1_candidate_indices = np.arange(len(candidate_vecs))[(np.linalg.norm(candidate_vecs[:, 2:4] - coarseA[1], axis=-1) < tol)|(np.linalg.norm(candidate_vecs[:, 2:4] + coarseA[1], axis=-1) < tol)]#stores the indices in candidate_vecs that is revelant to coarseb1
@@ -1574,19 +1373,13 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
             i = int(candidate_vecs[ind, 0])
             j = int(candidate_vecs[ind, 1])
             v = candidate_vecs[ind, 2:4]
-            if la.norm(coarseA[nn] - v) < tol:
-                bsign = 1
-            else:
-                bsign = -1
-            if i < j:
-                coarseb_candidate[n] = b[i]+b[j]#(b[i]+b[j]+p)%(2*p)-p
-            elif i == j:
-                coarseb_candidate[n] = b[i]
-            elif i > j:
-                coarseb_candidate[n] = b[i]-b[abs(j)]#(b[i]-b[abs(j)]+p)%(2*p)-p
+            if la.norm(coarseA[nn] - v) < tol: bsign = 1
+            else: bsign = -1
+            if i < j: coarseb_candidate[n] = b[i]+b[j]#(b[i]+b[j]+p)%(2*p)-p
+            elif i == j: coarseb_candidate[n] = b[i]
+            elif i > j: coarseb_candidate[n] = b[i]-b[abs(j)]#(b[i]-b[abs(j)]+p)%(2*p)-p
             coarseb_candidate[n] = coarseb_candidate[n] * bsign
-    if verbose:
-        timer.tick("d")
+    if verbose: timer.tick("d")
 
     coarseb[0] = medianAngle(coarseb0_candidate, axis=0)
     coarseb[1] = medianAngle(coarseb1_candidate, axis=0)
@@ -1594,41 +1387,34 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
         print coarseb0_candidate.shape
         timer.tick("d")
     # find coarse solutions
-    try:
-        icA = la.inv(coarseA)
-    except:
-        raise Exception("Poorly constructed coarseA matrix: %s."%(coarseA))
+    try: icA = la.inv(coarseA)
+    # XXX this bad
+    except: raise Exception("Poorly constructed coarseA matrix: %s."%(coarseA))
     try:
         #iA = InverseCholeskyMatrix(A.transpose().dot(A))
         iA = la.inv(A.transpose().dot(A))
-    except:
-        raise Exception("Poorly constructed A matrix: %s."%(A.transpose().dot(A)))
+    # XXX this bad
+    except: raise Exception("Poorly constructed A matrix: %s."%(A.transpose().dot(A)))
     if verbose:
         print iA.shape
         timer.tick("e")
     if b.ndim > 2:
         extra_shape = b.shape[1:]
         flat_extra_dim = 1
-        for i in range(1, b.ndim):
-            flat_extra_dim = flat_extra_dim * b.shape[i]
+        for i in range(1, b.ndim): flat_extra_dim = flat_extra_dim * b.shape[i]
         coarseb.shape = (2, flat_extra_dim)
         b.shape = (len(b), flat_extra_dim)
-    else:
-        extra_shape = None
-    if verbose:
-        timer.tick("f")
+    else: extra_shape = None
+    if verbose: timer.tick("f")
     result = icA.dot(coarseb)
     if verbose:
         print coarseA
         print result
     for i in range(niter):
         result = result + step * iA.dot(A.transpose().dot((b - A.dot(result) + p)%(2*p)-p))
-        if verbose:
-            print result
-    if extra_shape is not None:
-        result.shape = tuple(np.concatenate(([2], extra_shape)))
-    if verbose:
-        timer.tick("g")
+        if verbose: print result
+    if extra_shape is not None: result.shape = tuple(np.concatenate(([2], extra_shape)))
+    if verbose: timer.tick("g")
     return result
 
 #def solve_slope_old(A_in, b_in, tol, niter=3, p = np.pi):#solve for the solution vector x such that mod(A.x, 2pi) = b, where the values range from -p to p. solution will be seeked on the first axis of b
@@ -1814,7 +1600,6 @@ class Timer:
         self.start_time = self.time
         self.last_msg = None
         self.repeat_msg = 0
-
     def tick(self, msg='', mute=False):
         '''XXX DOCSTRING'''
         msg = str(msg)
@@ -1822,15 +1607,12 @@ class Timer:
         m = (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
         if msg == self.last_msg:
             self.repeat_msg += 1
-            if not mute:
-                print msg + '*' + str(self.repeat_msg), "time elapsed: %f min"%t,
+            if not mute: print msg + '*' + str(self.repeat_msg), "time elapsed: %f min"%t,
         else:
             self.repeat_msg = 0
             self.last_msg = msg
-            if not mute:
-             print msg, "Time elapsed: %f min."%t,
-        if not mute:
-            print "Memory usage 0: %.3fMB."%m
+            if not mute: print msg, "Time elapsed: %f min."%t,
+        if not mute: print "Memory usage 0: %.3fMB."%m
         sys.stdout.flush()
         self.time = time.time()
         return t, m
