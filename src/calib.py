@@ -32,9 +32,7 @@ PI = np.pi
 
 def apply_calpar(data, calpar, visibilityID):
     '''apply complex calpar for all antennas onto all bls, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq'''
-    METHODNAME = "*apply_calpar*"
-    if calpar.shape[-1] <= np.amax(visibilityID) or data.shape[-1] != len(visibilityID):
-        raise Exception("Dimension mismatch! Either number of antennas in calpar " + str(calpar.shape[-1]) + " is less than implied in visibility ID "  + str(1 + np.amax(visibilityID)) + ", or the length of the last axis of data "  + str(data.shape[-1]) + " is not equal to length of visibilityID "  + str(len(visibilityID)) + ".")
+    assert(calpar.shape[-1] > np.amax(visibilityID) and data.shape[-1] == len(visibilityID))
     if len(calpar.shape) == 3 and len(data.shape) == 3 and calpar.shape[:2] == data.shape[:2]:
         return data/(np.conjugate(calpar[:,:,visibilityID[:,0].astype(int)]) * calpar[:,:,visibilityID[:,1].astype(int)])
     elif len(calpar.shape) == 2 and (len(data.shape) == 3 or len(data.shape) == 2) and calpar.shape[0] == data.shape[-2]:
@@ -47,8 +45,7 @@ def apply_calpar(data, calpar, visibilityID):
 def apply_calpar2(data, calpar, calpar2, visibilityID):
     '''apply complex calpar for all antennas onto all bls, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq'''
     METHODNAME = "*apply_calpar2*"
-    if calpar.shape[-1] <= np.amax(visibilityID) or data.shape[-1] != len(visibilityID) or calpar.shape != calpar2.shape:
-        raise Exception("Dimension mismatch! Either number of antennas in calpar " + str(calpar.shape[-1]) + " is less than implied in visibility ID "  + str(1 + np.amax(visibilityID)) + ", or the length of the last axis of data "  + str(data.shape[-1]) + " is not equal to length of visibilityID "  + str(len(visibilityID)) + ", or calpars have different dimensions:" + str(calpar.shape) + str(calpar.shape) + '.')
+    assert(calpar.shape[-1] > np.amax(visibilityID) and data.shape[-1] == len(visibilityID) and calpar.shape == calpar2.shape)
     if len(calpar.shape) == 3 and len(data.shape) == 3 and calpar.shape[:2] == data.shape[:2]:
         return data/(np.conjugate(calpar[:,:,visibilityID[:,0].astype(int)]) * calpar2[:,:,visibilityID[:,1].astype(int)])
     elif len(calpar.shape) == 2 and (len(data.shape) == 3 or len(data.shape) == 2) and calpar.shape[0] == data.shape[-2]:
@@ -146,7 +143,7 @@ class RedundantCalibrator:
     collected from that array. In general, upon creating an instance, the user need 
     to create the info field of the instance by either computing it or reading it 
     from a text file.'''
-    def __init__(self, nTotalAnt, info = None):
+    def __init__(self, nTotalAnt, info=None):
         self.nTotalAnt = nTotalAnt
         self.nTotalBaselineAuto = (nTotalAnt + 1) * nTotalAnt / 2
         self.nTotalBaselineCross = (nTotalAnt - 1) * nTotalAnt / 2
@@ -178,15 +175,15 @@ class RedundantCalibrator:
         if info is not None: # XXX what is the point of leaving info == None?
             if type(info) == str: self.read_redundantinfo(info)
             else: self.Info = info
-    def __repr__(self,): return self.__str__()
-    def __str__(self,):
-        if self.Info is None:
-            return "<Uninitialized %i antenna RedundantCalibrator with no RedundantInfo.>"%self.nTotalAnt
-        else:
-            return "<RedundantCalibrator for an %i antenna array: %i good bls including %i good antennas and %i unique bls.>"%(self.nTotalAnt, len(self.Info.crossindex), self.Info.nAntenna, self.Info.nUBL)
-    def __getattr__(self, name): # XXX why not just inherit from info if accessing all attributes of info?
-        try: return self.Info.__getattribute__(name)
-        except: raise AttributeError("RedundantCalibrator has no attribute named %s"%name)
+    #def __repr__(self,): return self.__str__()
+    #def __str__(self,):
+    #    if self.Info is None:
+    #        return "<Uninitialized %i antenna RedundantCalibrator with no RedundantInfo.>"%self.nTotalAnt
+    #    else:
+    #        return "<RedundantCalibrator for an %i antenna array: %i good bls including %i good antennas and %i unique bls.>"%(self.nTotalAnt, len(self.Info.crossindex), self.Info.nAntenna, self.Info.nUBL)
+    #def __getattr__(self, name): # XXX why not just inherit from info if accessing all attributes of info?
+    #    try: return self.Info.__getattribute__(name)
+    #    except: raise AttributeError("RedundantCalibrator has no attribute named %s"%name)
     def _gen_totalVisibilityId_dic(self):
         self.totalVisibilityId_dic = {}
         for bll, (a1,a2) in enumerate(self.totalVisibilityId): self.totalVisibilityId_dic[(a1,a2)] = bll
@@ -205,71 +202,53 @@ class RedundantCalibrator:
         of error when checking redundancy, antenna locations, and visibility's 
         antenna pairing conventions. Unlike redundant info which is a self-contained 
         dictionary, items in array info each have their own fields in the instance.'''
-        if not os.path.isfile(arrayinfopath):
-            raise IOError("Error: Array info file " + arrayinfopath + " doesn't exist!")
-        with open(arrayinfopath) as f:
-            rawinfo = [[float(x) for x in line.split()] for line in f]
-        if verbose: print " MSG:",  "Reading", arrayinfopath, "...",
-        self.badAntenna = np.array(rawinfo[0]).astype(int)
-        if self.badAntenna[0] < 0: self.badAntenna = np.zeros(0)
-        if len(np.array(rawinfo[1])) == 0 or len(np.array(rawinfo[1]))%2 != 0 or min(np.array(rawinfo[1]).astype(int)) < 0:
+        if verbose: print "Reading", arrayinfopath
+        with open(arrayinfopath) as f: rawinfo = [[float(x) for x in line.split()] for line in f]
+        self.badAntenna = np.array(rawinfo[0], dtype=np.int)
+        if self.badAntenna[0] < 0: self.badAntenna = np.zeros(0) # XXX special significance for < 0?
+        rawpair = np.array(rawinfo[1], dtype=np.int)
+        if rawpair.shape[0] == 0 or rawpair.shape[0] % 2 != 0 or rawpair.min() < 0: # XXX shouldn't accept bad states
             self.badUBLpair = np.array([])
-        else:
-            rawpair = np.array(rawinfo[1]).astype(int)
-            self.badUBLpair = np.reshape(rawpair,(len(rawpair)/2,2))
+        else: self.badUBLpair = np.reshape(rawpair,(len(rawpair)/2,2))
         self.antennaLocationTolerance = rawinfo[2][0]
         for a in range(len(self.antennaLocation)):
-            if len(rawinfo[a + 3]) != 3:
-                raise ValueError("Error: Format error in " + arrayinfopath + ": The antenna locations should start on the 4th line, with 3 numbers in each line!")
-            else: self.antennaLocation[a] = np.array(rawinfo[a + 3])
+            assert(len(rawinfo[a+3]) == 3)
+            self.antennaLocation[a] = np.array(rawinfo[a+3])
         bl = 0
-        self.totalVisibilityId = []
+        vis_id = []
         max_bl_cnt = self.nTotalAnt * (self.nTotalAnt + 1) / 2
         maxline = len(rawinfo)
-        while len(rawinfo[bl + 3 + len(self.antennaLocation)]) == 2:
-            if bl >= max_bl_cnt:
-                raise Exception("Number of total visibility ids exceeds the maximum possible number of bls of %i"%(max_bl_cnt))
-            self.totalVisibilityId.append(np.array(rawinfo[bl + 3 + len(self.antennaLocation)]).astype(int))
-            bl = bl + 1
+        while len(rawinfo[bl + 3 + len(self.antennaLocation)]) == 2: # XXX don't like while loop
+            assert(bl < max_bl_cnt)
+            vis_id.append(np.array(rawinfo[bl + 3 + len(self.antennaLocation)], dtype=np.int))
+            bl += 1
             if bl + 3 + len(self.antennaLocation) >= maxline: break
-        self.totalVisibilityId = np.array(self.totalVisibilityId).astype(int)
+        self.totalVisibilityId = np.array(vis_id, dtype=np.int)
         self._gen_totalVisibilityId_dic()
         if verbose:
             print "Total number of visibilities:", bl,
             print "Bad antenna indices:", self.badAntenna,
             print "Bad UBL indices:", self.badUBLpair
-    def lincal(self, data, additivein, nthread = None, verbose = False):
+    def _redcal(self, data, additivein, nthread=None, verbose=False, uselogcal=0):
         '''for best performance, try setting nthread to larger than number of cores.'''
-        if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
-            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * bl(%i)"%len(self.totalVisibilityId))
-        if data.shape != additivein.shape:
-            raise ValueError("Data shape error: data and additive in have different shapes.")
-        self.nTime = len(data)
-        self.nFrequency = len(data[0])
-        if self.rawCalpar is None:
-            self.rawCalpar = np.zeros((self.nTime, self.nFrequency, 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
-        elif self.rawCalpar.shape != (len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)):
-            raise ValueError("ERROR: lincal called without a properly shaped self.rawCalpar! Excpeted shape is (%i, %i, %i)!"%(len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)))
-        if nthread is None:
-            nthread = nthread = min(mp.cpu_count() - 1, self.nFrequency)
-        if nthread < 2:
-            return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 0, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit), trust_period = self.trust_period)
-        else:
-            return self._redcal_multithread(data, additivein, 0, nthread, verbose = verbose)        ##self.chisq = self.rawCalpar[:, :, 2]
-    def logcal(self, data, additivein, nthread = None, verbose = False):
-        '''XXX DOCSTRING'''
-        if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
-            raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * bl(%i)"%len(self.totalVisibilityId))
-        if data.shape != additivein.shape:
-            raise ValueError("Data shape error: data and additive in have different shapes.")
-        self.nTime = len(data)
-        self.nFrequency = len(data[0])
-        self.rawCalpar = np.zeros((len(data), len(data[0]), 3 + 2 * (self.Info.nAntenna + self.Info.nUBL)), dtype = 'float32')
+        assert(data.ndim == 3 and data.shape[-1] == len(self.totalVisibilityId))
+        assert(data.shape == additivein.shape)
+        self.nTime, self.nFrequency = data.shape[:2]
+        if uselogcal or self.rawCalpar is None:
+            self.rawCalpar = np.zeros((self.nTime, self.nFrequency, 3+2*(self.Info.nAntenna+self.Info.nUBL)), dtype=np.float32)
+        assert(self.rawCalpar.shape == (self.nTime,self.nFrequency, 3+2*(self.Info.nAntenna+self.Info.nUBL)))
         if nthread is None: nthread = min(mp.cpu_count() - 1, self.nFrequency)
-        if nthread < 2:
-            return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, additivein[:,:,self.Info.subsetbl], removedegen = int(self.removeDegeneracy), uselogcal = 1, maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), computeUBLFit = int(self.computeUBLFit))
-        else:
-            return self._redcal_multithread(data, additivein, 1, nthread, verbose = verbose)
+        if nthread >= 2: return self._redcal_multithread(data, additivein, 0, nthread, verbose=verbose)
+        return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, 
+            additivein[:,:,self.Info.subsetbl], removedegen=int(self.removeDegeneracy), uselogcal=uselogcal, 
+            maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), 
+            computeUBLFit=int(self.computeUBLFit), trust_period=self.trust_period)
+    def lincal(self, data, additivein, nthread=None, verbose=False):
+        '''XXX DOCSTRING'''
+        return self._redcal(data, additivein, nthread=nthread, verbose=verbose, uselogcal=0)
+    def logcal(self, data, additivein, nthread=None, verbose=False):
+        '''XXX DOCSTRING'''
+        return self._redcal(data, additivein, nthread=nthread, verbose=verbose, uselogcal=1)
     def _redcal_multithread(self, data, additivein, uselogcal, nthread, verbose = False):
         '''XXX DOCSTRING'''
         nthread = min(nthread, self.nFrequency)
@@ -396,7 +375,6 @@ class RedundantCalibrator:
         elif flag.shape != self.rawCalpar.shape[:2]:
             raise TypeError('flag and self.rawCalpar have different shapes %s %s.'%(flag.shape, self.rawCalpar.shape[:2]))
         checks = 1
-        timer = Timer()
         bad_count = np.zeros((3,self.Info.nAntenna), dtype='int')
         bad_ubl_count = np.zeros(self.Info.nUBL, dtype='int')
         median_level = nanmedian(nanmedian(self.rawCalpar[:,:,3:3+self.Info.nAntenna], axis= 0), axis= 1)
@@ -1305,14 +1283,12 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
     '''solve for the solution vector x such that mod(A.x, 2pi) = b, 
     where the values range from -p to p. solution will be seeked 
     on the first axis of b'''
-    timer = Timer()
     p = np.pi
     A = np.array(A_in)
     b = np.array(b_in + p) % (2*p) - p
     if A.ndim != 2: raise TypeError("A matrix must be 2 dimensional. Input A is %i dimensional."%A.ndim)
     if A.shape[0] != b.shape[0]: raise TypeError("A and b has shape mismatch: %s and %s."%(A.shape, b.shape))
     if A.shape[1] != 2: raise TypeError("A matrix's second dimension must have size of 2. %i inputted."%A.shape[1])
-    if verbose: timer.tick("a")
     #find the shortest 2 non-parallel bls, candidate_vecs have all combinations of vectors in a summation or subtraction. Each entry is i,j, v0,v1 where Ai+Aj=(v0,v1), negative j means subtraction. Identical i,j means vector itself without add or subtract
     candidate_vecs = np.zeros((len(A)**2, 4), dtype = 'float32')
     n = 0
@@ -1322,7 +1298,6 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
             elif i == j: candidate_vecs[n] = [i, j, A[i,0], A[i,1]]
             elif i > j: candidate_vecs[n] = [i, -j, A[i,0]-A[j,0], A[i,1]-A[j,1]]
             n = n + 1
-    if verbose: timer.tick("b")
     candidate_vecs = candidate_vecs[np.linalg.norm(candidate_vecs, axis=1)>tol]
     #construct coarse A that consists of the 2 shortest vecs
     coarseA = np.zeros((2,2), dtype = 'float32')
@@ -1339,7 +1314,6 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
                 break
     if la.norm(coarseA[1]) == 0:
         raise Exception("Poorly constructed A matrix: cannot find a pair of orthogonal vectors")
-    if verbose: timer.tick("c")
     #construct coarse b that contains medianAngle off all bs correponding to the 2 shortest bls
     coarseb0_candidate_indices = np.arange(len(candidate_vecs))[(np.linalg.norm(candidate_vecs[:, 2:4] - coarseA[0], axis=-1) < tol)|(np.linalg.norm(candidate_vecs[:, 2:4] + coarseA[0], axis=-1) < tol)]#stores the indices in candidate_vecs that is revelant to coarseb0
     coarseb1_candidate_indices = np.arange(len(candidate_vecs))[(np.linalg.norm(candidate_vecs[:, 2:4] - coarseA[1], axis=-1) < tol)|(np.linalg.norm(candidate_vecs[:, 2:4] + coarseA[1], axis=-1) < tol)]#stores the indices in candidate_vecs that is revelant to coarseb1
@@ -1361,13 +1335,11 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
             elif i == j: coarseb_candidate[n] = b[i]
             elif i > j: coarseb_candidate[n] = b[i]-b[abs(j)]#(b[i]-b[abs(j)]+p)%(2*p)-p
             coarseb_candidate[n] = coarseb_candidate[n] * bsign
-    if verbose: timer.tick("d")
 
     coarseb[0] = medianAngle(coarseb0_candidate, axis=0)
     coarseb[1] = medianAngle(coarseb1_candidate, axis=0)
     if verbose:
         print coarseb0_candidate.shape
-        timer.tick("d")
     # find coarse solutions
     try: icA = la.inv(coarseA)
     # XXX this bad
@@ -1377,9 +1349,7 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
         iA = la.inv(A.transpose().dot(A))
     # XXX this bad
     except: raise Exception("Poorly constructed A matrix: %s."%(A.transpose().dot(A)))
-    if verbose:
-        print iA.shape
-        timer.tick("e")
+    if verbose: print iA.shape
     if b.ndim > 2:
         extra_shape = b.shape[1:]
         flat_extra_dim = 1
@@ -1387,7 +1357,6 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
         coarseb.shape = (2, flat_extra_dim)
         b.shape = (len(b), flat_extra_dim)
     else: extra_shape = None
-    if verbose: timer.tick("f")
     result = icA.dot(coarseb)
     if verbose:
         print coarseA
@@ -1396,7 +1365,6 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
         result = result + step * iA.dot(A.transpose().dot((b - A.dot(result) + p)%(2*p)-p))
         if verbose: print result
     if extra_shape is not None: result.shape = tuple(np.concatenate(([2], extra_shape)))
-    if verbose: timer.tick("g")
     return result
 
 #def solve_slope_old(A_in, b_in, tol, niter=3, p = np.pi):#solve for the solution vector x such that mod(A.x, 2pi) = b, where the values range from -p to p. solution will be seeked on the first axis of b
@@ -1568,34 +1536,4 @@ def deconvolve_spectra2(spectra, window, band_limit, var=None, correction_weight
     deconv_fdata = (mmi.dot(m.transpose().conjugate()) * Ni).dot(spectra*mult_window)
     model_fdata = m.dot(deconv_fdata)
     return deconv_fdata, np.linalg.norm(model_fdata-spectra*mult_window, axis = 0), model_fdata-spectra*mult_window, mmi
-
-#  _____ _               
-# |_   _(_)_ __  ___ _ _ 
-#   | | | | '  \/ -_) '_|
-#   |_| |_|_|_|_\___|_|  
-
-# XXX utility stuff belongs in another file
-class Timer:
-    '''XXX DOCSTRING'''
-    def __init__(self):
-        self.time = time.time()
-        self.start_time = self.time
-        self.last_msg = None
-        self.repeat_msg = 0
-    def tick(self, msg='', mute=False):
-        '''XXX DOCSTRING'''
-        msg = str(msg)
-        t = (float(time.time() - self.time)/60.)
-        m = (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
-        if msg == self.last_msg:
-            self.repeat_msg += 1
-            if not mute: print msg + '*' + str(self.repeat_msg), "time elapsed: %f min"%t,
-        else:
-            self.repeat_msg = 0
-            self.last_msg = msg
-            if not mute: print msg, "Time elapsed: %f min."%t,
-        if not mute: print "Memory usage 0: %.3fMB."%m
-        sys.stdout.flush()
-        self.time = time.time()
-        return t, m
 
