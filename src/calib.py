@@ -162,9 +162,7 @@ class RedundantCalibrator:
             self.antennaLocation[a] = np.array([a/side, a%side, 0])
         self.antennaLocationTolerance = 10**(-6)
         self.badAntenna = []
-        self.badUBL = []
         self.badUBLpair = []
-        self.ubl2goodubl = None
         self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j + 1)] for j in range(self.nTotalAnt)])#PAPER miriad convention by default
         self.totalVisibilityId_dic = None
         self.totalVisibilityUBL = None
@@ -456,25 +454,6 @@ class RedundantCalibrator:
         omnifit[:, :, 6::2] = self.rawCalpar[:, :, 3 + 2 * self.Info.nAntenna::2].transpose((0,2,1))
         omnifit[:, :, 7::2] = self.rawCalpar[:, :, 3 + 2 * self.Info.nAntenna + 1::2].transpose((0,2,1))
         return omnifit
-
-    def set_badUBL(self, badUBL):
-        '''XXX DOCSTRING'''
-        if np.array(badUBL).shape[-1] != 3 or len(np.array(badUBL).shape) != 2:
-            raise Exception("ERROR: badUBL need to be a list of coordinates each with 3 numbers.")
-        badindex = []
-        UBL = self.compute_UBL(self.antennaLocationTolerance)
-        for badubl in badUBL:
-            for i, ubl in zip(range(len(UBL)), UBL):
-                if la.norm(badubl - ubl) < self.antennaLocationTolerance:
-                    badindex += [i]
-                    break
-        if len(badindex) != len(badUBL):
-            raise Exception("ERROR: some badUBL not found in self.computeUBL!")
-        else:
-            self.badUBL = np.sort(badindex).tolist()
-
-
-
     def diagnose(self, data = None, additiveout = None, flag = None, verbose = True, healthbar = 2, ubl_healthbar = 50, warn_low_redun = False, ouput_txt = False):
         '''XXX DOCSTRING'''
         errstate = np.geterr()
@@ -642,179 +621,92 @@ class RedundantCalibrator:
         return_flag = (nan_flag|spike_flag|ubl_flag)
         return return_flag
 
-    def compute_redundantinfo(self, arrayinfoPath = None, verbose = False, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
+    def compute_redundantinfo(self, arrayinfoPath=None, verbose=False, badAntenna=[], badUBLpair=[], antennaLocationTolerance=1e-6):
         '''XXX DOCSTRING'''
-        self.antennaLocationTolerance = antennaLocationTolerance
+        # XXX could these be set somewhere else so they aren't passed in?
+        self.antennaLocationTolerance = tol = antennaLocationTolerance
         self.badAntenna += badAntenna
         self.badUBLpair += badUBLpair
-
-        if arrayinfoPath is not None and os.path.isfile(arrayinfoPath):
-            self.read_arrayinfo(arrayinfoPath)
-        if np.linalg.norm(self.antennaLocation) == 0:
-            raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
-        if verbose:
-            timer = Timer()
-
+        if arrayinfoPath is not None: self.read_arrayinfo(arrayinfoPath)
         #antennalocation quality check: make sure there's no crazy constant added to antlocs
+        if np.linalg.norm(self.antennaLocation) == 0: # XXX gotta be a cheaper way to do this
+            raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
         bad_ant_mask = np.array([a in self.badAntenna for a in range(len(self.antennaLocation))]).astype('bool')
-        array_center = la.norm(np.mean(self.antennaLocation[~bad_ant_mask], axis = 0))
-        array_std = la.norm(np.std(self.antennaLocation[~bad_ant_mask], axis = 0))
-        #print array_center, array_std
-        if array_std / array_center < 1e-3:
-            raise TypeError("Average antenna location is %s whereas the typical variation among locations is %s, which is too small and will cause many problems. Please remove the large overall offset from antenna locations."%(np.mean(self.antennaLocation[~bad_ant_mask], axis = 0), np.std(self.antennaLocation[~bad_ant_mask], axis = 0)))
-
-        #nAntenna and subsetant : get rid of the bad antennas
-        nant=len(self.antennaLocation)
-        #subsetant=[i for i in range(nant) if i not in self.badAntenna]
-        ant2goodant = -np.ones(len(self.antennaLocation), dtype=int)
-        subsetant = []
-        for a in range(len(self.antennaLocation)):
-            if a not in self.badAntenna:
-                subsetant.append(a)
-                ant2goodant[a] = len(subsetant) - 1
-
-        nAntenna=len(subsetant)
-        antloc=[self.antennaLocation[ant] for ant in subsetant]
-        if verbose:
-            timer.tick('a')
-        ##########################################################################################
-        #find out ubl
-        #use the function compute_UBL to find the ubl
-        tolerance=self.antennaLocationTolerance;
-        ublall=self.compute_UBL(tolerance)
-        if verbose:
-            timer.tick('b')
-        #################################################################################################
-        #calculate the norm of the difference of two vectors (just la.norm actually)
-        def dis(a1,a2):
-            return np.linalg.norm(np.array(a1)-np.array(a2))
-        #find badUBL with badUBLpair
-        def find_ublindex_all(pair):
-            #print pair
-            for i in range(len(ublall)):
-                if dis(self.antennaLocation[pair[0]]-self.antennaLocation[pair[1]],ublall[i]) < tolerance or dis(self.antennaLocation[pair[0]]-self.antennaLocation[pair[1]],-ublall[i]) < tolerance:
-                    return i
-            return None
-            #raise Exception("Error: something wrong in identifying badUBL from badUBLpair")    #delete this line afterwards
-        #print self.badUBLpair, len(self.badUBLpair),self.badUBLpair[0]
-        for p in self.badUBLpair:
-            self.badUBL.append(find_ublindex_all(p))
-        self.badUBL = [i for i in self.badUBL if i is not None]
-        self.ubl2goodubl = -np.ones(len(ublall), dtype=int)
-        goodu = 0
-        for u in range(len(ublall)):
-            if u not in self.badUBL:
-                self.ubl2goodubl[u] = goodu
-                goodu = goodu + 1
-
+        array_center = la.norm(np.mean(self.antennaLocation[~bad_ant_mask], axis=0))
+        array_std = la.norm(np.std(self.antennaLocation[~bad_ant_mask], axis=0))
+        if array_std / array_center < 1e-3: # XXX magic number?
+            raise TypeError("Average antenna location is %s whereas the typical variation among locations is %s, which is too small and will cause many problems. Please remove the large overall offset from antenna locations." % (np.mean(self.antennaLocation[~bad_ant_mask], axis=0), np.std(self.antennaLocation[~bad_ant_mask], axis=0)))
+        info = RedundantInfo()
+        # get rid of the bad antennas
+        subsetant = [i for i in xrange(self.antennaLocation.shape[0]) if i not in self.badAntenna]
+        info['subsetant'] = np.array(subsetant,dtype=np.int32)
+        info['nAntenna'] = nAntenna = len(subsetant) # XXX maybe have C api automatically infer this
+        info['antloc'] = antloc = np.array([self.antennaLocation[i] for i in subsetant], dtype=np.float32)
+        ublall = self.compute_UBL(tol)
         #delete the bad ubl's
-        ubl=np.delete(ublall,np.array(self.badUBL).astype('int'),0)
-        nUBL=len(ubl);
-        badbl=[ublall[i] for i in self.badUBL]
+        badUBL = {}
+        def dis(a1,a2): return np.linalg.norm(a1-a2)
+        for a1,a2 in self.badUBLpair:
+            bl = self.antennaLocation[a1] - self.antennaLocation[a2]
+            for i,ubl in enumerate(ublall):
+                if dis(bl,ubl) < tol or dis(bl,-ubl) < tol: badUBL[i] = None
+        ubl2goodubl = {}
+        def f(i,u):
+            ubl2goodubl[i] = len(ubl2goodubl)
+            return u
+        info['ubl'] = ubl = np.array([f(i,u) for i,u in enumerate(ublall) if not badUBL.has_key(i)], dtype=np.float32)
+        for k in badUBL: ubl2goodubl[k] = -1
+        info['nUBL'] = nUBL = ubl.shape[0] # XXX maybe have C api automatically infer this
+        badubl = [ublall[i] for i in badUBL]
         #find nBaseline (include auto baselines) and subsetbl
-        nbl=0;
-        goodpairs=[];
-        for i in range(len(antloc)):
-            for j in range(i+1):
-                bool=False
-                for bl in badbl:
-                    bool = bool or dis(antloc[i]-antloc[j],bl)<tolerance or dis(antloc[i]-antloc[j],-bl)<tolerance
-                if bool == False:
-                    nbl+=1
-                    goodpairs.append([i,j])
-        ####for a1, a2 in self.totalVisibilityId:
-            ####i = ant2goodant[a1]
-            ####j = ant2goodant[a2]
-            ####if i >= 0 and j >= 0:
-                ####bool=False
-                ####for bl in badbl:
-                    ####bool = bool or dis(antloc[i]-antloc[j],bl)<tolerance or dis(antloc[i]-antloc[j],-bl)<tolerance
-                ####if bool == False:
-                    ####nbl+=1
-                    ####goodpairs.append([i,j])
-
+        goodpairs = [] # XXX cleaner way to do this?
+        for i,ai in enumerate(antloc):
+            for j,aj in enumerate(antloc[:i+1]):
+                blij = ai - aj
+                flag = False
+                for bl in badubl:
+                    if dis(blij,bl) < tol or dis(blij,-bl) < tol:
+                        flag = True
+                        break
+                if not flag: goodpairs.append((i,j))
         self.totalVisibilityId_dic = {}
-        for bll, (a1, a2) in enumerate(self.totalVisibilityId):
-            self.totalVisibilityId_dic[(a1,a2)] = bll
-
-        #correct the orders of pairs in goodpair
-        def correct_pairorder(pair):
-            ####try:
-                ####self.totalVisibilityId.tolist().index([pair[0],pair[1]])
-                ####return True
-            ####except:
-                ####try:
-                    ####self.totalVisibilityId.tolist().index([pair[1], pair[0]])
-                    ####return False
-                ####except:
-                    ####return None
-            if (pair[0], pair[1]) in self.totalVisibilityId_dic:
-                return True
-            elif (pair[1], pair[0]) in self.totalVisibilityId_dic:
-                return False
-            else:
-                return None
-        if verbose:
-            timer.tick('c')
-        #exclude pairs that are not in totalVisibilityId
-        temp = []
+        for bll, (a1, a2) in enumerate(self.totalVisibilityId): self.totalVisibilityId_dic[(a1,a2)] = bll
+        # exclude pairs that are not in totalVisibilityId
+        tmp = []
         for p in goodpairs:
-            cond = correct_pairorder([subsetant[p[0]],subsetant[p[1]]])
-            if cond == True:
-                temp.append(p)
-            if cond == False:
-                #print "correcting"
-                temp.append(p[::-1])
-        goodpairs = temp
-
-        #goodpairs = [correct_pairorder([subsetant[p[0]],subsetant[p[1]]]) for p in goodpairs if (correct_pairorder([subsetant[p[0]],subsetant[p[1]]]) != None and correct_pairorder([subsetant[p[0]],subsetant[p[1]]]) == True)]  #correct_pairorder([subsetant[p[0]],subsetant[p[1]]])
-        nBaseline=len(goodpairs)
-        if verbose:
-            timer.tick('c')
-        #from a pair of good antenna index to baseline index
+            bl = (subsetant[p[0]],subsetant[p[1]])
+            if self.totalVisibilityId_dic.has_key(bl): tmp.append(p)
+            elif self.totalVisibilityId_dic.has_key(bl[::-1]): tmp.append(p[::-1])
+        goodpairs = tmp
+        info['nBaseline'] = len(goodpairs)
+        # XXX got to here on rewrite
+        # from a pair of good antenna index to baseline index
         subsetbl = np.array([self.get_baseline([subsetant[bl[0]],subsetant[bl[1]]]) for bl in goodpairs])
-        if verbose:
-            timer.tick('c')
         ##################################################################################
         #bltoubl: cross bl number to ubl index
-        ####def findublindex(pair,ubl=ubl):
-            ####i=pair[0]
-            ####j=pair[1]
-            ####for k in range(len(ubl)):
-                ####if dis(antloc[i]-antloc[j],ubl[k])<tolerance or dis(antloc[i]-antloc[j],-ubl[k])<tolerance:
-                    ####return k
-            ####print pair
-            ####return "no match"
         def findublindex(pair):
             if (subsetant[pair[0]], subsetant[pair[1]]) in self.totalVisibilityUBL:
-                return self.ubl2goodubl[self.totalVisibilityUBL[(subsetant[pair[0]], subsetant[pair[1]])]]
+                return ubl2goodubl[self.totalVisibilityUBL[(subsetant[pair[0]], subsetant[pair[1]])]]
         bltoubl=[];
         for p in goodpairs:
             if p[0]!=p[1]:
                 bltoubl.append(findublindex(p))
-        if verbose:
-            timer.tick('d')
         #################################################################################
         #reversed:   cross only bl if reversed -1, otherwise 1
         crosspair=[]
         for p in goodpairs:
-            if p[0]!=p[1]:
-                crosspair.append(p)
+            if p[0]!=p[1]: crosspair.append(p)
         reverse=[]
         for k in range(len(crosspair)):
             i=crosspair[k][0]
             j=crosspair[k][1]
-            if dis(antloc[i]-antloc[j],ubl[bltoubl[k]])<tolerance:
-                reverse.append(-1)
-            elif dis(antloc[i]-antloc[j],-ubl[bltoubl[k]])<tolerance:
-                reverse.append(1)
+            if dis(antloc[i]-antloc[j],ubl[bltoubl[k]]) < tol: reverse.append(-1)
+            elif dis(antloc[i]-antloc[j],-ubl[bltoubl[k]]) < tol: reverse.append(1)
             else :
                 print "something's wrong with bltoubl", crosspair[k], antloc[i]-antloc[j], bltoubl[k], ubl[bltoubl[k]]
                 print i,j, subsetant[i], subsetant[j]
                 print self.totalVisibilityUBL[(subsetant[i], subsetant[j])]
                 exit(1)
-        if verbose:
-            timer.tick('e')
         ######################################################################################
         #reversedauto: the index of good baselines (auto included) in all baselines
         #autoindex: index of auto bls among good bls
@@ -825,67 +717,42 @@ class RedundantCalibrator:
         autoindex=[]
         crossindex=[]
         for i in range(len(goodpairs)):
-            if goodpairs[i][0]==goodpairs[i][1]:
-                autoindex.append(i)
-            else:
-                crossindex.append(i)
-        for i in autoindex:
-            reversedauto[i]=1
-        for i in range(len(crossindex)):
-            reversedauto[crossindex[i]]=reverse[i]
+            if goodpairs[i][0]==goodpairs[i][1]: autoindex.append(i)
+            else: crossindex.append(i)
+        for i in autoindex: reversedauto[i]=1
+        for i in range(len(crossindex)): reversedauto[crossindex[i]]=reverse[i]
         reversedauto=np.array(reversedauto)
         autoindex=np.array(autoindex)
         crossindex=np.array(crossindex)
         ncross=len(crossindex)
-        if verbose:
-            timer.tick('f')
         ###################################################
         #bl2d:  from 1d bl index to a pair of antenna numbers
         bl2d=[]
-        for pair in goodpairs:
-            bl2d.append(pair)#(pair[::-1])
+        for pair in goodpairs: bl2d.append(pair)#(pair[::-1])
         bl2d=np.array(bl2d)
-        if verbose:
-            timer.tick('g')
         ###################################################
         #ublcount:  for each ubl, the number of good cross bls corresponding to it
-
         countdict={}
-        for bl in bltoubl:
-            countdict[bl]=0
-
-        for bl in bltoubl:
-            countdict[bl]+=1
-
-
+        for bl in bltoubl: countdict[bl]=0
+        for bl in bltoubl: countdict[bl]+=1
         ublcount=[]
-        for i in range(nUBL):
-            ublcount.append(countdict[i])
+        for i in range(nUBL): ublcount.append(countdict[i])
         ublcount=np.array(ublcount)
-        if verbose:
-            timer.tick('h')
         ####################################################################################
         #ublindex:  //for each ubl, the vector<int> contains (ant1, ant2, crossbl)
         countdict={}
-        for bl in bltoubl:
-            countdict[bl]=[]
-
+        for bl in bltoubl: countdict[bl]=[]
         for i in range(len(crosspair)):
             ant1=crosspair[i][0]
             ant2=crosspair[i][1]
             countdict[bltoubl[i]].append([ant1,ant2,i])  #([ant1,ant2,i])
-
         # XXX clean this up
         ublindex=[]
-        for i in range(nUBL):
-            ublindex.append(countdict[i])
+        for i in range(nUBL): ublindex.append(countdict[i])
         #turn each list in ublindex into np array
-        for i in range(len(ublindex)):
-            ublindex[i]=np.array(ublindex[i])
+        for i in range(len(ublindex)): ublindex[i]=np.array(ublindex[i])
         #ublindex=np.array(ublindex)
         ublindex=np.concatenate(ublindex).astype(np.int32)
-        if verbose:
-            timer.tick('i')
         ###############################################################################
         #bl1dmatrix: a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
                 #I suppose 99999 for bad and auto baselines?
@@ -893,20 +760,14 @@ class RedundantCalibrator:
         for i in range(len(crosspair)):
             bl1dmatrix[crosspair[i][1]][crosspair[i][0]]=i
             bl1dmatrix[crosspair[i][0]][crosspair[i][1]]=i
-        if verbose:
-            timer.tick('j')
         ####################################################################################3
         #degenM:
         a=[]
-        for i in range(len(antloc)):
-            a.append(np.append(antloc[i],1))
+        for i in range(len(antloc)): a.append(np.append(antloc[i],1))
         a=np.array(a)
-
         d=[]
-        for i in range(len(ubl)):
-            d.append(np.append(ubl[i],0))
+        for i in range(len(ubl)): d.append(np.append(ubl[i],0))
         d=np.array(d)
-
         m1=-a.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
         m2=d.dot(la.pinv(np.transpose(a).dot(a))).dot(np.transpose(a))
         degenM = np.append(m1,m2,axis=0)
@@ -926,20 +787,11 @@ class RedundantCalibrator:
             B[i][crosspair[i][1]]=reverse[i]*1  #-1
             B[i][nAntenna+bltoubl[i]]=1
         B=sps.csr_matrix(B)
-        if verbose:
-            timer.tick('k')
         ###########################################################################
         #create info dictionary
         #info={}
         # XXX could interleave info assignment with variables above
-        info = RedundantInfo()
-        info['nAntenna']=nAntenna
-        info['nUBL']=nUBL
-        info['nBaseline']=nBaseline
-        info['subsetant'] = np.array(subsetant,dtype=np.int32)
-        info['antloc'] = np.array(antloc, dtype=np.float32)
         info['subsetbl'] = np.array(subsetbl, dtype=np.int32)
-        info['ubl'] = np.array(ubl, dtype=np.float32)
         info['bltoubl'] = np.array(bltoubl, dtype=np.int32)
         info['reversed'] = np.array(reverse, dtype=np.int32)
         info['reversedauto'] = np.array(reversedauto, dtype=np.int32)
@@ -953,38 +805,8 @@ class RedundantCalibrator:
         info['degenM'] = np.array(degenM, dtype=np.float32)
         info['At'] = A.T
         info['Bt'] = B.T
-        if verbose:
-            timer.tick('l')
         info.update()
-        '''
-        with warnings.catch_warnings():
-                warnings.filterwarnings("ignore",category=DeprecationWarning)
-                info['At'] = A.transpose()
-                info['Bt'] = B.transpose()
-                if verbose:
-                    timer.tick('m')
-                info['AtAi'] = la.pinv(info['At'].dot(info['A']).todense(), cond = 10**(-6))#(AtA)^-1
-                info['BtBi'] = la.pinv(info['Bt'].dot(info['B']).todense(), cond = 10**(-6))#(BtB)^-1
-                #if verbose:
-                    #timer.tick('m')
-                #info['AtAiAt'] = info['AtAi'].dot(info['At'].todense())#(AtA)^-1At
-                #info['BtBiBt'] = info['BtBi'].dot(info['Bt'].todense())#(BtB)^-1Bt
-                #if verbose:
-                    #timer.tick('m')
-                #info['PA'] = info['A'].dot(info['AtAiAt'])#A(AtA)^-1At
-                #info['PB'] = info['B'].dot(info['BtBiBt'])#B(BtB)^-1Bt
-                #if verbose:
-                    #timer.tick('m')
-                #info['ImPA'] = sps.identity(ncross) - info['PA']#I-PA
-                #info['ImPB'] = sps.identity(ncross) - info['PB']#I-PB
-        info['totalVisibilityId'] = self.totalVisibilityId
-        '''
-        if verbose:
-            timer.tick('m')
         self.Info = info
-        if verbose:
-            timer.tick('n')
-
 
     def get_baseline(self,pair):
         '''inverse function of totalVisibilityId, calculate the baseline index from 
