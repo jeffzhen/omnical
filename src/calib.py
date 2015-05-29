@@ -123,6 +123,8 @@ def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, usel
     np_additive_out = np.frombuffer(additive_out, dtype=np.complex64)
     np_additive_out.shape = data.shape
     # XXX why is this redcal2 and not redcal?
+    # JHZ: Redcal and 2 have different argument formats, one of them facilitates the multiprocessing
+    # XXX see if redcal and redcal2 can be merged
     _O.redcal2(data, np_rawCalpar, Info, additivein, np_additive_out, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
 
     #np_additive_out = _O.redcal(data, np_rawCalpar, Info, additivein, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))

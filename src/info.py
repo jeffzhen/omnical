@@ -7,28 +7,33 @@ with warnings.catch_warnings():
 
 KEYS = [
     'nAntenna', # number of usable ants (not total number)
-    'nUBL', # number of unique bls
-    'nBaseline', # ??
-    'subsetant', # (total_ants,) int indicates which antennas to use, XXX unused
-    'antloc', # (nAntenna,3) float,  idealized antpos from which redundancy is determined
-    'subsetbl', # (nBaselines,) int, indicates which bls to use
-    'ubl', # (nUBL,3) float, vectors for unique baselines
-    'bltoubl', # (nBaseline,) int, for each bl, the index of corresponding unique bl
-    'reversed',
-    'reversedauto',
-    'autoindex',
-    'crossindex',
-    'bl2d',
-    'ublcount', # (nUBL,) int, number of bls contributing to each ubl
-    'ublindex', # (nUBL, ublcount[i], 3) int, ant1,ant2,blindex for each bl contributing to each ubl
-    'bl1dmatrix',
-    'degenM',
-    'At',
-    'Bt',
-    'AtAi',
-    'BtBi',
-    'totalVisibilityId',
+    'nUBL', # number of unique bls, matches first dim of ubl/ublcount/ublindex
+    'nBaseline', # number of bls, matches first dim of bltoubl/bl2d
+    'subsetant', # (nAntenna,) antenna numbers used; index i corresponds to antenna number ai, XXX unused in C code? XXX could make this python-only and set nAntenna from it
+    'antloc', # (nAntenna,3) float,  idealized antpos from which redundancy is determined XXX not sure of lin/log cal need this.  if not, could restrict this to ArrayInfo and remove from RedundantInfo
+    'subsetbl', # (nBaselines,) for each bl in bl2d, the index in totalVisibilityId; used to reorder data for internal use with loadGoodVisibilities XXX if we don't use this anymore, this could be removed
+    'ubl', # (nUBL,3) float, sep vector for each unique baseline XXX i think not necessary for lin/log cal
+    'bltoubl', # (nBaseline,) for each bl in bl2d, the index of corresponding unique bl in ubl/ublcount/ublindex
+    'reversed', # for each entry in crossindex, 1 if baseline is flipped wrt corresponding ubl, otherwise -1
+    'reversedauto', # XXX unused in C code?
+    'autoindex', # indices in bl2d of autos XXX unused in C code?
+    'crossindex', # indices in bl2d of crosses XXX if we mandate no autos, then crossindex not necessary
+    'bl2d', # (nBaseline,2) the i,j indices of ants in subsetant for each bl
+    'ublcount', # (nUBL,) number of bls contributing to each ubl XXX can determine this from ublindex
+    'ublindex', # (nUBL, ublcount[i], 3) ant1,ant2,blindex for each bl contributing to each ubl
+    'bl1dmatrix', # (nAntenna,nAntenna) for each i,j antenna pair, the index of where that bl appears in crossindex
+    'degenM', # (nAntenna+nUBL,nAntenna)
+    'At', # (ncross,nAntenna+nUBL), sparse
+    'Bt', # (ncross,nAntenna+nUBL), sparse
+    'AtAi', # precomputed matrix
+    'BtBi', # precomputed matrix
+    'totalVisibilityId', # (all_baselines, 2) ai,aj antenna numbers for every possible bl; defines order of data to be loaded into omnical solver XXX if totalVisibilityId only holds good data, then subsetbl becomes pointless
 ]
+
+# XXX idea for better interface: provide list of bls grouped by ubl & whether they need to be flipped
+# this list must already omit bad bls and ants
+# determine subsetant from this list & internally take care of mapping indices to antennas.
+# then do major cleanup of c code
 
 # XXX all this meta stuff about "info" almost assuredly means info needs to be a class
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
@@ -58,7 +63,7 @@ class RedundantInfo(_O.RedundantInfo):
             if txtmode: self.fromfile_txt(filename, verbose=verbose, preview_only=preview_only)
             else: self.fromfile(filename, verbose=verbose, preview_only=preview_only)
     def _get_AtBt(self, key):
-        # XXX why are we doing this, again?
+        # doing this for convenience of multiplication in update()
         assert(key in ['At','Bt'])
         tmp = _O.RedundantInfo.__getattribute__(self, key+'sparse')
         matrix = np.zeros((self.nAntenna + self.nUBL, len(self.crossindex)))
