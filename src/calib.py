@@ -144,18 +144,6 @@ class RedundantCalibrator:
     from a text file.'''
     def __init__(self, nTotalAnt, info=None):
         self.arrayinfo = ArrayInfo(nTotalAnt) # XXX if works, clean up
-        self.nTotalAnt = nTotalAnt
-        self.nTotalBaselineAuto = (nTotalAnt + 1) * nTotalAnt / 2
-        self.nTotalBaselineCross = (nTotalAnt - 1) * nTotalAnt / 2
-        self.antennaLocation = np.zeros((nTotalAnt, 3))
-        side = int(nTotalAnt**.5)
-        for a in range(nTotalAnt): self.antennaLocation[a] = np.array([a/side, a%side, 0])
-        self.antennaLocationTolerance = 1e-6
-        self.badAntenna = []
-        self.badUBLpair = []
-        self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j+1)] for j in range(nTotalAnt)])#PAPER miriad convention by default
-        self._gen_totalVisibilityId_dic()
-        self.totalVisibilityUBL = None
         self.Info = None
         self.removeDegeneracy = True
         self.removeAdditive = False
@@ -175,18 +163,6 @@ class RedundantCalibrator:
         if info is not None: # XXX what is the point of leaving info == None?
             if type(info) == str: self.read_redundantinfo(info)
             else: self.Info = info
-    #def __repr__(self,): return self.__str__()
-    #def __str__(self,):
-    #    if self.Info is None:
-    #        return "<Uninitialized %i antenna RedundantCalibrator with no RedundantInfo.>"%self.nTotalAnt
-    #    else:
-    #        return "<RedundantCalibrator for an %i antenna array: %i good bls including %i good antennas and %i unique bls.>"%(self.nTotalAnt, len(self.Info.crossindex), self.Info.nAntenna, self.Info.nUBL)
-    #def __getattr__(self, name): # XXX why not just inherit from info if accessing all attributes of info?
-    #    try: return self.Info.__getattribute__(name)
-    #    except: raise AttributeError("RedundantCalibrator has no attribute named %s"%name)
-    def _gen_totalVisibilityId_dic(self):
-        self.totalVisibilityId_dic = {}
-        for bll, (a1,a2) in enumerate(self.totalVisibilityId): self.totalVisibilityId_dic[(a1,a2)] = bll
     def read_redundantinfo(self, filename, txtmode=False, verbose=False):
         '''redundantinfo is necessary for running redundant calibration. The text file 
         should contain 29 lines each describes one item in the info.'''
@@ -195,41 +171,8 @@ class RedundantCalibrator:
         self._gen_totalVisibilityId_dic()
     def write_redundantinfo(self, filename, overwrite=False, verbose=False):
         self.Info.tofile(filename, overwrite=overwrite, verbose=verbose)
-    def read_arrayinfo(self, arrayinfopath, verbose = False):
-        return self.arrayinfo.read_arrayinfo(arrayinfopath,verbose=verbose) # XXX if works, clean up
-        '''array info is the minimum set of information to uniquely describe a 
-        redundant array, and is needed to compute redundant info. It includes, 
-        in each line, bad antenna indices, bad unique bl indices, tolerance 
-        of error when checking redundancy, antenna locations, and visibility's 
-        antenna pairing conventions. Unlike redundant info which is a self-contained 
-        dictionary, items in array info each have their own fields in the instance.'''
-        if verbose: print "Reading", arrayinfopath
-        with open(arrayinfopath) as f: rawinfo = [[float(x) for x in line.split()] for line in f]
-        self.badAntenna = np.array(rawinfo[0], dtype=np.int)
-        if self.badAntenna[0] < 0: self.badAntenna = np.zeros(0) # XXX special significance for < 0?
-        rawpair = np.array(rawinfo[1], dtype=np.int)
-        if rawpair.shape[0] == 0 or rawpair.shape[0] % 2 != 0 or rawpair.min() < 0: # XXX shouldn't accept bad states
-            self.badUBLpair = np.array([])
-        else: self.badUBLpair = np.reshape(rawpair,(len(rawpair)/2,2))
-        self.antennaLocationTolerance = rawinfo[2][0]
-        for a in range(len(self.antennaLocation)):
-            assert(len(rawinfo[a+3]) == 3)
-            self.antennaLocation[a] = np.array(rawinfo[a+3])
-        bl = 0
-        vis_id = []
-        max_bl_cnt = self.nTotalAnt * (self.nTotalAnt + 1) / 2
-        maxline = len(rawinfo)
-        while len(rawinfo[bl + 3 + len(self.antennaLocation)]) == 2: # XXX don't like while loop
-            assert(bl < max_bl_cnt)
-            vis_id.append(np.array(rawinfo[bl + 3 + len(self.antennaLocation)], dtype=np.int))
-            bl += 1
-            if bl + 3 + len(self.antennaLocation) >= maxline: break
-        self.totalVisibilityId = np.array(vis_id, dtype=np.int)
-        self._gen_totalVisibilityId_dic()
-        if verbose:
-            print "Total number of visibilities:", bl,
-            print "Bad antenna indices:", self.badAntenna,
-            print "Bad UBL indices:", self.badUBLpair
+    #def read_arrayinfo(self, arrayinfopath, verbose = False):
+    #    return self.arrayinfo.read_arrayinfo(arrayinfopath,verbose=verbose) # XXX if works, clean up
     def _redcal(self, data, additivein, nthread=None, verbose=False, uselogcal=0):
         '''for best performance, try setting nthread to larger than number of cores.'''
         assert(data.ndim == 3 and data.shape[-1] == len(self.arrayinfo.totalVisibilityId))
@@ -495,238 +438,7 @@ class RedundantCalibrator:
         return return_flag
     def compute_redundantinfo(self, arrayinfoPath=None, verbose=False, badAntenna=[], badUBLpair=[], antennaLocationTolerance=1e-6):
         self.Info = self.arrayinfo.compute_redundantinfo(arrayinfoPath=arrayinfoPath, verbose=verbose, badAntenna=badAntenna, badUBLpair=badUBLpair, antennaLocationTolerance=antennaLocationTolerance)
-        return # XXX if works, clean up below
-        '''Use provided antenna locations (in arrayinfoPath) to derive redundancy equations'''
-        # XXX could these be set somewhere else so they aren't passed in?
-        self.antennaLocationTolerance = tol = antennaLocationTolerance
-        self.badAntenna += badAntenna
-        self.badUBLpair += badUBLpair
-        if arrayinfoPath is not None: self.read_arrayinfo(arrayinfoPath)
-        # XXX propose that these quality checks are outside the scope of this function
-        ##antennalocation quality check: make sure there's no crazy constant added to antlocs
-        #if np.linalg.norm(self.antennaLocation) == 0: # XXX gotta be a cheaper way to do this
-        #    raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
-        #bad_ant_mask = np.array([a in self.badAntenna for a in range(len(self.antennaLocation))]).astype('bool')
-        #array_center = la.norm(np.mean(self.antennaLocation[~bad_ant_mask], axis=0))
-        #array_std = la.norm(np.std(self.antennaLocation[~bad_ant_mask], axis=0))
-        #if array_std / array_center < 1e-3: # XXX magic number?
-        #    raise TypeError("Average antenna location is %s whereas the typical variation among locations is %s, which is too small and will cause many problems. Please remove the large overall offset from antenna locations." % (np.mean(self.antennaLocation[~bad_ant_mask], axis=0), np.std(self.antennaLocation[~bad_ant_mask], axis=0)))
-        info = RedundantInfo()
-        # exclude bad antennas
-        info['subsetant'] = subsetant = np.array([i for i in xrange(self.antennaLocation.shape[0]) 
-                if i not in self.badAntenna], dtype=np.int32)
-        info['nAntenna'] = nAntenna = len(subsetant) # XXX maybe have C api automatically infer this
-        info['antloc'] = antloc = np.array([self.antennaLocation[i] for i in subsetant], dtype=np.float32)
-        ublall = self.compute_UBL(tol)
-        #delete the bad ubl's
-        badUBL = {}
-        def dis(a1,a2): return np.linalg.norm(a1-a2)
-        for a1,a2 in self.badUBLpair:
-            bl = self.antennaLocation[a1] - self.antennaLocation[a2]
-            for i,ubl in enumerate(ublall):
-                if dis(bl,ubl) < tol or dis(bl,-ubl) < tol: badUBL[i] = None
-        ubl2goodubl = {}
-        def f(i,u):
-            ubl2goodubl[i] = len(ubl2goodubl)
-            return u
-        info['ubl'] = ubl = np.array([f(i,u) for i,u in enumerate(ublall) if not badUBL.has_key(i)], dtype=np.float32)
-        for k in badUBL: ubl2goodubl[k] = -1
-        info['nUBL'] = nUBL = ubl.shape[0] # XXX maybe have C api automatically infer this
-        badubl = [ublall[i] for i in badUBL]
-        #find nBaseline (include auto bls) and subsetbl
-        #bl2d:  from 1d bl index to a pair of antenna numbers
-        bl2d = [] # XXX cleaner way to do this?
-        for i,ai in enumerate(antloc):
-            for j,aj in enumerate(antloc[:i+1]):
-                blij = ai - aj
-                flag = False
-                for bl in badubl:
-                    if dis(blij,bl) < tol or dis(blij,-bl) < tol:
-                        flag = True
-                        break
-                if not flag: bl2d.append((i,j))
-        # exclude pairs that are not in totalVisibilityId
-        tmp = []
-        for p in bl2d:
-            bl = (subsetant[p[0]],subsetant[p[1]])
-            if self.totalVisibilityId_dic.has_key(bl): tmp.append(p)
-            elif self.totalVisibilityId_dic.has_key(bl[::-1]): tmp.append(p[::-1])
-        info['bl2d'] = bl2d = np.array(tmp, dtype=np.int32)
-        info['nBaseline'] = len(bl2d) # XXX maybe have C api infer this
-        # from a pair of good antenna index to bl index
-        info['subsetbl'] = np.array([self.get_baseline([subsetant[bl[0]],subsetant[bl[1]]]) 
-                for bl in bl2d], dtype=np.int32)
-        #bltoubl: cross bl number to ubl index
-        def findublindex(p1,p2):
-            a1,a2 = subsetant[p1],subsetant[p2]
-            if (a1,a2) in self.totalVisibilityUBL: return ubl2goodubl[self.totalVisibilityUBL[(a1,a2)]]
-        info['bltoubl'] = bltoubl = np.array([findublindex(*p) for p in bl2d if p[0] != p[1]], dtype=np.int32)
-        #reversed:   cross only bl if reversed -1, otherwise 1
-        crosspair = [p for p in bl2d if p[0] != p[1]]
-        reverse = []
-        for k,cpk in enumerate(crosspair):
-            bl = antloc[cpk[0]] - antloc[cpk[1]]
-            if dis(bl,ubl[bltoubl[k]]) < tol: reverse.append(-1)
-            elif dis(bl,-ubl[bltoubl[k]]) < tol: reverse.append(1)
-            else : raise ValueError('bltoubl[%d] points to wrong ubl index' % (k))
-        info['reversed'] = np.array(reverse, dtype=np.int32)
-        # autoindex: index of auto bls among good bls
-        info['autoindex'] = autoindex = np.array([i for i,p in enumerate(bl2d) if p[0] == p[1]], dtype=np.int32)
-        # crossindex: index of cross bls among good bls
-        info['crossindex'] = crossindex = np.array([i for i,p in enumerate(bl2d) if p[0] != p[1]], dtype=np.int32)
-        # reversedauto: the index of good bls (auto included) in all bls
-        reversedauto = np.arange(info['nBaseline'], dtype=np.int32)
-        for i in autoindex: reversedauto[i] = 1
-        for i,c in enumerate(crossindex): reversedauto[c] = reverse[i]
-        info['reversedauto'] = reversedauto
-        #ublcount:  for each ubl, the number of good cross bls corresponding to it
-        cnt = {}
-        for bl in bltoubl: cnt[bl] = cnt.get(bl,0) + 1
-        info['ublcount'] = np.array([cnt[i] for i in range(nUBL)], dtype=np.int32)
-        #ublindex:  //for each ubl, the vector<int> contains (ant1, ant2, crossbl)
-        cnt = {}
-        for i,(a1,a2) in enumerate(crosspair): cnt[bltoubl[i]] = cnt.get(bltoubl[i],[]) + [[a1,a2,i]]
-        info['ublindex'] = ublindex = np.concatenate([np.array(cnt[i],dtype=np.int32) for i in range(nUBL)])
-        #bl1dmatrix: a symmetric matrix where col/row numbers index ants and entries are bl index (no auto corr)
-        # XXX don't like 2**31-1.  whence this number?
-        bl1dmatrix = (2**31-1) * np.ones((nAntenna,nAntenna),dtype=np.int32)
-        for i,cp in enumerate(crosspair): bl1dmatrix[cp[1],cp[0]], bl1dmatrix[cp[0],cp[1]] = i,i
-        info['bl1dmatrix'] = bl1dmatrix
-        #degenM:
-        a = np.array([np.append(ai,1) for ai in antloc], dtype=np.float32)
-        d = np.array([np.append(ubli,0) for ubli in ubl], dtype=np.float32)
-        m1 = -a.dot(la.pinv(a.T.dot(a))).dot(a.T)
-        m2 = d.dot(la.pinv(a.T.dot(a))).dot(a.T)
-        info['degenM'] = np.append(m1,m2,axis=0)
-        #A: A matrix for logcal amplitude
-        A = np.zeros((len(crosspair),nAntenna+nUBL))
-        for i,cp in enumerate(crosspair): A[i,cp[0]], A[i,cp[1]], A[i,nAntenna+bltoubl[i]] = 1,1,1
-        info['At'] = sps.csr_matrix(A).T
-        #B: B matrix for logcal phase
-        B = np.zeros((len(crosspair),nAntenna+nUBL))
-        for i,cp in enumerate(crosspair): B[i,cp[0]], B[i,cp[1]], B[i,nAntenna+bltoubl[i]] = -reverse[i],reverse[i],1
-        info['Bt'] = sps.csr_matrix(B).T
-        info.update()
-        self.Info = info
-    def get_baseline(self,bl):
-        '''inverse function of totalVisibilityId, calculate the bl index from 
-        the antenna pair. It allows flipping of a1 and a2, will return same result'''
-        bl = tuple(bl)
-        try: return self.totalVisibilityId_dic[bl]
-        except(KeyError): pass
-        try: return self.totalVisibilityId_dic[bl[::-1]]
-        except(KeyError): return None
-    #def compute_UBL_old2(self,tolerance = 0.1):
-    #    '''compute_UBL returns the average of all bls in that ubl group'''
-    #    #check if the tolerance is not a string
-    #    if type(tolerance) == str: raise Exception("tolerance needs to be number not string")
-    #    #remove the bad antennas
-    #    nant=len(self.antennaLocation)
-    #    subsetant=[i for i in range(nant) if i not in self.badAntenna]
-    #    nAntenna=len(subsetant)
-    #    antloc = np.array([self.antennaLocation[ant] for ant in subsetant])
-    #    ubllist = np.array([np.array([np.array([0,0,0]),1])]);
-    #    for i in range(len(antloc)):
-    #        #for j in range(i+1,len(antloc)):    #(this gives the same redundant info as the correct info saved in test)
-    #        for j in range(i+1):
-    #            bool = True
-    #            for k in range(len(ubllist)):
-    #                if  la.norm(antloc[i]-antloc[j]-ubllist[k][0])<tolerance:
-    #                    n=ubllist[k][1]
-    #                    ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]+antloc[i]-antloc[j])
-    #                    ubllist[k][1]+=1
-    #                    bool = False
-    #                elif  la.norm(antloc[i]-antloc[j]+ubllist[k][0])<tolerance:
-    #                    n=ubllist[k][1]
-    #                    ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]-(antloc[i]-antloc[j]))
-    #                    ubllist[k][1]+=1
-    #                    bool = False
-    #            if bool :
-    #                ubllist = np.append(ubllist,np.array([np.array([antloc[j]-antloc[i],1])]),axis=0)
-    #    ubllist = np.delete(ubllist,0,0)
-    #    ublall=[]
-    #    for ubl in ubllist: ublall.append(ubl[0])
-    #    ublall=np.array(ublall)
-    #    return ublall
-    #def compute_UBL_old(self,tolerance = 0.1):
-    #    '''compute_UBL returns the average of all bls in that ubl group'''
-    #    #check if the tolerance is not a string
-    #    if type(tolerance) == str: raise Exception("tolerance needs to be number not string")
-    #    ubllist = np.array([np.array([np.array([0,0,0]),1])]);
-    #    for pair in self.totalVisibilityId:
-    #        if pair[0] not in self.badAntenna and pair[1] not in self.badAntenna:
-    #            [i,j] = pair
-    #            bool = True
-    #            for k in range(len(ubllist)):
-    #                if  la.norm(self.antennaLocation[i]-self.antennaLocation[j]-ubllist[k][0])<tolerance:
-    #                    n=ubllist[k][1]
-    #                    ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]+self.antennaLocation[i]-self.antennaLocation[j])
-    #                    ubllist[k][1]+=1
-    #                    bool = False
-    #                elif  la.norm(self.antennaLocation[i]-self.antennaLocation[j]+ubllist[k][0])<tolerance:
-    #                    n=ubllist[k][1]
-    #                    ubllist[k][0]=1/(n+1.0)*(n*ubllist[k][0]-(self.antennaLocation[i]-self.antennaLocation[j]))
-    #                    ubllist[k][1]+=1
-    #                    bool = False
-    #            if bool :
-    #                ubllist = np.append(ubllist,np.array([np.array([self.antennaLocation[j]-self.antennaLocation[i],1])]),axis=0)
-    #    ubllist = np.delete(ubllist,0,0)
-    #    ublall=[]
-    #    for ubl in ubllist: ublall.append(ubl[0])
-    #    ublall=np.array(ublall)
-    #    return ublall
-    def compute_UBL(self,tolerance = 0.1):
-        '''XXX DOCSTRING'''
-        if tolerance == 0:
-            tolerance = np.min(np.linalg.norm(np.array(self.antennaLocation) - self.antennaLocation[0], axis = 1)) / 1.e6
-        ubl = {}
-        for bl, (a1, a2) in enumerate(self.totalVisibilityId):
-            if a1 != a2 and a1 not in self.badAntenna and a2 not in self.badAntenna:
-                loc_tuple = tuple(np.round((self.antennaLocation[a2] - self.antennaLocation[a1]) / float(tolerance)) * tolerance)
-                neg_loc_tuple = tuple(np.round((self.antennaLocation[a1] - self.antennaLocation[a2]) / float(tolerance)) * tolerance)
-                if loc_tuple in ubl: ubl[loc_tuple].add(bl + 1)
-                elif neg_loc_tuple in ubl: ubl[neg_loc_tuple].add(- bl - 1)
-                else:
-                    if loc_tuple[0] >= 0: ubl[loc_tuple] = set([bl + 1])
-                    else: ubl[neg_loc_tuple] = set([-bl - 1])
-        #calculate actual average of the gridded bls vectors to get an accurate representation of the ubl vector
-        ubl_vec = np.zeros((len(ubl), 3))
-        self.totalVisibilityUBL = {}
-        ublcount = np.zeros(len(ubl))
-        for u, grid_ubl_vec in enumerate(ubl):
-            for bl in ubl[grid_ubl_vec]:
-                assert bl != 0
-                a1, a2 = self.totalVisibilityId[abs(bl) - 1]
-                if bl > 0: ubl_vec[u] = ubl_vec[u] + self.antennaLocation[a2] - self.antennaLocation[a1]
-                else: ubl_vec[u] = ubl_vec[u] + self.antennaLocation[a1] - self.antennaLocation[a2]
-                self.totalVisibilityUBL[(a1, a2)] = u
-            ublcount[u] = len(ubl[grid_ubl_vec])
-            ubl_vec[u] = ubl_vec[u] / ublcount[u]
-        reorder = (ubl_vec[:,1]*1e9 + ubl_vec[:,0]).argsort()
-        rereorder = reorder.argsort()
-        for key in self.totalVisibilityUBL:
-            self.totalVisibilityUBL[key] = rereorder[self.totalVisibilityUBL[key]]
-        ubl_vec = ubl_vec[reorder]
-        #now I need to deal with the fact that no matter how coarse my grid is, it's possible for a single group of ubl to fall into two adjacent grids. So I'm going to check if any of the final ubl vectors are seperated by less than tolerance. If so, merge them
-        ublmap = {}
-        for u1 in range(len(ubl_vec)):
-            for u2 in range(u1):
-                if la.norm(ubl_vec[u2] - ubl_vec[u1]) < tolerance or la.norm(ubl_vec[u2] + ubl_vec[u1]) < tolerance:
-                    ublmap[u1] = u2
-                    ubl_vec[u2] = (ubl_vec[u1] * ublcount[u1] + ubl_vec[u2] * ublcount[u2]) / (ublcount[u1] + ublcount[u2])
-                    break
-            ublmap[u1] = u1
-        merged_ubl_vec = []
-        for u in range(len(ubl_vec)):
-            if ublmap[u] == u:
-                merged_ubl_vec.append(ubl_vec[u])
-                ublmap[u] = len(merged_ubl_vec) - 1
-            else: ublmap[u] = ublmap[ublmap[u]]
-        merged_ubl_vec = np.array(merged_ubl_vec)
-        for key in self.totalVisibilityUBL:
-            self.totalVisibilityUBL[key] = ublmap[self.totalVisibilityUBL[key]]
-        return ubl_vec
-    def get_ublindex(self,antpair):
+    def get_ublindex(self,antpair): # XXX should this be part of info?
         '''need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
         input the antenna pair(as a list of two numbers), return the corresponding ubl index'''
         #check if the input is a list, tuple, np.array of two numbers
@@ -742,7 +454,7 @@ class RedundantCalibrator:
         if antpair[0]==antpair[1]: return "auto correlation"
         elif crossblindex == 99999: return "bad ubl"
         return self.Info.bltoubl[crossblindex]
-    def get_reversed(self,antpair):
+    def get_reversed(self,antpair): # XXX should this be part of info?
         '''need to do compute_redundantinfo first
         input the antenna pair, return -1 if it is a reversed bl and 1 if it is not reversed'''
         #check if the input is a list, tuple, np.array of two numbers
@@ -776,6 +488,7 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
         self.preciseAntennaLocation = .299792458 * np.array([ant.pos for ant in self.aa])
         self._goodAntenna = self.aa.ant_layout.flatten()
         self._goodAntenna.sort()
+        # XXX need to clean this up, now that it's in ArrayInfo
         self.badAntenna = []
         self.badUBLpair = []
         for i in range(nTotalAnt):

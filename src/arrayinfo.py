@@ -4,6 +4,7 @@ import scipy.sparse as sps
 from info import RedundantInfo
 
 class ArrayInfo:
+    '''Store information about an antenna array needed for computing redundancy and indexing matrices.'''
     def __init__(self, nTotalAnt, badAntenna=[], badUBLpair=[]):
         self.nTotalAnt = nTotalAnt
         self.nTotalBaselineAuto = (nTotalAnt + 1) * nTotalAnt / 2
@@ -117,15 +118,6 @@ class ArrayInfo:
         self.badAntenna += badAntenna
         self.badUBLpair += badUBLpair
         if arrayinfoPath is not None: self.read_arrayinfo(arrayinfoPath)
-        # XXX propose that these quality checks are outside the scope of this function
-        ##antennalocation quality check: make sure there's no crazy constant added to antlocs
-        #if np.linalg.norm(self.antennaLocation) == 0: # XXX gotta be a cheaper way to do this
-        #    raise Exception("Error: compute_redundantinfo() called before self.antennaLocation is specified. Use configFilePath option when calling compute_redundantinfo() to specify array info file, or manually set self.antennaLocation for the RedundantCalibrator instance.")
-        #bad_ant_mask = np.array([a in self.badAntenna for a in range(len(self.antennaLocation))]).astype('bool')
-        #array_center = la.norm(np.mean(self.antennaLocation[~bad_ant_mask], axis=0))
-        #array_std = la.norm(np.std(self.antennaLocation[~bad_ant_mask], axis=0))
-        #if array_std / array_center < 1e-3: # XXX magic number?
-        #    raise TypeError("Average antenna location is %s whereas the typical variation among locations is %s, which is too small and will cause many problems. Please remove the large overall offset from antenna locations." % (np.mean(self.antennaLocation[~bad_ant_mask], axis=0), np.std(self.antennaLocation[~bad_ant_mask], axis=0)))
         info = RedundantInfo()
         # exclude bad antennas
         info['subsetant'] = subsetant = np.array([i for i in xrange(self.antennaLocation.shape[0]) 
