@@ -10,6 +10,7 @@ import numpy as np
 import os, sys
 import _omnical as _O
 from info import RedundantInfo
+from arrayinfo import ArrayInfo
 import warnings
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
@@ -115,15 +116,13 @@ def apply_calpar2(data, calpar, calpar2, visibilityID):
 #    opomnigain.tofile(outputPath + '.omnigain')
 #    opomnifit.tofile(outputPath + '.omnifit')
 
-def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit = 1, trust_period = 1):
-    '''same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container'''
-
-    np_rawCalpar = np.frombuffer(rawCalpar, dtype='float32')
+def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit=1, trust_period=1):
+    '''same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container.  this is the target of RedundantCalibrator._redcal_multithread'''
+    np_rawCalpar = np.frombuffer(rawCalpar, dtype=np.float32)
     np_rawCalpar.shape=(data.shape[0], data.shape[1], len(rawCalpar) / data.shape[0] / data.shape[1])
-    #print np_rawCalpar.dtype, np_rawCalpar.shape
-
-    np_additive_out = np.frombuffer(additive_out, dtype='complex64')
+    np_additive_out = np.frombuffer(additive_out, dtype=np.complex64)
     np_additive_out.shape = data.shape
+    # XXX why is this redcal2 and not redcal?
     _O.redcal2(data, np_rawCalpar, Info, additivein, np_additive_out, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
 
     #np_additive_out = _O.redcal(data, np_rawCalpar, Info, additivein, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
@@ -144,6 +143,7 @@ class RedundantCalibrator:
     to create the info field of the instance by either computing it or reading it 
     from a text file.'''
     def __init__(self, nTotalAnt, info=None):
+        self.arrayinfo = ArrayInfo(nTotalAnt) # XXX if works, clean up
         self.nTotalAnt = nTotalAnt
         self.nTotalBaselineAuto = (nTotalAnt + 1) * nTotalAnt / 2
         self.nTotalBaselineCross = (nTotalAnt - 1) * nTotalAnt / 2
@@ -160,9 +160,9 @@ class RedundantCalibrator:
         self.removeDegeneracy = True
         self.removeAdditive = False
         self.removeAdditivePeriod = -1
-        self.convergePercent = 0.01 #convergence criterion in relative change of chi^2. By default it stops when reaches 0.01, namely 1% decrease in chi^2.
-        self.maxIteration = 50 #max number of iterations in lincal
-        self.stepSize = 0.3 #step size for lincal. (0, 1]. < 0.4 recommended.
+        self.convergePercent = 0.01 #convergence criterion in relative change of chi^2. By default it stops when reaches 0.01, namely 1% decrease in chi^2. # XXX maybe just an arg to lincal w/ default?
+        self.maxIteration = 50 #max number of iterations in lincal # XXX maybe just an arg to lincal w/ default?
+        self.stepSize = 0.3 #step size for lincal. (0, 1]. < 0.4 recommended. # XXX maybe just an arg to lincal w/ default?
         self.computeUBLFit = True
         self.trust_period = 1 #How many time slices does lincal start from logcal result rather than the previous time slice's lincal result. default 1 means always start from logcal. if 10, it means lincal start from logcal results (or g = 1's) every 10 time slices
         self.nTime = 0
@@ -196,6 +196,7 @@ class RedundantCalibrator:
     def write_redundantinfo(self, filename, overwrite=False, verbose=False):
         self.Info.tofile(filename, overwrite=overwrite, verbose=verbose)
     def read_arrayinfo(self, arrayinfopath, verbose = False):
+        return self.arrayinfo.read_arrayinfo(arrayinfopath,verbose=verbose) # XXX if works, clean up
         '''array info is the minimum set of information to uniquely describe a 
         redundant array, and is needed to compute redundant info. It includes, 
         in each line, bad antenna indices, bad unique bl indices, tolerance 
@@ -231,7 +232,7 @@ class RedundantCalibrator:
             print "Bad UBL indices:", self.badUBLpair
     def _redcal(self, data, additivein, nthread=None, verbose=False, uselogcal=0):
         '''for best performance, try setting nthread to larger than number of cores.'''
-        assert(data.ndim == 3 and data.shape[-1] == len(self.totalVisibilityId))
+        assert(data.ndim == 3 and data.shape[-1] == len(self.arrayinfo.totalVisibilityId))
         assert(data.shape == additivein.shape)
         self.nTime, self.nFrequency = data.shape[:2]
         if uselogcal or self.rawCalpar is None:
@@ -493,6 +494,8 @@ class RedundantCalibrator:
         return_flag = (nan_flag|spike_flag|ubl_flag)
         return return_flag
     def compute_redundantinfo(self, arrayinfoPath=None, verbose=False, badAntenna=[], badUBLpair=[], antennaLocationTolerance=1e-6):
+        self.Info = self.arrayinfo.compute_redundantinfo(arrayinfoPath=arrayinfoPath, verbose=verbose, badAntenna=badAntenna, badUBLpair=badUBLpair, antennaLocationTolerance=antennaLocationTolerance)
+        return # XXX if works, clean up below
         '''Use provided antenna locations (in arrayinfoPath) to derive redundancy equations'''
         # XXX could these be set somewhere else so they aren't passed in?
         self.antennaLocationTolerance = tol = antennaLocationTolerance
