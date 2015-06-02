@@ -104,35 +104,35 @@ int RedInfoObject_set_nBaseline(RedInfoObject *self, PyObject *value, void *clos
 //}
 
 // RedundantInfo.subsetant (1D integer array)
-PyObject *RedInfoObject_get_subsetant(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[1] = {self->info.subsetant.size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-        ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.subsetant[i];
-    }
-    return PyArray_Return(rv);
-}
-
-int RedInfoObject_set_subsetant(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "subsetant must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "subsetant must be a 1D array of ints");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    self->info.subsetant.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-        self->info.subsetant[i] = ((int *) PyArray_GETPTR1(v,i))[0];
-    }
-    return 0;
-}
+//PyObject *RedInfoObject_get_subsetant(RedInfoObject *self, void *closure) {
+//    PyArrayObject *rv;
+//    npy_intp data_dims[1] = {self->info.subsetant.size()};
+//    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
+//    for (int i=0; i < data_dims[0]; i++) {
+//        ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.subsetant[i];
+//    }
+//    return PyArray_Return(rv);
+//}
+//
+//int RedInfoObject_set_subsetant(RedInfoObject *self, PyObject *value, void *closure) {
+//    PyArrayObject *v;
+//    npy_intp dim1;
+//    if (!PyArray_Check(value)) {
+//        PyErr_Format(PyExc_ValueError, "subsetant must be a numpy array");
+//        return -1;
+//    }
+//    v = (PyArrayObject *) value;
+//    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT) {
+//        PyErr_Format(PyExc_ValueError, "subsetant must be a 1D array of ints");
+//        return -1;
+//    }
+//    dim1 = PyArray_DIM(v,0);
+//    self->info.subsetant.resize(dim1);
+//    for (int i=0; i < dim1; i++) {
+//        self->info.subsetant[i] = ((int *) PyArray_GETPTR1(v,i))[0];
+//    }
+//    return 0;
+//}
 
 // RedundantInfo.antloc (1D integer array)
 PyObject *RedInfoObject_get_antloc(RedInfoObject *self, void *closure) {
@@ -1136,14 +1136,14 @@ int RedInfoObject_set_BtBi(RedInfoObject *self, PyObject *value, void *closure) 
 |  _ <  __/ (_| || || | | |  _| (_) | | | | | | |  __/ |_| | | | (_) | (_| |
 |_| \_\___|\__,_|___|_| |_|_|  \___/  |_| |_| |_|\___|\__|_| |_|\___/ \__,_|*/
 
-PyObject* RedInfoObject_readredundantinfo(RedInfoObject *self, PyObject *args){
-    char *filename;
-    if (!PyArg_ParseTuple(args, "s", &filename)) return NULL;
-    readredundantinfo(filename, &(self->info));
-
-    Py_INCREF(Py_None);
-    return Py_None;
-}
+//PyObject* RedInfoObject_readredundantinfo(RedInfoObject *self, PyObject *args){
+//    char *filename;
+//    if (!PyArg_ParseTuple(args, "s", &filename)) return NULL;
+//    readredundantinfo(filename, &(self->info));
+//
+//    Py_INCREF(Py_None);
+//    return Py_None;
+//}
 
 
 /*___          _ ___        __        ___  _     _           _
@@ -1153,18 +1153,18 @@ PyObject* RedInfoObject_readredundantinfo(RedInfoObject *self, PyObject *args){
 |_| \_\___|\__,_|___|_| |_|_|  \___/ \___/|_.__// |\___|\___|\__|
                                               |__/       */
 
-static PyMethodDef RedInfoObject_methods[] = {
-    {"readredundantinfo", (PyCFunction)RedInfoObject_readredundantinfo, METH_VARARGS,
-        "readredundantinfo(filename)\nRead data in from specified filename."},
-    {NULL}  // Sentinel
-};
+//static PyMethodDef RedInfoObject_methods[] = {
+//    {"readredundantinfo", (PyCFunction)RedInfoObject_readredundantinfo, METH_VARARGS,
+//        "readredundantinfo(filename)\nRead data in from specified filename."},
+//    {NULL}  // Sentinel
+//};
 
 static PyGetSetDef RedInfoObject_getseters[] = {
     {"nAntenna", (getter)RedInfoObject_get_nAntenna, (setter)RedInfoObject_set_nAntenna, "nAntenna", NULL},
     {"nUBL", (getter)RedInfoObject_get_nUBL, (setter)RedInfoObject_set_nUBL, "nUBL", NULL},
     {"nBaseline", (getter)RedInfoObject_get_nBaseline, (setter)RedInfoObject_set_nBaseline, "nBaseline", NULL},
     //{"nCross", (getter)RedInfoObject_get_nCross, (setter)RedInfoObject_set_nCross, "nCross", NULL},
-    {"subsetant", (getter)RedInfoObject_get_subsetant, (setter)RedInfoObject_set_subsetant, "subsetant", NULL},
+    //{"subsetant", (getter)RedInfoObject_get_subsetant, (setter)RedInfoObject_set_subsetant, "subsetant", NULL},
     {"antloc", (getter)RedInfoObject_get_antloc, (setter)RedInfoObject_set_antloc, "antloc", NULL},
     {"subsetbl", (getter)RedInfoObject_get_subsetbl, (setter)RedInfoObject_set_subsetbl, "subsetbl", NULL},
     {"ubl", (getter)RedInfoObject_get_ubl, (setter)RedInfoObject_set_ubl, "ubl", NULL},
@@ -1223,7 +1223,7 @@ PyTypeObject RedInfoType = {
     0,                     /* tp_weaklistoffset */
     0,                     /* tp_iter */
     0,                     /* tp_iternext */
-    RedInfoObject_methods,     /* tp_methods */
+    0,                      /* tp_methods */
     NULL,                    /* tp_members */
     RedInfoObject_getseters,     /* tp_getset */
     0,                         /* tp_base */

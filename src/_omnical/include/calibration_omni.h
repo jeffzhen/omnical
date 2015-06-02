@@ -90,17 +90,17 @@ struct calmemmodule{//temporary memory modules for logcaladditive and lincal
 	vector<vector<vector<float> > > ubl2dgrp2;
 };
 
-bool readredundantinfo(string filepath, redundantinfo* info);
+//bool readredundantinfo(string filepath, redundantinfo* info);
 void initcalmodule(calmemmodule* module, redundantinfo* info);
 
 ///////////////////////////////////////
 //command line and Python interaction//
 ///////////////////////////////////////
-void printv(vector<float> *v, int mini = 0, int maxi = 200);
-void printvv(vector<vector<float> > *v, int mini = 0, int maxi = 200);
-void printvv(vector<vector<int> > *v, int mini = 0, int maxi = 200);
-void printv(vector<double> *v, int mini = 0, int maxi = 200);
-void printv(vector<int> *v, int mini = 0, int maxi = 200);
+//void printv(vector<float> *v, int mini = 0, int maxi = 200);
+//void printvv(vector<vector<float> > *v, int mini = 0, int maxi = 200);
+//void printvv(vector<vector<int> > *v, int mini = 0, int maxi = 200);
+//void printv(vector<double> *v, int mini = 0, int maxi = 200);
+//void printv(vector<int> *v, int mini = 0, int maxi = 200);
 
 string exec(string input_command);//return result of stdout of a system command such as "python BLAH_BLAH". Won't catch stderr. Direct copy from internet http://stackoverflow.com/questions/478898/how-to-execute-a-command-and-get-output-of-command-within-c
 
@@ -156,7 +156,7 @@ void padSmall(vector<vector<float> > *smallslice, vector<float> * largeslice);//
 
 ////void readBinaryCalparSP(const char* inputfilename, vector<vector<vector<float> > > * data, int nIntegrations, int nFrequencies, int nAnt, int nUBL);//read binary calpar single polarization, assumes chisqx3, log10(ampcalpar) x nant, phasecalpar degrees x nant, ubl fits in r/i r/i; //turn degree into rad when reading
 
-vector<float> readAscii(const char* inputfilename, int count = -1, bool verbose = false);
+//vector<float> readAscii(const char* inputfilename, int count = -1, bool verbose = false);
 
 ////void readVisibility(const char* inputfilename, vector<vector<vector<float> > > * data, int nFreq, int nBL);
 
