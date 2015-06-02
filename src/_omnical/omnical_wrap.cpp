@@ -76,18 +76,18 @@ int RedInfoObject_set_nUBL(RedInfoObject *self, PyObject *value, void *closure) 
 }
 
 // RedundantInfo.nBaseline
-PyObject *RedInfoObject_get_nBaseline(RedInfoObject *self, void *closure) {
-    return Py_BuildValue("l", self->info.nBaseline);
-}
-
-int RedInfoObject_set_nBaseline(RedInfoObject *self, PyObject *value, void *closure) {
-    if (!PyInt_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "nBaseline must be an integer");
-        return -1;
-    }
-    self->info.nBaseline = (int) PyInt_AsLong(value);
-    return 0;
-}
+//PyObject *RedInfoObject_get_nBaseline(RedInfoObject *self, void *closure) {
+//    return Py_BuildValue("l", self->info.nBaseline);
+//}
+//
+//int RedInfoObject_set_nBaseline(RedInfoObject *self, PyObject *value, void *closure) {
+//    if (!PyInt_Check(value)) {
+//        PyErr_Format(PyExc_ValueError, "nBaseline must be an integer");
+//        return -1;
+//    }
+//    self->info.nBaseline = (int) PyInt_AsLong(value);
+//    return 0;
+//}
 
 // RedundantInfo.nCross
 //PyObject *RedInfoObject_get_nCross(RedInfoObject *self, void *closure) {
@@ -1162,7 +1162,7 @@ int RedInfoObject_set_BtBi(RedInfoObject *self, PyObject *value, void *closure) 
 static PyGetSetDef RedInfoObject_getseters[] = {
     {"nAntenna", (getter)RedInfoObject_get_nAntenna, (setter)RedInfoObject_set_nAntenna, "nAntenna", NULL},
     {"nUBL", (getter)RedInfoObject_get_nUBL, (setter)RedInfoObject_set_nUBL, "nUBL", NULL},
-    {"nBaseline", (getter)RedInfoObject_get_nBaseline, (setter)RedInfoObject_set_nBaseline, "nBaseline", NULL},
+    //{"nBaseline", (getter)RedInfoObject_get_nBaseline, (setter)RedInfoObject_set_nBaseline, "nBaseline", NULL},
     //{"nCross", (getter)RedInfoObject_get_nCross, (setter)RedInfoObject_set_nCross, "nCross", NULL},
     //{"subsetant", (getter)RedInfoObject_get_subsetant, (setter)RedInfoObject_set_subsetant, "subsetant", NULL},
     {"antloc", (getter)RedInfoObject_get_antloc, (setter)RedInfoObject_set_antloc, "antloc", NULL},

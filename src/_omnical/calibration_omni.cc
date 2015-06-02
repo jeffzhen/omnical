@@ -39,7 +39,8 @@ const int NUM_OBJECTS = 30;//Number of satellites we have in tracked_bodies_X4.t
 
 void initcalmodule(calmemmodule* module, redundantinfo* info){
 	int nant = info->nAntenna;
-	int nbl = info->nBaseline;
+	//int nbl = info->nBaseline;
+	int nbl = info->bl2d.size();
 	int nubl = info->nUBL;
 	int ncross = info->crossindex.size();
 	(module->amp1).resize(ncross);

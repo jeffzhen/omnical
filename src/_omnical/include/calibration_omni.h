@@ -22,8 +22,8 @@ using namespace std;
 struct redundantinfo{
 	int nAntenna;//number of good antennas among all (64) antennas, same as the length of subsetant
 	int nUBL;//number of unique baselines
-	int nBaseline;
-	int nCross;
+	//int nBaseline;
+	//int nCross;
 	//vector<int> subsetant;//the index of good antennas in all (64) antennas, currently not used
 	vector<vector<float> > antloc;//3d antloc for each good antenna. strongly recommend using idealized antloc rather than literal ones
 	//vector<int> subsetbl;//the index of good baselines (auto included) in all baselines
@@ -50,12 +50,12 @@ struct redundantinfo{
 	vector<vector<vector<int> > > Btsparse;//Bt matrix for logcal phase, entries can be -1 or one so there's one more dimension than Atsparse
 	vector<vector<float> > AtAi;//(AtA)^-1
 	vector<vector<float> > BtBi;//(BtB)^-1
-	vector<vector<float> > AtAiAt;//(AtA)^-1At
-	vector<vector<float> > BtBiBt;//(BtB)^-1Bt
-	vector<vector<float> > PA;//A(AtA)^-1At
-	vector<vector<float> > PB;//B(BtB)^-1Bt
-	vector<vector<float> > ImPA;//I-PA
-	vector<vector<float> > ImPB;//I-PB
+	//vector<vector<float> > AtAiAt;//(AtA)^-1At
+	//vector<vector<float> > BtBiBt;//(BtB)^-1Bt
+	//vector<vector<float> > PA;//A(AtA)^-1At
+	//vector<vector<float> > PB;//B(BtB)^-1Bt
+	//vector<vector<float> > ImPA;//I-PA
+	//vector<vector<float> > ImPB;//I-PB
 
 };
 
