@@ -39,7 +39,6 @@ const int NUM_OBJECTS = 30;//Number of satellites we have in tracked_bodies_X4.t
 
 void initcalmodule(calmemmodule* module, redundantinfo* info){
 	int nant = info->nAntenna;
-	//int nbl = info->nBaseline;
 	int nbl = info->bl2d.size();
 	int nubl = info->nUBL;
 	int ncross = info->crossindex.size();
@@ -139,30 +138,6 @@ vector<float> strtovf(string in){
 	}
 	//output.pop_back(); //sometimes get a 0 in end..tricky...
 	return output;
-}
-
-void breakLarge(vector<float> *largeslice, vector<vector<float> > * smallslice){// breaks up the frequency slice in large format (1D of length 2*nBaseline) into small format(2D of nBaseline by re/im)
-	string METHODNAME = "breakLarge";
-	if ( largeslice->size() != 2*(smallslice->size()) or (smallslice->at(0)).size() != 2 ){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The receiver array is initialized at (nBaseline, 2) = (" << smallslice->size() << " by " << (smallslice->at(0)).size() << "), where as the large slice is specified as (" << largeslice->size() << "). Exiting!!" << endl;
-		return;
-	}
-	for (unsigned int i = 0; i < largeslice->size(); i++){
-		(smallslice->at(floor(i/2)))[i%2] = largeslice->at(i);
-	}
-	return;
-}
-
-void padSmall(vector<vector<float> > * smallslice, vector<float> * largeslice){// pad the frequency slice in small format(2D of nBaseline by re/im) into large format (1D of length 2*nBaseline)
-	string METHODNAME = "padSmall";
-	if ( largeslice->size() != 2*(smallslice->size()) or (smallslice->at(0)).size() != 2 ){
-		cout << "#!!#" << FILENAME << "#!!#" << METHODNAME << ": FATAL I/O MISMATCH! The large array is initialized at (nBaseline, 2) = (" << smallslice->size() << " by " << (smallslice->at(0)).size() << "), where as the small slice is specified as (" << largeslice->size() << "). Exiting!!" << endl;
-		return;
-	}
-	for (unsigned int i = 0; i < largeslice->size(); i++){
-		largeslice->at(i) = (smallslice->at(floor(i/2)))[i%2];
-	}
-	return;
 }
 
 vector<float> tp2xyz (vector<float> thephi){
@@ -510,48 +485,6 @@ void matrixDotV(vector<vector<float> > * A, vector<float> * b, vector<float> * x
 
 int gc(int a, int b){
 	return 2 * a + b;
-}
-
-string getFileName(string fileNameWithPath){//get the filename in a long path/path/filename
-	string output = fileNameWithPath;
-	size_t found;
-	found = output.rfind( "/" );
-	if (found!=string::npos and found!=output.size() - 1){
-		output.erase( 0, found + 1 );
-	};
-	return output;
-}
-
-string strReplace(string input, string a, string b){
-	string output = input;
-	size_t found;
-	found = output.find( a );
-	while (found!=string::npos){
-		output.replace( found, a.size(), b );
-		found = output.find( a );
-	};
-	return output;
-}
-
-string extFileName(string fileName, string ext){//extend a file name by a string, such as extend way.cool.odf with shit to get way.coolshit.odf
-	string output = fileName;
-	size_t found;
-	found = output.rfind( "." );
-	if (found!=string::npos){
-		output.insert( found, ext );
-	};
-	return output;
-}
-
-vector<string> parseLines(string bigLine){
-	string line;
-	vector<string> lines;
-	stringstream ssls (bigLine);
-
-	while (getline( ssls, line )){
-		lines.push_back(line);
-	}
-	return lines;
 }
 
 float square(float x){

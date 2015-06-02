@@ -102,8 +102,6 @@ void initcalmodule(calmemmodule* module, redundantinfo* info);
 //void printv(vector<double> *v, int mini = 0, int maxi = 200);
 //void printv(vector<int> *v, int mini = 0, int maxi = 200);
 
-string exec(string input_command);//return result of stdout of a system command such as "python BLAH_BLAH". Won't catch stderr. Direct copy from internet http://stackoverflow.com/questions/478898/how-to-execute-a-command-and-get-output-of-command-within-c
-
 string ftostr(float f);//float to string
 
 string itostr(int i, int len);//int to string of specified length len
@@ -149,10 +147,6 @@ vector<float> strtovf(string in);
 ////void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
 
 ////void readBinaryVisibilityLargeConj(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
-
-void breakLarge(vector<float> *largeslice, vector<vector<float> > * smallslice);// breaks up the frequency slice in large format (1D of length 2*nBaseline) into small format(2D of nBaseline by re/im)
-
-void padSmall(vector<vector<float> > *smallslice, vector<float> * largeslice);// pad the frequency slice in small format(2D of nBaseline by re/im) into large format (1D of length 2*nBaseline)
 
 ////void readBinaryCalparSP(const char* inputfilename, vector<vector<vector<float> > > * data, int nIntegrations, int nFrequencies, int nAnt, int nUBL);//read binary calpar single polarization, assumes chisqx3, log10(ampcalpar) x nant, phasecalpar degrees x nant, ubl fits in r/i r/i; //turn degree into rad when reading
 
@@ -213,14 +207,6 @@ void matrixDotV(vector<vector<float> > * A, vector<float> * x, vector<float> * b
 int gc(int a, int b);//Get coordinate for large vectors when the last two coordinates are consolidated into one dimension. 2a+b
 
 /*void iqDemodBinary(string data, string data_out, int nIntegrations, int nFrequencies, int nAnt);//Used for large odfs for which there's not enough memory to take in all the data, so we have to read and iq and write without saving too much into memory*/
-
-string strReplace(string input, string a, string b);//replace string a contained in input by string b
-
-string getFileName(string fileNameWithPath);//get the filename in a long path/path/filename
-
-string extFileName(string fileName, string ext); //extend a file name by a string, such as extend way.cool.odf with shit to get way.coolshit.odf
-
-vector<string> parseLines(string bigLine);//can be used to parse result returned by exec() which is a big string containing multiple lines
 
 float square(float x);
 
