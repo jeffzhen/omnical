@@ -43,7 +43,7 @@ class TestRedInfo(unittest.TestCase):
         self.assertEqual(i.nBaseline,5)
         self.assertEqual(i.ublcount[0],3)
         self.assertEqual(i.ublcount[1],2)
-        self.assertTrue(np.all(i.ublindex == np.array([[0,1,0],[1,2,0],[2,3,0],[0,2,1],[1,3,1]],dtype=np.int32)))
+        self.assertTrue(np.all(i.ublindex == np.array([[0,1,0],[1,2,1],[2,3,2],[0,2,3],[1,3,4]],dtype=np.int32)))
         self.assertTrue(np.all(i.ubl[0] == np.array([1.,0,0],dtype=np.float32)))
         self.assertTrue(np.all(i.ubl[1] == np.array([2.,0,0],dtype=np.float32)))
     def test_list_redundancies(self):

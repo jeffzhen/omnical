@@ -36,16 +36,20 @@ KEYS = [
 # then do major cleanup of c code
 
 # XXX all this meta stuff about "info" almost assuredly means info needs to be a class
-infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+#infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+infokeys = ['nAntenna','nUBL','antloc','bltoubl','reversed','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 infokeys_optional = ['totalVisibilityId']
-binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','At','Bt']
+#binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','At','Bt']
+binaryinfokeys=['nAntenna','nUBL','antloc','bltoubl','reversed','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','At','Bt']
 cal_name = {0: "Lincal", 1: "Logcal"}
 
-int_infokeys = ['nAntenna','nUBL','nBaseline']
-intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
+int_infokeys = ['nAntenna','nUBL']
+#intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
+intarray_infokeys = ['bltoubl','reversed','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
 intarray_infokeys_optional = ['totalVisibilityId']
 
-float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+#float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+float_infokeys = ['antloc','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 
 MARKER = 9999999
 
@@ -209,7 +213,8 @@ class RedundantInfo(_O.RedundantInfo):
         self.bl2d = bl2d[:,:2]
         self.nBaseline = bl2d.shape[0]
         self.bltoubl = bl2d[:,2]
-        self.reversed = np.where(bl2d[:,3] == 0, 1, -1).astype(np.int32)
+        #self.reversed = np.where(bl2d[:,3] == 0, 1, -1).astype(np.int32)
+        self.reversed = np.where(bl2d[:,3] == 0, -1, 1).astype(np.int32)
         self.crossindex = np.arange(self.nBaseline, dtype=np.int32) # XXX mandating no autos here
         # XXX reversedauto
         # XXX autoindex
@@ -353,7 +358,7 @@ class RedundantInfo(_O.RedundantInfo):
         '''compare with another RedundantInfo, output True if they are the same and False if they are different'''
         try:
             floatkeys = float_infokeys#['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
-            intkeys = ['nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix']
+            intkeys = ['nAntenna','nUBL','bltoubl','reversed','crossindex','bl2d','ublcount','bl1dmatrix']
             infomatrices=['At','Bt']
             specialkeys = ['ublindex']
             allkeys = floatkeys + intkeys + infomatrices + specialkeys#['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
