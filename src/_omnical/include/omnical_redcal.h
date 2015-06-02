@@ -93,34 +93,6 @@ struct calmemmodule{//temporary memory modules for logcaladditive and lincal
 //bool readredundantinfo(string filepath, redundantinfo* info);
 void initcalmodule(calmemmodule* module, redundantinfo* info);
 
-///////////////////////////////////////
-//command line and Python interaction//
-///////////////////////////////////////
-
-string ftostr(float f);//float to string
-string itostr(int i, int len);//int to string of specified length len
-vector<float> strtovf(string in);
-
-
-///////////////////////////////////////
-//Helper methods///////////////////////
-///////////////////////////////////////
-vector<float> tp2xyz (vector<float> thephi);
-vector<float> tp2xyz (float t, float p);
-vector<float> xyz2tp (vector<float> xyz);
-vector<float> xyz2tp (float x, float y, float z);
-
-vector<float> tp2rd (vector<float> thephi);
-vector<float> tp2rd (float t, float p);
-vector<float> rd2tp (vector<float> rd);
-vector<float> rd2tp (float r, float d);
-vector<float> tp2aa (vector<float> thephi);//alt-az
-vector<float> tp2aa (float t, float p);//alt-az
-vector<float> aa2tp (vector<float> aa);//alt-az
-vector<float> aa2tp (float alt, float az);
-
-
-
 void matrixDotV(vector<vector<float> > * A, vector<float> * x, vector<float> * b);
 
 ////void iqDemod(vector<vector<vector<vector<vector<float> > > > > *data, vector<vector<vector<vector<vector<float> > > > > *data_out, int nIntegrations, int nFrequencies, int nAnt);
