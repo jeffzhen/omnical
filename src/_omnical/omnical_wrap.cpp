@@ -138,7 +138,7 @@ int RedInfoObject_set_nBaseline(RedInfoObject *self, PyObject *value, void *clos
 PyObject *RedInfoObject_get_antloc(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
     if (self->info.antloc.size() == 0) {
-        npy_intp data_dims[1] = {self->info.autoindex.size()};
+        npy_intp data_dims[1] = {self->info.nAntenna};
         rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_FLOAT);
     } else {
         npy_intp data_dims[2] = {self->info.antloc.size(), self->info.antloc[0].size()};
@@ -312,66 +312,66 @@ int RedInfoObject_set_reversed(RedInfoObject *self, PyObject *value, void *closu
 }
 
 // RedundantInfo.reversedauto (1D integer array)
-PyObject *RedInfoObject_get_reversedauto(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[1] = {self->info.reversedauto.size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-        ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.reversedauto[i];
-    }
-    return PyArray_Return(rv);
-}
-
-int RedInfoObject_set_reversedauto(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "reversedauto must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "reversedauto must be a 1D array of ints");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    self->info.reversedauto.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-        self->info.reversedauto[i] = ((int *) PyArray_GETPTR1(v,i))[0];
-    }
-    return 0;
-}
+//PyObject *RedInfoObject_get_reversedauto(RedInfoObject *self, void *closure) {
+//    PyArrayObject *rv;
+//    npy_intp data_dims[1] = {self->info.reversedauto.size()};
+//    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
+//    for (int i=0; i < data_dims[0]; i++) {
+//        ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.reversedauto[i];
+//    }
+//    return PyArray_Return(rv);
+//}
+//
+//int RedInfoObject_set_reversedauto(RedInfoObject *self, PyObject *value, void *closure) {
+//    PyArrayObject *v;
+//    npy_intp dim1;
+//    if (!PyArray_Check(value)) {
+//        PyErr_Format(PyExc_ValueError, "reversedauto must be a numpy array");
+//        return -1;
+//    }
+//    v = (PyArrayObject *) value;
+//    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT) {
+//        PyErr_Format(PyExc_ValueError, "reversedauto must be a 1D array of ints");
+//        return -1;
+//    }
+//    dim1 = PyArray_DIM(v,0);
+//    self->info.reversedauto.resize(dim1);
+//    for (int i=0; i < dim1; i++) {
+//        self->info.reversedauto[i] = ((int *) PyArray_GETPTR1(v,i))[0];
+//    }
+//    return 0;
+//}
 
 // RedundantInfo.autoindex (1D integer array)
-PyObject *RedInfoObject_get_autoindex(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[1] = {self->info.autoindex.size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-        ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.autoindex[i];
-    }
-    return PyArray_Return(rv);
-}
-
-int RedInfoObject_set_autoindex(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "autoindex must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "autoindex must be a 1D array of ints");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    self->info.autoindex.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-        self->info.autoindex[i] = ((int *) PyArray_GETPTR1(v,i))[0];
-    }
-    return 0;
-}
+//PyObject *RedInfoObject_get_autoindex(RedInfoObject *self, void *closure) {
+//    PyArrayObject *rv;
+//    npy_intp data_dims[1] = {self->info.autoindex.size()};
+//    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
+//    for (int i=0; i < data_dims[0]; i++) {
+//        ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.autoindex[i];
+//    }
+//    return PyArray_Return(rv);
+//}
+//
+//int RedInfoObject_set_autoindex(RedInfoObject *self, PyObject *value, void *closure) {
+//    PyArrayObject *v;
+//    npy_intp dim1;
+//    if (!PyArray_Check(value)) {
+//        PyErr_Format(PyExc_ValueError, "autoindex must be a numpy array");
+//        return -1;
+//    }
+//    v = (PyArrayObject *) value;
+//    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT) {
+//        PyErr_Format(PyExc_ValueError, "autoindex must be a 1D array of ints");
+//        return -1;
+//    }
+//    dim1 = PyArray_DIM(v,0);
+//    self->info.autoindex.resize(dim1);
+//    for (int i=0; i < dim1; i++) {
+//        self->info.autoindex[i] = ((int *) PyArray_GETPTR1(v,i))[0];
+//    }
+//    return 0;
+//}
 
 // RedundantInfo.crossindex (1D integer array)
 PyObject *RedInfoObject_get_crossindex(RedInfoObject *self, void *closure) {
@@ -1170,8 +1170,8 @@ static PyGetSetDef RedInfoObject_getseters[] = {
     //{"ubl", (getter)RedInfoObject_get_ubl, (setter)RedInfoObject_set_ubl, "ubl", NULL},
     {"bltoubl", (getter)RedInfoObject_get_bltoubl, (setter)RedInfoObject_set_bltoubl, "bltoubl", NULL},
     {"reversed", (getter)RedInfoObject_get_reversed, (setter)RedInfoObject_set_reversed, "reversed", NULL},
-    {"reversedauto", (getter)RedInfoObject_get_reversedauto, (setter)RedInfoObject_set_reversedauto, "reversedauto", NULL},
-    {"autoindex", (getter)RedInfoObject_get_autoindex, (setter)RedInfoObject_set_autoindex, "autoindex", NULL},
+    //{"reversedauto", (getter)RedInfoObject_get_reversedauto, (setter)RedInfoObject_set_reversedauto, "reversedauto", NULL},
+    //{"autoindex", (getter)RedInfoObject_get_autoindex, (setter)RedInfoObject_set_autoindex, "autoindex", NULL},
     {"crossindex", (getter)RedInfoObject_get_crossindex, (setter)RedInfoObject_set_crossindex, "crossindex", NULL},
     {"bl2d", (getter)RedInfoObject_get_bl2d, (setter)RedInfoObject_set_bl2d, "bl2d", NULL},
     {"totalVisibilityId", (getter)RedInfoObject_get_totalVisibilityId, (setter)RedInfoObject_set_totalVisibilityId, "totalVisibilityId", NULL},
