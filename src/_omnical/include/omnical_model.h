@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>
+#include "omnical_redcal.h"
 #define uint unsigned int
 using namespace std;
 
@@ -57,8 +58,6 @@ int gc(int a, int b);//Get coordinate for large vectors when the last two coordi
 
 /*void iqDemodBinary(string data, string data_out, int nIntegrations, int nFrequencies, int nAnt);//Used for large odfs for which there's not enough memory to take in all the data, so we have to read and iq and write without saving too much into memory*/
 
-float square(float x);
-
 int get1DBL(int i, int j, int nAntenna);
 
 vector<int> get2DBL(int bl, int nAntenna);//bl counts cross corrs AND auto corrs
@@ -70,18 +69,6 @@ bool contains(vector<vector<float> > * UBL, vector<float> bl);//automatically ch
 int indexUBL(vector<vector<float> > * UBL, vector<float> bl);//give the index of a baseline inside the unique baseline list; automatically checks for the opposite direction, the opposite direction will give -index
 
 bool contains_int(vector<int> * list, int j);
-
-float amp(vector<float> * x);
-
-float amp(float x, float y);
-
-float phase(float re, float im);
-
-float phase(vector<float> * c);
-
-float norm(vector<vector<float> > * v);
-
-vector<float> conjugate (vector<float> x);
 
 void addPhase(vector<float> * x, float phi);
 
@@ -101,9 +88,6 @@ vector<float> getBL(int i, int j, vector<vector<float> > *antloc);
 int countUBL(vector<vector<float> > *antloc );
 
 int lookupAnt(float x, float y, vector<vector<float> > antloc);
-
-float phaseWrap (float x, float offset = -atan2(0,-1));//Wrap phase to be on (offset, offset+2pi]
-
 
 
 ///////////////CHI SQUARE STUFF///////////////////
@@ -128,29 +112,14 @@ bool fillChiSq(vector<vector<float> >* dataf, vector<vector<float> >* sdevf, vec
 
 ///////////////POINT SOURCE STUFF///////////////////
 /////////////////////////////////////////////
-float median (vector<float> list); //Not using pointer because the process involves sorting which will modify the list, which may be bad
-
-float medianAngle (vector<float> *list); //Not using pointer because the process involves sorting which will modify the list, which may be bad
-
-float mean (vector<float> *v, int start = -1, int end = -1);// take mean from start to end indices of vector v. 0 indexed
-
-vector<float> stdev(vector<float> *v);//returns {mean, sample standard deviation}. Created by Hrant and modified by Jeff
-
-float meanAngle (vector<float> *list);
-
-vector<float> stdevAngle(vector<float> *v);
 
 //float mode (vector<float> list);//Didn't finish!!!! Decided to write medianAngle() instead.
 
 void substractComplexPhase(vector<float> *a, vector<float> *b, float angle);
 
-bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
-bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
 ///////////////REDUNDANT BASELINE CALIBRATION STUFF///////////////////
 /////////////////////////////////////////////
 
-void vecmatmul(vector<vector<double> > * Afitting, vector<float> * v, vector<float> * ampfit);
-void vecmatmul(vector<vector<float> > * Afitting, vector<float> * v, vector<float> * ampfit);
 void runAverage1d(vector<float> *in, vector<float> *out, uint w);//compute running average with running length 2w+1. The first and last w elements are averaged with less elements.
 void runAverage(vector<vector<vector<vector<float> > > > *in, int dimension, int w);//compute running average with running length 2w+1 along dimension. The first and last w elements are averaged with less elements. Input array is modified!
 #endif
