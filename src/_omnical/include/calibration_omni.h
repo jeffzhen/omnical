@@ -254,10 +254,6 @@ vector<vector<float> > rotationMatrixZ(float z);
 
 ///////////////PHASE CALIBRATE STUFF///////////////////
 /////////////////////////////////////////////
-float getCableCorrection(float length, float freq);//measured phase - phaseCor = ideal phase
-
-
-float getFreq(int f, int nFrequency, float startFreq, float endFreq);//To be consistent with OmniViewer frequency interpretation!!!
 
 vector<float> getBL(int i, int j, vector<vector<float> > *antloc);
 
@@ -266,11 +262,6 @@ int countUBL(vector<vector<float> > *antloc );
 int lookupAnt(float x, float y, vector<vector<float> > antloc);
 
 float phaseWrap (float x, float offset = -atan2(0,-1));//Wrap phase to be on (offset, offset+2pi]
-
-
-void phaseCalibrate120(vector<float>* calpar120, vector<float>* calpar16, uint nAnt, vector<bool>* badAnt);//find the median solution of 16 antenna calpars from 120 visibility calpars
-
-vector<float> phaseCalibrate(vector<vector<float> > *dataf, string pol, float freq, vector<vector<float> > *antloc, vector<vector<float> > *cablelen, int startingAnt1, int startingAnt2, int startingAnt3, int nAntenna);
 
 
 
