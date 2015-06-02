@@ -15,7 +15,8 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>
-#include "include/calibration_omni.h"
+#include "include/omnical_redcal.h"
+#include "include/omnical_model.h"
 #include <algorithm>
 #define uint unsigned int
 using namespace std;
