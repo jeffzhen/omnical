@@ -741,32 +741,6 @@ vector<float> modelToMeasurement(vector<float> *modelCor, float ampcal, float ph
 	return measurement;
 }
 
-vector<float> correctMeasurement(vector<float> *measuredCor, float ampcal1, float phasecal1, float ampcal2, float phasecal2){//assumes <x1* , x2>
-	vector<float> corrected (2, 0.0);
-	float a = amp(measuredCor) / max( MIN_NONE_ZERO, (float)pow( 10, min(MAX_10_POW, (ampcal1 + ampcal2)) ) );
-	float p = phaseWrap( phase(measuredCor->at(0), measuredCor->at(1)) + phasecal1 - phasecal2 );
-	corrected[0] = a * cos(p);
-	corrected[1] = a * sin(p);
-	return corrected;
-};
-
-void correctMeasurementPhase(vector<float> *measuredCor, float phasecal1, float phasecal2){//assumes <x1* , x2>
-	float a = amp(measuredCor);
-	float p = phaseWrap( phase(measuredCor->at(0), measuredCor->at(1)) + phasecal1 - phasecal2 );
-	measuredCor->at(0) = a * cos(p);
-	measuredCor->at(1) = a * sin(p);
-	return;
-};
-
-void correctMeasurementMatrix(vector<vector<float> > *correctedData, vector<float> *ampcalpar, vector<float> *phasecalpar){
-	int nAntenna = ampcalpar->size();
-	for ( int i = 0; i < nAntenna; i++){
-		for ( int j = i; j < nAntenna; j++){
-			correctedData->at(get1DBL(i, j, nAntenna)) = correctMeasurement(&(correctedData->at(get1DBL(i, j, nAntenna))), ampcalpar->at(i), phasecalpar->at(i), ampcalpar->at(j), phasecalpar->at(j));
-		}
-	}
-}
-
 void computeUBLcor(vector<vector<float> >* calibratedData, vector<int> *UBLindex, vector<vector<float> > *UBLcor, vector<bool> *goodAnt){//average each group of calibrated redundant baselines to get the estimate for that ubl, only useful when directly applying a set of calpars instead of using logcal to fit for them.
 }
 
@@ -999,74 +973,6 @@ vector<float> stdevAngle(vector<float> *v){
 
 ///////////////MAJOR STUFF///////////////////
 /////////////////////////////////////////////
-void pointSourceCalAccordingTo(uint referenceAnt, vector<vector<float> > *data, vector<vector<float> > *ampcalparArray, vector<vector<float> > *phasecalparArray){//referenceAnt is 0 indexed, ampcalparArray has first dimension represent each antenna's calibration parameter, the second dimention represent the same parameter computed using different reference antennas. This method fills up one column of ampcalparArray (which is essentially a square matrix) at a time
-	string METHODNAME = "pointSourceCalAccordingTo";
-	uint nAnt = ampcalparArray->size();
-	if ( data->size() != ( nAnt * (nAnt + 1) / 2 ) ){
-		cout << "#!#" << FILENAME << "#!#" << METHODNAME << ": !!!!FATAL ERROR!!!! Length of data is " << data->size() << ", not consistent with expected number of crosscorrelations " << nAnt * (nAnt + 1) / 2 << " computed from " << nAnt << " antennas!" << endl;
-		return;
-	}
-
-	//Extracting amplitudes off all cross-correlations related to the reference ant
-	vector<float> amps (nAnt - 1);
-	for ( uint i = 0; i < referenceAnt; i ++){
-		amps[i] = amp( &(data->at(get1DBL(i, referenceAnt, nAnt))) );
-	}
-	for ( uint i = referenceAnt + 1; i < nAnt; i ++){
-		amps[i - 1] = amp( &(data->at(get1DBL(i, referenceAnt, nAnt))) );
-	}
-	float standardAmp = median(amps);
-	standardAmp = max(standardAmp , MIN_NONE_ZERO);
-
-	float refphase = phase( (data->at(referenceAnt))[0], -(data->at(referenceAnt))[1] );//reference phase, < x_ref*, x_0>. If we were not to demand x_0's phase correction to be 0, this would have been x_0's phase correction for < x_ref*, x_0> to have 0 phase. However, we substract this from all subsequent phase corrections to demand phase correction for x_0 is 0.
-	for (uint i = 0; i < nAnt; i++){
-		(&(ampcalparArray->at(i)))->at(referenceAnt) = log10( max( amp(&(data->at(get1DBL(referenceAnt, i, nAnt)))) / standardAmp, MIN_NONE_ZERO ) );
-		//cout << amp( &(data->at(get1DBL(referenceAnt, i, nAnt))) ) << " " << standardAmp << endl;
-
-		float rawphase = phase( (data->at(get1DBL(referenceAnt, i, nAnt)))[0], (data->at(get1DBL(referenceAnt, i, nAnt)))[1] );
-		if ( i < referenceAnt ){
-			rawphase = - rawphase;
-		}
-		(&(phasecalparArray->at(i)))->at(referenceAnt) = phaseWrap(rawphase - refphase);
-		//cout << "#!#" << METHODNAME << " DBG: refAnt: #" << referenceAnt << " currentAnt: #" << i << " refphase:" << refphase << " rawphase: " << rawphase << " raw data: " << (data->at(get1DBL(referenceAnt, i, nAnt)))[0] << " " << (data->at(get1DBL(referenceAnt, i, nAnt)))[1] << " calpar: " << phaseWrap(rawphase - refphase) << endl;
-	}
-}
-
-
-void pointSourceCal(vector<vector<float> > *data, vector<float> *ampcalpar, vector<float> *phasecalpar, vector<vector<float> > *UBLcalpar){
-	string METHODNAME = "pointSourceCal";
-	uint nAnt = ampcalpar->size();
-	if ( data->size() != ( nAnt * (nAnt + 1) / 2 ) ){
-		cout << "#!#" << FILENAME << "#!#" << METHODNAME << ": !!!!FATAL ERROR!!!! Length of data is " << data->size() << ", not consistent with expected number of crosscorrelations " << nAnt * (nAnt + 1) / 2 << " computed from " << nAnt << " antennas!" << endl;
-		return;
-	}
-
-	vector<float> dummy (nAnt);
-	vector<vector<float> > ampcalparArray (nAnt, dummy);//contains an aray of ampcalpar parameters from different ampcalpars based on different reference antennas
-	vector<vector<float> > phasecalparArray (nAnt, dummy);
-
-	for (uint i = 0; i < nAnt; i++){
-		pointSourceCalAccordingTo(i, data, &ampcalparArray, &phasecalparArray);
-	}
-	for (uint i = 0; i < nAnt; i++){
-		ampcalpar->at(i) = median(ampcalparArray[i]);
-		phasecalpar->at(i) = medianAngle(&(phasecalparArray[i]));
-		//if ( i == 14 ){
-		//	for ( int j = 0; j < nAnt; j ++){
-		//		cout << ampcalparArray[i][j] << " " << endl;
-		//	}
-		//}
-	}
-	vector<float> autocor(nAnt);
-	for (uint i = 0; i < nAnt; i++){
-		autocor[i] = (data->at(get1DBL(i, i, nAnt)))[0];
-	}
-	float autoMedian = median(autocor);
-	for (unsigned int i = 0; i < UBLcalpar->size(); i++){
-		(UBLcalpar->at(i))[0] = autoMedian;
-		(UBLcalpar->at(i))[1] = 0;
-	}
-}
 
 void substractComplexPhase(vector<float> *a, vector<float> *b, float angle){
 	float amptmp = amp(a);
@@ -1075,38 +981,6 @@ void substractComplexPhase(vector<float> *a, vector<float> *b, float angle){
 	b->at(0) = amptmp * cos(phasetmp);
 	b->at(1) = amptmp * sin(phasetmp);
 	return;
-}
-
-void rotateCalpar(vector<float> *originalPhase, vector<float> *rotatedPhase, vector<vector<float> > *originalUBLcor, vector<vector<float> > *rotatedUBLcor, vector<vector<float> > *antloc, vector<vector<float> > * listUBL, float theta, float phi, float freq){//theta in [0, PI/2] (rotating z axis down), phi [0, 2PI), freq in MHz,  ONLY WORKS FOR ROTATING POINT SOURCE STRAIGHT ABOVE *TO* THETA AND PHI
-	string METHODNAME = "rotatePhasecalpar";
-	float k = 2 * PI / SPEEDC * freq;
-	float sint = sin(theta);
-	////float cost = cos(theta);
-	float sinp = sin(phi);
-	float cosp = cos(phi);
-
-	//vector<float> rotation (originalPhase->size(), 0.0);
-	if ( originalPhase->size() != rotatedPhase->size() or originalPhase->size() != antloc->size()){
-		cout << "#!#" << FILENAME << "#!#" << METHODNAME << ": !!!!FATAL ERROR!!!! Length of original phasecalpar is " << originalPhase->size() << ", not consistent with length of rotated phasecalpar " << rotatedPhase->size() << " or that implied by antloc " << antloc->size() << endl;
-		return;
-	}
-
-	for (uint i = 0; i < originalPhase->size(); i ++){
-		//rotation[i] = k * (sint * cosp * ((&(antloc->at(i)))->at(0)) + sint * sinp * ((&(antloc->at(i)))->at(1)));
-		rotatedPhase->at(i) = phaseWrap( originalPhase->at(i) + k * (sint * sinp * ((&(antloc->at(i)))->at(0)) - sint * cosp * ((&(antloc->at(i)))->at(1))) );
-	}
-
-	for (uint i = 0; i < originalUBLcor->size(); i ++){
-		//rotation[i] = k * (sint * cosp * ((&(antloc->at(i)))->at(0)) + sint * sinp * ((&(antloc->at(i)))->at(1)));
-		substractComplexPhase(
-			&(originalUBLcor->at(i)),
-			&(rotatedUBLcor->at(i)),
-			phaseWrap(
-				k * (sint * sinp * ((&(listUBL->at(i)))->at(0)) - sint * cosp * ((&(listUBL->at(i)))->at(1)))
-				- phase((originalUBLcor->at(i))[0], (originalUBLcor->at(i))[1])
-			)
-		);
-	}
 }
 
 

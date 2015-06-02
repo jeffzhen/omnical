@@ -96,88 +96,11 @@ void initcalmodule(calmemmodule* module, redundantinfo* info);
 ///////////////////////////////////////
 //command line and Python interaction//
 ///////////////////////////////////////
-//void printv(vector<float> *v, int mini = 0, int maxi = 200);
-//void printvv(vector<vector<float> > *v, int mini = 0, int maxi = 200);
-//void printvv(vector<vector<int> > *v, int mini = 0, int maxi = 200);
-//void printv(vector<double> *v, int mini = 0, int maxi = 200);
-//void printv(vector<int> *v, int mini = 0, int maxi = 200);
 
 string ftostr(float f);//float to string
-
 string itostr(int i, int len);//int to string of specified length len
-
 vector<float> strtovf(string in);
 
-//////!!!!!!pyEphem always deals with UTC, i.e., Coordinated Universal Time, and never the time in any particular time zone.
-
-////vector<float> pySunPosForks(string date, string time, float time_offset);//date and time in UTC such as ($python sunpos.py '2012/5/24' '12:22:56') and returns altitude(degree from horizon to north) and az (degree from north towards east)
-
-////void pyStarPosForks(string date, string time, float time_offset, vector<vector<float> >* results);//date and time in UTC such as ($python sunpos.py '2012/5/24' '12:22:56') and fills in altitude(degree from horizon to north) and az (degree from north towards east) for sun, sagA, casA, cygA, crab, and virgo A
-
-////void pySatPosForks(string date, string time, float time_offset, vector<vector<float> >* results);
-
-////void pySatPos(string date, string time, float time_offset, float lat, float lon, float ele, vector<vector<float> >* results);//lat lon in degrees, ele in meters
-
-////void pyRequ2hor(string date, string time, float time_offset, float lat, float lon, vector<vector<float> >* results);//lat lon in degrees. Using this matrix in mathematica generates results that agree with pyephem output within 0.02 degrees on the few sources I checked at Forks
-
-////vector<float> pySunPos(string date, string time, float time_offset, float lat, float lon, float ele);
-
-
-////vector<string> pyTimeShift(string date, string time, float time_offset);//date and time in UTC such as 2012/5/24 12:22:56 and offset in seconds and returns [y/m/d, h:m:s])
-
-////float pyTimeDif(string time1, string time2);//returns time1-time2 in seconds
-
-////string pyOdfDate(string date, string time); //This script takes in UTC date and time such as '2012/5/24' '12:22:56' and prints the date format required by omniviewer Date('May 27, 2012,  20:31:15.0 UTC')
-
-///////////////////////////////////////////
-//////File I/O interaction/////////////////
-///////////////////////////////////////////
-////int cmdCountLine(const char* inputfilename);
-
-////string cmdAbsPath(string relativePath);
-
-////vector<string> cmdLs(string options);// options such as "-A ../test.odf". will return all items in their absolute path form **remember to use -d option for directories such as .odf**
-
-////void cmdMove(string a, string b);
-
-////void cmdCopy(string a, string b);
-
-//void readBinaryVisibility(const char* inputfilename, vector<vector<vector<vector<vector<float> > > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
-
-////void readBinaryVisibilityLarge(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
-
-////void readBinaryVisibilityLargeConj(const char* inputfilename, vector<vector<vector<vector<float> > > > * data, int nPol, int nIntegrations, int nFrequencies, int nBase);//Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
-
-////void readBinaryCalparSP(const char* inputfilename, vector<vector<vector<float> > > * data, int nIntegrations, int nFrequencies, int nAnt, int nUBL);//read binary calpar single polarization, assumes chisqx3, log10(ampcalpar) x nant, phasecalpar degrees x nant, ubl fits in r/i r/i; //turn degree into rad when reading
-
-//vector<float> readAscii(const char* inputfilename, int count = -1, bool verbose = false);
-
-////void readVisibility(const char* inputfilename, vector<vector<vector<float> > > * data, int nFreq, int nBL);
-
-////bool readCalparAscii(const char* inputfilename, vector<float> *chisq, vector<vector<float> > *ampcalpar, vector<vector<float> > *phasecalpar, vector<vector<vector<float> > > * UBLcalpar, int nFreq, int nAnt, int nUBL);
-
-////void readAntloc(const char* inputfilename, vector<vector<float> > * antloc, vector<vector<float> > * cablelen, int nAnt);//cablelen structured as [x/y][nAnt]
-
-////void readSunpos(const char* inputfilename, vector<vector<float> > * sunpos);//read sunpos.dat from x5 odf (which is in alt/az, and return a list of pairs in k vector (x y z) or (S E U), note that this is technically -k vector since k vector should point inwards.
-
-////void outputChiSqAscii(vector<float>  * data); //takes chi square for one time slice each freq each antenna and write a set of calibration parameters under current directory
-
-////void outputPhaseCalParAscii(vector<vector<float> >  * phasecalpar, int numUBL, string output_name);
-
-////void outputCalParAscii(vector<float> * chisq, vector<vector<float> > * ampcalpar, vector<vector<float> >  * phasecalpar, vector<vector<vector<float> > > * UBLcalpar, string output_name); //takes phase corrections for one time slice each freq each antenna and write a set of calibration parameters under current directory
-
-////void outputAscii(vector<float>* data, string output_name, int type = 1, bool cmdoutput = true);//0 for overwrite, 1 for append
-////void outputAscii(vector<vector<float> >  * data, string output_name, int type = 1, bool cmdoutput = true);//0 for overwrite, 1 for append
-////void outputAscii(vector<vector<vector<float> > >  * data, string output_name, int type = 1, bool cmdoutput = true);//0 for overwrite, 1 for append
-
-////void outputDataAscii(vector<vector<vector<float> > >  * data, string output_name);
-
-////bool outputCalpar(vector<vector<vector<vector<float> > > > * data, string outputfilename, bool in_degree = true, int nAnt = -1);// outputs binary calpar file. in_degree means if phase calpar is in degree, default true
-////bool outputCalparSP(vector<vector<vector<float> > > * data, string outputfilename, bool in_degree = true, int nAnt = -1);// outputs binary calpar file. in_degree means if phase calpar is in degree, default true
-
-////bool outputData(vector<vector<vector<vector<vector<float> > > > > * data, string outputfilename);// outputs binary file Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
-
-////bool outputDataLarge(vector<vector<vector<vector<float> > > > * data, string outputfilename);// outputs binary file Modified from Devon Rosner's OmniODF_IQ_ODF.cc code
 
 ///////////////////////////////////////
 //Helper methods///////////////////////
@@ -234,8 +157,6 @@ float norm(vector<vector<float> > * v);
 
 vector<float> conjugate (vector<float> x);
 
-void mergeCalibrationPar (vector<float> * ampcalpar1, vector<float> * ampcalpar2, vector<float> * ampcalparM, vector<float> * phasecalpar1, vector<float> * phasecalpar2, vector<float> * phasecalparM);//Only deals with ampcalpar and phasecalpar, Chisq should be the chisq of the second set, so are the UBLs
-
 void addPhase(vector<float> * x, float phi);
 
 float vectorDot(vector<float>* v1, vector<float>* v2);//v1.v2
@@ -245,12 +166,6 @@ vector<float> matrixDotV(vector<vector<float> >* m, vector<float>* v);//m.v
 vector<vector<float> > rotationMatrix(float x, float y, float z);//approximation for a rotation matrix rotating around x,y,z axis, {{1, -z, y}, {z, 1, -x}, {-y, x, 1}}
 
 vector<vector<float> > rotationMatrixZ(float z);
-
-//bool createAmatrix(vector<vector<int> > *receiverAmatrix, vector<vector<float> > *antloc);
-
-//bool createBmatrix(vector<vector<int> > *receiverBmatrix, vector<vector<float> > *antloc);//convention for reversed baselines are to flip the two ant calpars signs, and expect user to flip the corresponding data's sign as well
-
-//bool findReversedBaselines(vector<int> *receiverList, vector<vector<float> > *antloc);
 
 ///////////////PHASE CALIBRATE STUFF///////////////////
 /////////////////////////////////////////////
@@ -271,12 +186,6 @@ void computeUBL(vector<vector<float> > * antloc, vector<vector<float> > * listUB
 
 
 vector<float> modelToMeasurement(vector<float> *modelCor, float ampcal, float phasecal);
-
-vector<float> correctMeasurement(vector<float> *measuredCor, float ampcal1, float phasecal1, float ampcal2, float phasecal2);//assumes <x1* , x2>, correct a specific visibility OPTIM
-
-void correctMeasurementPhase(vector<float> *measuredCor, float phasecal1, float phasecal2);
-
-void correctMeasurementMatrix(vector<vector<float> > *correctedData, vector<float> *ampcalpar, vector<float> *phasecalpar);//correct a specific frequency OPTIM
 
 void computeUBLcor(vector<vector<float> >* calibratedData, vector<vector<float> > *listUBL, vector<vector<float> > *UBLcor, vector<bool> *goodAnt);//average each group of calibrated redundant baselines to get the estimate for that ubl, only useful when directly applying a set of calpars instead of using logcal to fit for them.
 
@@ -307,13 +216,7 @@ vector<float> stdevAngle(vector<float> *v);
 
 //float mode (vector<float> list);//Didn't finish!!!! Decided to write medianAngle() instead.
 
-void pointSourceCalAccordingTo(uint referenceAnt, vector<vector<float> > *data, vector<vector<float> > *ampcalparArray, vector<vector<float> > *phasecalparArray);
-
-void pointSourceCal(vector<vector<float> > *data, vector<float> *ampcalpar, vector<float> *phasecalpar, vector<vector<float> > *UBLcalpar);
-
 void substractComplexPhase(vector<float> *a, vector<float> *b, float angle);
-
-void rotateCalpar(vector<float> *originalPhase, vector<float> *rotatedPhase, vector<vector<float> > *originalUBLcor, vector<vector<float> > *rotatedUBLcor, vector<vector<float> > *antloc, vector<vector<float> > * listUBL, float theta, float phi, float freq);//theta in [0, PI/2] (rotating z axis down), phi [0, 2PI), freq in MHz, ONLY WORKS FOR ROTATING POINT SOURCE STRAIGHT ABOVE *TO* THETA AND PHI
 
 bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
 bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNinvAinv );
