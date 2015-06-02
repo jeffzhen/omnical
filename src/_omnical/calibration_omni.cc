@@ -2057,17 +2057,17 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 	return;
 }
 
-void loadGoodVisibilities(vector<vector<vector<vector<float> > > > * rawdata, vector<vector<vector<vector<float> > > >* receiver, redundantinfo* info, int xy){////0 for xx 3 for yy
-	for (unsigned int t = 0; t < receiver->size(); t++){
-		for (unsigned int f = 0; f < receiver->at(0).size(); f++){
-			for (unsigned int bl = 0; bl < receiver->at(0)[0].size(); bl++){
-				receiver->at(t)[f][bl][0] = rawdata->at(xy)[t][f][2 * info->subsetbl[bl]];
-				receiver->at(t)[f][bl][1] = rawdata->at(xy)[t][f][2 * info->subsetbl[bl] + 1];
-			}
-		}
-	}
-	return;
-}
+//void loadGoodVisibilities(vector<vector<vector<vector<float> > > > * rawdata, vector<vector<vector<vector<float> > > >* receiver, redundantinfo* info, int xy){////0 for xx 3 for yy
+//	for (unsigned int t = 0; t < receiver->size(); t++){
+//		for (unsigned int f = 0; f < receiver->at(0).size(); f++){
+//			for (unsigned int bl = 0; bl < receiver->at(0)[0].size(); bl++){
+//				receiver->at(t)[f][bl][0] = rawdata->at(xy)[t][f][2 * info->subsetbl[bl]];
+//				receiver->at(t)[f][bl][1] = rawdata->at(xy)[t][f][2 * info->subsetbl[bl] + 1];
+//			}
+//		}
+//	}
+//	return;
+//}
 
 
 void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* module){//forces the calibration parameters to have average 1 amp, and no shifting the image in phase. Note: 1) If you have not absolute calibrated the data, there's no point in running this, because this can only ensure that the calpars don't screw up already absolute calibrated data. 2) the antloc and ubl stored in redundant info must be computed from idealized antloc, otherwise the error in antloc from perfect redundancy will roll into this result, in an unknown fashion.

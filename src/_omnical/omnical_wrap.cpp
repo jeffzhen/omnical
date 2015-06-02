@@ -177,35 +177,35 @@ int RedInfoObject_set_antloc(RedInfoObject *self, PyObject *value, void *closure
 }
 
 // RedundantInfo.subsetbl (1D integer array)
-PyObject *RedInfoObject_get_subsetbl(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[1] = {self->info.subsetbl.size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-        ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.subsetbl[i];
-    }
-    return PyArray_Return(rv);
-}
-
-int RedInfoObject_set_subsetbl(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "subsetbl must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "subsetbl must be a 1D array of ints");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    self->info.subsetbl.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-        self->info.subsetbl[i] = ((int *) PyArray_GETPTR1(v,i))[0];
-    }
-    return 0;
-}
+//PyObject *RedInfoObject_get_subsetbl(RedInfoObject *self, void *closure) {
+//    PyArrayObject *rv;
+//    npy_intp data_dims[1] = {self->info.subsetbl.size()};
+//    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
+//    for (int i=0; i < data_dims[0]; i++) {
+//        ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.subsetbl[i];
+//    }
+//    return PyArray_Return(rv);
+//}
+//
+//int RedInfoObject_set_subsetbl(RedInfoObject *self, PyObject *value, void *closure) {
+//    PyArrayObject *v;
+//    npy_intp dim1;
+//    if (!PyArray_Check(value)) {
+//        PyErr_Format(PyExc_ValueError, "subsetbl must be a numpy array");
+//        return -1;
+//    }
+//    v = (PyArrayObject *) value;
+//    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT) {
+//        PyErr_Format(PyExc_ValueError, "subsetbl must be a 1D array of ints");
+//        return -1;
+//    }
+//    dim1 = PyArray_DIM(v,0);
+//    self->info.subsetbl.resize(dim1);
+//    for (int i=0; i < dim1; i++) {
+//        self->info.subsetbl[i] = ((int *) PyArray_GETPTR1(v,i))[0];
+//    }
+//    return 0;
+//}
 
 // RedundantInfo.ubl (1D integer array)
 //PyObject *RedInfoObject_get_ubl(RedInfoObject *self, void *closure) {
@@ -1166,7 +1166,7 @@ static PyGetSetDef RedInfoObject_getseters[] = {
     //{"nCross", (getter)RedInfoObject_get_nCross, (setter)RedInfoObject_set_nCross, "nCross", NULL},
     //{"subsetant", (getter)RedInfoObject_get_subsetant, (setter)RedInfoObject_set_subsetant, "subsetant", NULL},
     {"antloc", (getter)RedInfoObject_get_antloc, (setter)RedInfoObject_set_antloc, "antloc", NULL},
-    {"subsetbl", (getter)RedInfoObject_get_subsetbl, (setter)RedInfoObject_set_subsetbl, "subsetbl", NULL},
+    //{"subsetbl", (getter)RedInfoObject_get_subsetbl, (setter)RedInfoObject_set_subsetbl, "subsetbl", NULL},
     //{"ubl", (getter)RedInfoObject_get_ubl, (setter)RedInfoObject_set_ubl, "ubl", NULL},
     {"bltoubl", (getter)RedInfoObject_get_bltoubl, (setter)RedInfoObject_set_bltoubl, "bltoubl", NULL},
     {"reversed", (getter)RedInfoObject_get_reversed, (setter)RedInfoObject_set_reversed, "reversed", NULL},
