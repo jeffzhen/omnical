@@ -32,6 +32,41 @@ class TestRedInfo(unittest.TestCase):
     def test_compare(self):
         i = Oi.RedundantInfo()
         self.assertTrue(i.compare(i, verbose=VERBOSE))
+    def test_init_from_redundancies(self):
+        antpos = np.array([[0.,0,0],[1,0,0],[2,0,0],[3,0,0]])
+        reds = [[(0,1),(1,2),(2,3)],[(0,2),(1,3)]]
+        i = Oi.RedundantInfo()
+        i.init_from_redundancies(reds,antpos)
+        self.assertEqual(i.nAntenna,4)
+        self.assertTrue(np.all(i.antloc == antpos))
+        self.assertEqual(i.nUBL,2)
+        self.assertEqual(i.nBaseline,5)
+        self.assertEqual(i.ublcount[0],3)
+        self.assertEqual(i.ublcount[1],2)
+        self.assertTrue(np.all(i.ublindex == np.array([[0,1,0],[1,2,0],[2,3,0],[0,2,1],[1,3,1]],dtype=np.int32)))
+        self.assertTrue(np.all(i.ubl[0] == np.array([1.,0,0],dtype=np.float32)))
+        self.assertTrue(np.all(i.ubl[1] == np.array([2.,0,0],dtype=np.float32)))
+    def test_list_redundancies(self):
+        antpos = np.array([[0.,0,0],[1,0,0],[2,0,0],[3,0,0]])
+        reds = [[(0,1),(1,2),(2,3)],[(0,2),(1,3)]]
+        i = Oi.RedundantInfo()
+        i.init_from_redundancies(reds,antpos)
+        reds2 = i.list_redundancies()
+        self.assertEqual(reds, reds2)
+    def test_tofrom_redundancies(self):
+        i1 = Oi.RedundantInfo()
+        i1.fromfile_txt(redinfo_psa32)
+        reds = i1.list_redundancies()
+        antpos = np.zeros((32,3),dtype=np.float)
+        for i,ant in enumerate(i1.subsetant): antpos[ant] = i1.antloc[i]
+        i2 = Oi.RedundantInfo()
+        i2.init_from_redundancies(reds, antpos)
+        self.assertTrue(np.all(i1.antloc == i2.antloc))
+        self.assertTrue(np.all(i1.ublindex[:,:2] == i2.ublindex[:,:2]))
+        self.assertTrue(np.all(i1.bl2d[i1.crossindex[i1.ublindex[:,2]]] == i2.bl2d[i2.crossindex[i2.ublindex[:,2]]]))
+        self.assertTrue(np.allclose(i1.ubl, i2.ubl, 1e-4))
+        #import IPython; IPython.embed()
+        #self.assertTrue(i1.compare(i2, tol=1e-3, verbose=VERBOSE)) # XXX this won't work b/c baselines reordered
     def test_fromfiletxt(self):
         i1 = omni.read_redundantinfo_txt(redinfo_psa32)
         i1 = omni.RedundantInfo(i1)

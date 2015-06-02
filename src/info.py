@@ -11,7 +11,7 @@ KEYS = [
     'nBaseline', # number of bls, matches first dim of bltoubl/bl2d
     'subsetant', # (nAntenna,) antenna numbers used; index i corresponds to antenna number ai, XXX unused in C code? XXX could make this python-only and set nAntenna from it
     'antloc', # (nAntenna,3) float,  idealized antpos from which redundancy is determined XXX not sure of lin/log cal need this.  if not, could restrict this to ArrayInfo and remove from RedundantInfo
-    'subsetbl', # (nBaselines,) for each bl in bl2d, the index in totalVisibilityId; used to reorder data for internal use with loadGoodVisibilities XXX if we don't use this anymore, this could be removed
+    'subsetbl', # (nBaseline,) for each bl in bl2d, the index in totalVisibilityId; used to reorder data for internal use with loadGoodVisibilities XXX if we don't use this anymore, this could be removed
     'ubl', # (nUBL,3) float, sep vector for each unique baseline XXX i think not necessary for lin/log cal
     'bltoubl', # (nBaseline,) for each bl in bl2d, the index of corresponding unique bl in ubl/ublcount/ublindex
     'reversed', # for each entry in crossindex, 1 if baseline is flipped wrt corresponding ubl, otherwise -1
@@ -63,7 +63,7 @@ class RedundantInfo(_O.RedundantInfo):
             if txtmode: self.fromfile_txt(filename, verbose=verbose, preview_only=preview_only)
             else: self.fromfile(filename, verbose=verbose, preview_only=preview_only)
     def _get_AtBt(self, key):
-        # doing this for convenience of multiplication in update()
+        '''for convenience of multiplication in update()'''
         assert(key in ['At','Bt'])
         tmp = _O.RedundantInfo.__getattribute__(self, key+'sparse')
         matrix = np.zeros((self.nAntenna + self.nUBL, len(self.crossindex)))
@@ -190,6 +190,67 @@ class RedundantInfo(_O.RedundantInfo):
         d = [fmt(k) for k in d]
         d = [[MARKER]]+[k for i in zip(d,[[MARKER]]*len(d)) for k in i]
         return np.concatenate([np.asarray(k).flatten() for k in d])
+    def init_from_redundancies(self, reds, antpos):
+        '''Initialize RedundantInfo from a list where each entry is a group of redundant baselines.
+        each baseline is a (i,j) tuple, where i,j are antenna indices.  To ensure baselines are
+        oriented to be redundant, it may be necessary to have i > j.  If this is the case, then
+        when calibrating visibilities listed as j,i data will have to be conjugated.'''
+        ants = {}
+        for ubl_gp in reds:
+            for (i,j) in ubl_gp: ants[i] = ants[j] = None
+        self.subsetant = np.array(ants.keys(), dtype=np.int32)
+        ant2ind = {}
+        for i,ant in enumerate(self.subsetant): ant2ind[ant] = i
+        self.nAntenna = self.subsetant.size
+        self.nUBL = len(reds)
+        #bl2d = np.array([(ant2ind[i],ant2ind[j],u,i<j) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
+        bl2d = np.array([(ant2ind[min(i,j)],ant2ind[max(i,j)],u,i<j) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
+        self.bl2d = bl2d[:,:2]
+        self.nBaseline = bl2d.shape[0]
+        self.bltoubl = bl2d[:,2]
+        self.reversed = np.where(bl2d[:,3] == 0, 1, -1).astype(np.int32)
+        self.crossindex = np.arange(self.nBaseline, dtype=np.int32) # XXX mandating no autos here
+        # XXX reversedauto
+        # XXX autoindex
+        # XXX subsetbl
+        self.reversedauto = np.ones_like(self.reversed)
+        self.autoindex = np.ones_like(self.crossindex)
+        self.subsetbl = np.arange(self.nBaseline, dtype=np.int32) # XXX mandating visibilities provided in same order
+        # remvoe above eventually
+        self.ublcount = np.array([len(ubl_gp) for ubl_gp in reds], dtype=np.int32)
+        bl2d[:,2] = np.arange(self.nBaseline)
+        self.ublindex = bl2d[:,:3]
+        bl1dmatrix = (2**31-1) * np.ones((self.nAntenna,self.nAntenna),dtype=np.int32)
+        for n,(i,j) in enumerate(self.bl2d): bl1dmatrix[i,j], bl1dmatrix[j,i] = n,n
+        self.bl1dmatrix = bl1dmatrix
+        #A: A matrix for logcal amplitude
+        A,B = np.zeros((self.nBaseline,self.nAntenna+self.nUBL)), np.zeros((self.nBaseline,self.nAntenna+self.nUBL))
+        for n,(i,j) in enumerate(self.bl2d):
+            A[n,i], A[n,j], A[n,self.nAntenna+self.bltoubl[n]] = 1,1,1
+            B[n,i], B[n,j], B[n,self.nAntenna+self.bltoubl[n]] = -self.reversed[n],self.reversed[n],1
+        self.At, self.Bt = sps.csr_matrix(A).T, sps.csr_matrix(B).T
+        # XXX nothing up to this point requires antloc
+        self.antloc = antpos.take(self.subsetant, axis=0).astype(np.float32) # XXX check this
+        self.ubl = np.array([np.mean([antpos[j]-antpos[i] for i,j in ubl_gp],axis=0) for ubl_gp in reds], dtype=np.float32) # XXX check this
+        # XXX would like to understand better what is happening here
+        a = np.array([np.append(ai,1) for ai in self.antloc], dtype=np.float32)
+        d = np.array([np.append(ubli,0) for ubli in self.ubl], dtype=np.float32)
+        m1 = -a.dot(la.pinv(a.T.dot(a))).dot(a.T)
+        m2 = d.dot(la.pinv(a.T.dot(a))).dot(a.T)
+        self.degenM = np.append(m1,m2,axis=0)
+        self.update()
+    def list_redundancies(self):
+        '''After initialization, return redundancies in the same format used in init_from_redundancies.'''
+        # XXX broken
+        #bls = self.bl2d[self.crossindex,:2]
+        #bls = [(i,j) if self.reversed[cnt] < 0 else (j,i) for cnt,(i,j) in enumerate(bls)]
+        reds = []
+        x = 0
+        for y in self.ublcount:
+            #reds.append([(self.subsetant[i],self.subsetant[j]) for i,j in self.ublindex[x:x+y,:2]])
+            reds.append([(self.subsetant[i],self.subsetant[j]) if self.reversed[k] == 1 else (self.subsetant[j],self.subsetant[i]) for i,j,k in self.ublindex[x:x+y]])
+            x += y
+        return reds
     #def from_arrayinfo(self, arrayinfoPath=None, verbose=False, badAntenna=[], badUBLpair=[], tol=1e-6):
     #    '''Use provided antenna locations (in arrayinfoPath) to derive redundancy equations'''
     #    if arrayinfoPath is not None: self.read_arrayinfo(arrayinfoPath)

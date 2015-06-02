@@ -1265,6 +1265,10 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//return 
     nint = PyArray_DIM(data,0);
     nfreq = PyArray_DIM(data,1);
     nbls = PyArray_DIM(data,2);
+    if (nint == 0 || nfreq == 0 || nbls == 0) {
+        PyErr_Format(PyExc_ValueError, "data must have nonzero dimensions");
+        return NULL;
+    }
     vector<vector<float> > data_v(nbls, vector<float>(2, 0));
     vector<float> calpar_v(3 + 2*(redinfo->info.nUBL + redinfo->info.nAntenna), 0);
     vector<vector<float> >additivein_v(nbls, vector<float>(2, 0));

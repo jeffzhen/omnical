@@ -39,6 +39,43 @@ class TestRedundantCalibrator(unittest.TestCase):
             calibrator.compute_redundantinfo(arrayinfopath)
             #self.assertTrue(calibrator2.Info.compare(calibrator.Info, tol=1e-3))
             #info = calibrator.Info.get_info()
+            ## XXX experimental test of redundancy initialization
+            #reds = calibrator.Info.list_redundancies()
+            #antpos = np.zeros((nant,3),dtype=np.float)
+            #for i,ant in enumerate(calibrator.Info.subsetant): antpos[ant] = calibrator.Info.antloc[i]
+            #bl2visid, visid2bl= {}, {}
+            #print calibrator.Info.subsetant
+            #rev = {}
+            #for i,ci in enumerate(calibrator.Info.crossindex):
+            #    bl = calibrator.Info.bl2d[ci]
+            #    abl = (calibrator.Info.subsetant[bl[0]], calibrator.Info.subsetant[bl[1]])
+            #    visid = calibrator.Info.subsetbl[ci]
+            #    bl2visid[abl] = visid # XXX could also build this from totalVisibilityId directly
+            #    #print abl, calibrator.arrayinfo.totalVisibilityId[visid], calibrator.Info.reversed[i]
+            #    rev[abl] = calibrator.Info.reversed[i] # whether data must be conj or not
+            #info2 = Oi.RedundantInfo()
+            #info2.init_from_redundancies(reds, antpos)
+            #subsetbl = []
+            #reversed = []
+            #for i,ci in enumerate(info2.crossindex):
+            #    revbl = 1
+            #    bl = info2.bl2d[ci]
+            #    abl = (info2.subsetant[bl[0]], info2.subsetant[bl[1]])
+            #    print ci, abl,
+            #    #visid = info2.subsetbl[ci]
+            #    if not bl2visid.has_key(abl): abl,revbl = abl[::-1], -1
+            #    visid = bl2visid[abl]
+            #    subsetbl.append(visid)
+            #    reversed.append(-info2.reversed[i])
+            #    print abl, calibrator.arrayinfo.totalVisibilityId[visid], rev[abl], -info2.reversed[i]
+            #info2.subsetbl = np.array(subsetbl, dtype=np.int32)
+            #print info2.reversed
+            #info2.reversed = np.array(reversed, dtype=np.int32)
+            #print info2.reversed
+            ##info2.subsetbl = np.array([bl2visid[tuple(bl)] for bl in info2.bl2d], dtype=np.int32)
+            ##blorder = calibrator.Info.bl2d[calibrator.Info.subsetbl,:]
+            ##info2.subsetbl = calibrator.Info.subsetbl
+            #calibrator.Info = info2
             info = calibrator.Info
             ####Config parameters###################################
             removedegen = True
@@ -55,6 +92,12 @@ class TestRedundantCalibrator(unittest.TestCase):
                 rawinfo = [[float(x) for x in line.split()] for line in f]
             data = np.array([i[0] + 1.0j*i[1] for i in rawinfo[:-1]],dtype = 'complex64')    #last element of rawinfo is empty
             data = data.reshape((1,1,len(data)))
+            # put data in info2 order
+            #subsetbl = np.array([bl2visid[tuple(bl)] if bl2visid.has_key(tuple(bl)) else bl2visid[tuple(bl)[::-1]]
+            #    for bl in calibrator.Info.bl2d])
+            #data = data[:,:,subsetbl]
+            #calibrator.Info.subsetbl = np.arange(calibrator.Info.nBaseline, dtype=np.int32)
+            #calibrator.arrayinfo.totalVisibilityId = calibrator.Info.bl2d
             ####do calibration################
             calibrator.removeDegeneracy = removedegen
             calibrator.removeAdditive = removeadditive
@@ -81,8 +124,9 @@ class TestRedundantCalibrator(unittest.TestCase):
             ###compare calpar with correct calpar
             overallfactor = np.real(np.mean(ublfit))**0.5
             diffnorm = la.norm(calpar*overallfactor - correctcalpar)
-            diff[index] = la.norm(diffnorm)
-        self.assertAlmostEqual(la.norm(diff), 0, 4)
+            self.assertAlmostEqual(diffnorm, 0, 4)
+            #diff[index] = la.norm(diffnorm)
+        #self.assertAlmostEqual(la.norm(diff), 0, 4)
 
     def test_testinfo_lincal(self):
         fileindex = 3      #use the 3rd file to do the test, can also change this to any number from 1 to 20
