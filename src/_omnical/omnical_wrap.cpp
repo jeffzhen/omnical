@@ -447,46 +447,46 @@ int RedInfoObject_set_bl2d(RedInfoObject *self, PyObject *value, void *closure) 
 }
 
 // RedundantInfo.totalVisibilityId
-PyObject *RedInfoObject_get_totalVisibilityId(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    if (self->info.totalVisibilityId.size() == 0) {
-        npy_intp data_dims[1] = {self->info.totalVisibilityId.size()};
-        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
-    } else {
-        npy_intp data_dims[2] = {self->info.totalVisibilityId.size(), self->info.totalVisibilityId[0].size()};
-        rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
-        for (int i=0; i < data_dims[0]; i++) {
-          for (int j=0; j < data_dims[1]; j++) {
-            ((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.totalVisibilityId[i][j];
-          }
-        }
-    }
-    return PyArray_Return(rv);
-}
-
-int RedInfoObject_set_totalVisibilityId(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1,dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "totalVisibilityId must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "totalVisibilityId must be a 2D array of ints");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.totalVisibilityId.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.totalVisibilityId[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.totalVisibilityId[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+//PyObject *RedInfoObject_get_totalVisibilityId(RedInfoObject *self, void *closure) {
+//    PyArrayObject *rv;
+//    if (self->info.totalVisibilityId.size() == 0) {
+//        npy_intp data_dims[1] = {self->info.totalVisibilityId.size()};
+//        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
+//    } else {
+//        npy_intp data_dims[2] = {self->info.totalVisibilityId.size(), self->info.totalVisibilityId[0].size()};
+//        rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
+//        for (int i=0; i < data_dims[0]; i++) {
+//          for (int j=0; j < data_dims[1]; j++) {
+//            ((int *) PyArray_GETPTR2(rv,i,j))[0] = self->info.totalVisibilityId[i][j];
+//          }
+//        }
+//    }
+//    return PyArray_Return(rv);
+//}
+//
+//int RedInfoObject_set_totalVisibilityId(RedInfoObject *self, PyObject *value, void *closure) {
+//    PyArrayObject *v;
+//    npy_intp dim1,dim2;
+//    if (!PyArray_Check(value)) {
+//        PyErr_Format(PyExc_ValueError, "totalVisibilityId must be a numpy array");
+//        return -1;
+//    }
+//    v = (PyArrayObject *) value;
+//    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT) {
+//        PyErr_Format(PyExc_ValueError, "totalVisibilityId must be a 2D array of ints");
+//        return -1;
+//    }
+//    dim1 = PyArray_DIM(v,0);
+//    dim2 = PyArray_DIM(v,1);
+//    self->info.totalVisibilityId.resize(dim1);
+//    for (int i=0; i < dim1; i++) {
+//      self->info.totalVisibilityId[i].resize(dim2);
+//      for (int j=0; j < dim2; j++) {
+//        self->info.totalVisibilityId[i][j] = ((int *) PyArray_GETPTR2(v,i,j))[0];
+//      }
+//    }
+//    return 0;
+//}
 
 // RedundantInfo.ublcount (1D integer array)
 PyObject *RedInfoObject_get_ublcount(RedInfoObject *self, void *closure) {
@@ -1174,7 +1174,7 @@ static PyGetSetDef RedInfoObject_getseters[] = {
     //{"autoindex", (getter)RedInfoObject_get_autoindex, (setter)RedInfoObject_set_autoindex, "autoindex", NULL},
     {"crossindex", (getter)RedInfoObject_get_crossindex, (setter)RedInfoObject_set_crossindex, "crossindex", NULL},
     {"bl2d", (getter)RedInfoObject_get_bl2d, (setter)RedInfoObject_set_bl2d, "bl2d", NULL},
-    {"totalVisibilityId", (getter)RedInfoObject_get_totalVisibilityId, (setter)RedInfoObject_set_totalVisibilityId, "totalVisibilityId", NULL},
+    //{"totalVisibilityId", (getter)RedInfoObject_get_totalVisibilityId, (setter)RedInfoObject_set_totalVisibilityId, "totalVisibilityId", NULL},
     {"ublcount", (getter)RedInfoObject_get_ublcount, (setter)RedInfoObject_set_ublcount, "ublcount", NULL},
     {"ublindex", (getter)RedInfoObject_get_ublindex, (setter)RedInfoObject_set_ublindex, "ublindex", NULL},
     {"bl1dmatrix", (getter)RedInfoObject_get_bl1dmatrix, (setter)RedInfoObject_set_bl1dmatrix, "bl1dmatrix", NULL},

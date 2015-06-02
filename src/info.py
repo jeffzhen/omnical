@@ -8,15 +8,15 @@ with warnings.catch_warnings():
 KEYS = [
     'nAntenna', # number of usable ants (not total number)
     'nUBL', # number of unique bls, matches first dim of ubl/ublcount/ublindex
-    'nBaseline', # number of bls, matches first dim of bltoubl/bl2d
-    'subsetant', # (nAntenna,) antenna numbers used; index i corresponds to antenna number ai, XXX unused in C code? XXX could make this python-only and set nAntenna from it
+    'nBaseline', # number of bls, matches first dim of bltoubl/bl2d, now python only
+    'subsetant', # (nAntenna,) antenna numbers used; index i corresponds to antenna number ai, now python only
     'antloc', # (nAntenna,3) float,  idealized antpos from which redundancy is determined XXX not sure of lin/log cal need this.  if not, could restrict this to ArrayInfo and remove from RedundantInfo
-    'subsetbl', # (nBaseline,) for each bl in bl2d, the index in totalVisibilityId; used to reorder data for internal use with loadGoodVisibilities XXX if we don't use this anymore, this could be removed
-    'ubl', # (nUBL,3) float, sep vector for each unique baseline XXX i think not necessary for lin/log cal
+    'subsetbl', # (nBaseline,) for each bl in bl2d, the index in totalVisibilityId; now python only
+    'ubl', # (nUBL,3) float, sep vector for each unique baseline i think not necessary for lin/log cal, now python only
     'bltoubl', # (nBaseline,) for each bl in bl2d, the index of corresponding unique bl in ubl/ublcount/ublindex
     'reversed', # for each entry in crossindex, 1 if baseline is flipped wrt corresponding ubl, otherwise -1
-    'reversedauto', # XXX unused in C code?
-    'autoindex', # indices in bl2d of autos XXX unused in C code?
+    'reversedauto', # XXX to read old files
+    'autoindex', # XXX to read old files
     'crossindex', # indices in bl2d of crosses XXX if we mandate no autos, then crossindex not necessary
     'bl2d', # (nBaseline,2) the i,j indices of ants in subsetant for each bl
     'ublcount', # (nUBL,) number of bls contributing to each ubl XXX can determine this from ublindex
@@ -62,6 +62,7 @@ class RedundantInfo(_O.RedundantInfo):
         if filename:
             if txtmode: self.fromfile_txt(filename, verbose=verbose, preview_only=preview_only)
             else: self.fromfile(filename, verbose=verbose, preview_only=preview_only)
+        self.totalVisibilityId = np.zeros_like(self.bl2d) # XXX placeholder for now
     def _get_AtBt(self, key):
         '''for convenience of multiplication in update()'''
         assert(key in ['At','Bt'])
