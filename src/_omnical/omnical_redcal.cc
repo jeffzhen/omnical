@@ -19,23 +19,12 @@
 #include <algorithm>
 #define uint unsigned int
 using namespace std;
-const string FILENAME = "calibration_omni.cc";
-const float SPEEDC = 299.792458;
+const string FILENAME = "omnical_redcal.cc";
 const float PI = atan2(0, -1);
-const bool DEBUG = false;
 const float UBLPRECISION = pow(10, -3);
 const float MIN_NONE_ZERO = pow(10, -10);
 const float MAX_NONE_INF = pow(10, 10);
-const float MAX_10_POW = 20; //single precision float max is 3.4*10^38, so I'm limiting the power to be 20.
 const float MAX_POW_2 = pow(10, 10); //limiting the base of ^2 to be 10^10
-const float X4_LONGITUDE = -69.987182;
-const float X4_LATITUDE = 45.297728;
-const float X4_ELEVATION = 171;
-const float X4_TIMESHIFT = 28957;//seconds to add to raw data header time to get correct UTC
-const float DEF_LONGITUDE = -69.987182;
-const float DEF_LATITUDE = 45.297728;
-const float DEF_ELEVATION = 171;
-const int NUM_OBJECTS = 30;//Number of satellites we have in tracked_bodies_X4.tle;
 
 void initcalmodule(calmemmodule* module, redundantinfo* info){
 	int nant = info->nAntenna;
@@ -638,7 +627,8 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		for (unsigned int a3 = 0; a3 < module->g3.size(); a3++){////g3 will be containing the final dg, g1, g2 will contain a and b as in the cost function LAMBDA = ||a + b*g||^2
 			for (unsigned int a = 0; a < module->g3.size(); a++){
 				cbl = info->bl1dmatrix[a3][a];
-				if (cbl < 0 or cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
+                // cbl is unsigned, so gauranteed not < 0
+				if (cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
 					module->g1[a] = vector<float>(2,0);
 					module->g2[a] = vector<float>(2,0);
 				}else if(info->bl2d[info->crossindex[cbl]][1] == a3){
@@ -847,7 +837,8 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 		for (unsigned int a3 = 0; a3 < module->g3.size(); a3++){////g3 will be containing the final dg, g1, g2 will contain a and b as in the cost function LAMBDA = ||a + b*g||^2
 			for (unsigned int a = 0; a < module->g3.size(); a++){
 				cbl = info->bl1dmatrix[a3][a];
-				if (cbl < 0 or cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
+                // cbl is unsigned and so gauranteed >= 0
+				if (cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
 					module->g1[a] = vector<float>(2,0);
 					module->g2[a] = vector<float>(2,0);
 				}else if(info->bl2d[info->crossindex[cbl]][1] == a3){
