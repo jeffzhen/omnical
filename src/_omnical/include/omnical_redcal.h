@@ -44,8 +44,8 @@ struct redundantinfo{
 	vector<vector<vector<int> > > ublindex;//for each ubl, the vector<int> contains (ant1, ant2, crossbl)
 	vector<vector<int> > bl1dmatrix;//a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
 	vector<vector<float> > degenM;//degenM.(phase calibrations as a vector of nAnt) will generate a vector of length (nAnt + nUBL) which, when added to the existing calibration parameters' phases, will remove the linear phase field
-	vector<vector<int> > A;//A matrix for logcal amplitude
-	vector<vector<int> > B;//B matrix for logcal phase
+	//vector<vector<int> > A;//A matrix for logcal amplitude
+	//vector<vector<int> > B;//B matrix for logcal phase
 	vector<vector<int> > Atsparse;//At matrix for logcal amplitude, in sparse form, all entries are one
 	vector<vector<vector<int> > > Btsparse;//Bt matrix for logcal phase, entries can be -1 or one so there's one more dimension than Atsparse
 	vector<vector<float> > AtAi;//(AtA)^-1
