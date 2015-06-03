@@ -49,7 +49,7 @@ intarray_infokeys = ['bltoubl','reversed','crossindex','bl2d','ublcount','ublind
 intarray_infokeys_optional = ['totalVisibilityId']
 
 #float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
-float_infokeys = ['antloc','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+float_infokeys = ['degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 
 MARKER = 9999999
 
@@ -216,8 +216,6 @@ class RedundantInfo(_O.RedundantInfo):
         #self.reversed = np.where(bl2d[:,3] == 0, 1, -1).astype(np.int32)
         self.reversed = np.where(bl2d[:,3] == 0, -1, 1).astype(np.int32)
         self.crossindex = np.arange(self.nBaseline, dtype=np.int32) # XXX mandating no autos here
-        # XXX reversedauto
-        # XXX autoindex
         # XXX subsetbl
         self.reversedauto = np.ones_like(self.reversed)
         self.autoindex = np.ones_like(self.crossindex)

@@ -25,7 +25,7 @@ struct redundantinfo{
 	//int nBaseline;
 	//int nCross;
 	//vector<int> subsetant;//the index of good antennas in all (64) antennas, currently not used
-	vector<vector<float> > antloc;//3d antloc for each good antenna. strongly recommend using idealized antloc rather than literal ones
+	//vector<vector<float> > antloc;//3d antloc for each good antenna. strongly recommend using idealized antloc rather than literal ones
 	//vector<int> subsetbl;//the index of good baselines (auto included) in all baselines
 	//vector<vector<float> > ubl;//unique baseline vectors
 	vector<int> bltoubl;//cross bl number to ubl index

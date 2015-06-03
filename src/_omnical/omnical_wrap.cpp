@@ -76,46 +76,46 @@ int RedInfoObject_set_nUBL(RedInfoObject *self, PyObject *value, void *closure) 
 }
 
 // RedundantInfo.antloc (1D integer array)
-PyObject *RedInfoObject_get_antloc(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    if (self->info.antloc.size() == 0) {
-        npy_intp data_dims[1] = {self->info.nAntenna};
-        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_FLOAT);
-    } else {
-        npy_intp data_dims[2] = {self->info.antloc.size(), self->info.antloc[0].size()};
-        rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
-        for (int i=0; i < data_dims[0]; i++) {
-          for (int j=0; j < data_dims[1]; j++) {
-            ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.antloc[i][j];
-          }
-        }
-    }
-    return PyArray_Return(rv);
-}
-
-int RedInfoObject_set_antloc(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1, dim2;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "antloc must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
-        PyErr_Format(PyExc_ValueError, "antloc must be a 2D array of floats");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    dim2 = PyArray_DIM(v,1);
-    self->info.antloc.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-      self->info.antloc[i].resize(dim2);
-      for (int j=0; j < dim2; j++) {
-        self->info.antloc[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
-      }
-    }
-    return 0;
-}
+//PyObject *RedInfoObject_get_antloc(RedInfoObject *self, void *closure) {
+//    PyArrayObject *rv;
+//    if (self->info.antloc.size() == 0) {
+//        npy_intp data_dims[1] = {self->info.nAntenna};
+//        rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_FLOAT);
+//    } else {
+//        npy_intp data_dims[2] = {self->info.antloc.size(), self->info.antloc[0].size()};
+//        rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_FLOAT);
+//        for (int i=0; i < data_dims[0]; i++) {
+//          for (int j=0; j < data_dims[1]; j++) {
+//            ((float *) PyArray_GETPTR2(rv,i,j))[0] = self->info.antloc[i][j];
+//          }
+//        }
+//    }
+//    return PyArray_Return(rv);
+//}
+//
+//int RedInfoObject_set_antloc(RedInfoObject *self, PyObject *value, void *closure) {
+//    PyArrayObject *v;
+//    npy_intp dim1, dim2;
+//    if (!PyArray_Check(value)) {
+//        PyErr_Format(PyExc_ValueError, "antloc must be a numpy array");
+//        return -1;
+//    }
+//    v = (PyArrayObject *) value;
+//    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_FLOAT) {
+//        PyErr_Format(PyExc_ValueError, "antloc must be a 2D array of floats");
+//        return -1;
+//    }
+//    dim1 = PyArray_DIM(v,0);
+//    dim2 = PyArray_DIM(v,1);
+//    self->info.antloc.resize(dim1);
+//    for (int i=0; i < dim1; i++) {
+//      self->info.antloc[i].resize(dim2);
+//      for (int j=0; j < dim2; j++) {
+//        self->info.antloc[i][j] = ((float *) PyArray_GETPTR2(v,i,j))[0];
+//      }
+//    }
+//    return 0;
+//}
 
 // RedundantInfo.bltoubl (1D integer array)
 PyObject *RedInfoObject_get_bltoubl(RedInfoObject *self, void *closure) {
@@ -633,7 +633,7 @@ static PyGetSetDef RedInfoObject_getseters[] = {
     //{"nBaseline", (getter)RedInfoObject_get_nBaseline, (setter)RedInfoObject_set_nBaseline, "nBaseline", NULL},
     //{"nCross", (getter)RedInfoObject_get_nCross, (setter)RedInfoObject_set_nCross, "nCross", NULL},
     //{"subsetant", (getter)RedInfoObject_get_subsetant, (setter)RedInfoObject_set_subsetant, "subsetant", NULL},
-    {"antloc", (getter)RedInfoObject_get_antloc, (setter)RedInfoObject_set_antloc, "antloc", NULL},
+    //{"antloc", (getter)RedInfoObject_get_antloc, (setter)RedInfoObject_set_antloc, "antloc", NULL},
     //{"subsetbl", (getter)RedInfoObject_get_subsetbl, (setter)RedInfoObject_set_subsetbl, "subsetbl", NULL},
     //{"ubl", (getter)RedInfoObject_get_ubl, (setter)RedInfoObject_set_ubl, "ubl", NULL},
     {"bltoubl", (getter)RedInfoObject_get_bltoubl, (setter)RedInfoObject_set_bltoubl, "bltoubl", NULL},
