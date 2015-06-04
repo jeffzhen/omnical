@@ -32,7 +32,7 @@ struct redundantinfo{
 	vector<int> reversed;//cross only bl if reversed -1, otherwise 1
 	//vector<int> reversedauto;//auto included bl if reversed -1, otherwise 1, currently not used
 	//vector<int> autoindex;//index of auto bls among good bls, currently not used
-	vector<int> crossindex;//index of cross bls among good bls
+	//vector<int> crossindex;//index of cross bls among good bls
 	vector<vector<int> > bl2d;//from 1d bl to a pair of antenna numbers, (0,0), (0,1) (0,2) etc
 	//vector<vector<int> > totalVisibilityId;//totalVisibilityId
 	vector<int> ublcount;//for each ubl, the number of good cross bls corresponding to it

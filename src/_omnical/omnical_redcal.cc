@@ -30,7 +30,7 @@ void initcalmodule(calmemmodule* module, redundantinfo* info){
 	int nant = info->nAntenna;
 	int nbl = info->bl2d.size();
 	int nubl = info->nUBL;
-	int ncross = info->crossindex.size();
+	int ncross = nbl;
 	(module->amp1).resize(ncross);
 	(module->amp2).resize(ncross);
 	(module->amp3).resize(ncross);
@@ -472,11 +472,11 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	int nant = info->nAntenna;
 	int nubl = info->nUBL;
 	//int nbl = info->nBaseline;
-	int ncross = info->crossindex.size();
+	int ncross = info->bl2d.size();
 	////read in amp and args
 	for (int b = 0; b < ncross; b++){
 
-		if ((data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0] == 0) and (data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1] == 0)){//got 0, quit
+		if ((data->at(b)[0] - additivein->at(b)[0] == 0) and (data->at(b)[1] - additivein->at(b)[1] == 0)){//got 0, quit
 			for(int i = 3; i < 3 + 2 * nant + 2 * nubl; i++){
 				calpar->at(i) = 0;
 			}
@@ -484,8 +484,8 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 			return;
 		}
 
-		module->amp1[b] = log10(amp(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]));
-		module->pha1[b] = phase(data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0], data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1]) * info->reversed[b];
+		module->amp1[b] = log10(amp(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1]));
+		module->pha1[b] = phase(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1]) * info->reversed[b];
 	}
 	////rewrap args
 	for(int i = 0; i < nubl; i ++){
@@ -521,10 +521,10 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 
 
 	for(int b = 0; b < ncross; b++) {
-		float amp = pow(10, module->x1[nant + info->bltoubl[b]] + module->x1[info->bl2d[info->crossindex[b]][0]] + module->x1[info->bl2d[info->crossindex[b]][1]]);
-		float phase =  module->x2[nant + info->bltoubl[b]] * info->reversed[b] - module->x2[info->bl2d[info->crossindex[b]][0]] + module->x2[info->bl2d[info->crossindex[b]][1]];
-		additiveout->at(info->crossindex[b])[0] = data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0] - amp * cos(phase);
-		additiveout->at(info->crossindex[b])[1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1] - amp * sin(phase);
+		float amp = pow(10, module->x1[nant + info->bltoubl[b]] + module->x1[info->bl2d[b][0]] + module->x1[info->bl2d[b][1]]);
+		float phase =  module->x2[nant + info->bltoubl[b]] * info->reversed[b] - module->x2[info->bl2d[b][0]] + module->x2[info->bl2d[b][1]];
+		additiveout->at(b)[0] = data->at(b)[0] - additivein->at(b)[0] - amp * cos(phase);
+		additiveout->at(b)[1] = data->at(b)[1] - additivein->at(b)[1] - amp * sin(phase);
 	}
 	if(command == 0){////compute additive term only
 		calpar->at(1) = pow(norm(additiveout), 2);
@@ -564,8 +564,8 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 
 	////initialize data and g0 ubl0
 	for (unsigned int b = 0; b < (module->cdata1).size(); b++){
-		module->cdata1[b][0] = data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0];
-		module->cdata1[b][1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1];
+		module->cdata1[b][0] = data->at(b)[0] - additivein->at(b)[0];
+		module->cdata1[b][1] = data->at(b)[1] - additivein->at(b)[1];
 	}
 	float amptmp;
 	unsigned int cbl;
@@ -598,8 +598,8 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 	int a1, a2;
 	chisq = 0;
 	for (unsigned int b = 0; b < (module->cdata2).size(); b++){
-		a1 = info->bl2d[info->crossindex[b]][0];
-		a2 = info->bl2d[info->crossindex[b]][1];
+		a1 = info->bl2d[b][0];
+		a2 = info->bl2d[b][1];
 		gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
 		gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
 		module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
@@ -631,7 +631,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 				if (cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
 					module->g1[a] = vector<float>(2,0);
 					module->g2[a] = vector<float>(2,0);
-				}else if(info->bl2d[info->crossindex[cbl]][1] == a3){
+				}else if(info->bl2d[cbl][1] == a3){
 					module->g1[a] = module->cdata1[cbl];
 					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
 					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
@@ -705,8 +705,8 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		chisq2 = 0;
 		for (unsigned int b = 0; b < (module->cdata2).size(); b++){
 			if ((info->ublcount)[info->bltoubl[b]] > 1){//automatically use 0 for single-bl ubls, their actaul values are not updated yet
-				a1 = info->bl2d[info->crossindex[b]][0];
-				a2 = info->bl2d[info->crossindex[b]][1];
+				a1 = info->bl2d[b][0];
+				a2 = info->bl2d[b][1];
 				gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
 				gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
 				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
@@ -765,8 +765,8 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		calpar->at(0) += iter;
 		calpar->at(2) = chisq;
 		for (unsigned int b = 0; b < (module->cdata2).size(); b++){
-			additiveout->at(info->crossindex[b])[0] = module->cdata1[b][0] - module->cdata2[b][0];
-			additiveout->at(info->crossindex[b])[1] = module->cdata1[b][1] - module->cdata2[b][1];
+			additiveout->at(b)[0] = module->cdata1[b][0] - module->cdata2[b][0];
+			additiveout->at(b)[1] = module->cdata1[b][1] - module->cdata2[b][1];
 		}
 	}else{////if chisq didnt decrease, keep everything untouched
 		calpar->at(0) += 0;
@@ -786,8 +786,8 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 
 	////initialize data and g0 ubl0
 	for (unsigned int b = 0; b < (module->cdata1).size(); b++){
-		module->cdata1[b][0] = data->at(info->crossindex[b])[0] - additivein->at(info->crossindex[b])[0];
-		module->cdata1[b][1] = data->at(info->crossindex[b])[1] - additivein->at(info->crossindex[b])[1];
+		module->cdata1[b][0] = data->at(b)[0] - additivein->at(b)[0];
+		module->cdata1[b][1] = data->at(b)[1] - additivein->at(b)[1];
 	}
 	float amptmp;
 	unsigned int cbl;
@@ -808,8 +808,8 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 	int a1, a2;
 	chisq = 0;
 	for (unsigned int b = 0; b < (module->cdata2).size(); b++){
-		a1 = info->bl2d[info->crossindex[b]][0];
-		a2 = info->bl2d[info->crossindex[b]][1];
+		a1 = info->bl2d[b][0];
+		a2 = info->bl2d[b][1];
 		gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
 		gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
 		module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
@@ -841,7 +841,7 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 				if (cbl > module->cdata1.size() or info->ublcount[info->bltoubl[cbl]] < 2){//badbl or ubl has only 1 bl
 					module->g1[a] = vector<float>(2,0);
 					module->g2[a] = vector<float>(2,0);
-				}else if(info->bl2d[info->crossindex[cbl]][1] == a3){
+				}else if(info->bl2d[cbl][1] == a3){
 					module->g1[a] = module->cdata1[cbl];
 					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
 					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
@@ -882,8 +882,8 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 		chisq2 = 0;
 		for (unsigned int b = 0; b < (module->cdata2).size(); b++){
 			if ((info->ublcount)[info->bltoubl[b]] > 1){//automatically use 0 for single-bl ubls, their actaul values are not updated yet
-				a1 = info->bl2d[info->crossindex[b]][0];
-				a2 = info->bl2d[info->crossindex[b]][1];
+				a1 = info->bl2d[b][0];
+				a2 = info->bl2d[b][1];
 				gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
 				gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
 				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
@@ -916,8 +916,8 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 		calpar->at(0) += iter;
 		calpar->at(2) = chisq;
 		for (unsigned int b = 0; b < (module->cdata2).size(); b++){
-			additiveout->at(info->crossindex[b])[0] = module->cdata1[b][0] - module->cdata2[b][0];
-			additiveout->at(info->crossindex[b])[1] = module->cdata1[b][1] - module->cdata2[b][1];
+			additiveout->at(b)[0] = module->cdata1[b][0] - module->cdata2[b][0];
+			additiveout->at(b)[1] = module->cdata1[b][1] - module->cdata2[b][1];
 		}
 	}else{////if chisq didnt decrease, keep everything untouched
 		calpar->at(0) += 0;

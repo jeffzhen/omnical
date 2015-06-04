@@ -160,9 +160,7 @@ class ArrayInfo:
             elif self.totalVisibilityId_dic.has_key(bl[::-1]): tmp.append(p[::-1])
         #info['bl2d'] = bl2d = np.array(tmp, dtype=np.int32)
         bl2d = np.array(tmp, dtype=np.int32)
-        #info['crossindex'] = crossindex = np.array([i for i,p in enumerate(bl2d) if p[0] != p[1]], dtype=np.int32)
         crossindex = np.array([i for i,p in enumerate(bl2d) if p[0] != p[1]], dtype=np.int32)
-        info['crossindex'] = np.arange(crossindex.size, dtype=np.int32)
         nBaseline = len(bl2d)
         bl2d = bl2d[crossindex]
         info['bl2d'] = bl2d
@@ -184,14 +182,8 @@ class ArrayInfo:
             elif dis(bl,-ubl[bltoubl[k]]) < tol: reverse.append(1)
             else : raise ValueError('bltoubl[%d] points to wrong ubl index' % (k))
         info['reversed'] = np.array(reverse, dtype=np.int32)
-        # autoindex: index of auto bls among good bls
-        info['autoindex'] = autoindex = np.array([i for i,p in enumerate(bl2d) if p[0] == p[1]], dtype=np.int32)
-        # crossindex: index of cross bls among good bls
-        # reversedauto: the index of good bls (auto included) in all bls
         reversedauto = np.arange(info['nBaseline'], dtype=np.int32)
         #for i in autoindex: reversedauto[i] = 1
-        #for i,c in enumerate(crossindex): reversedauto[c] = reverse[i]
-        info['reversedauto'] = reversedauto
         #ublcount:  for each ubl, the number of good cross bls corresponding to it
         cnt = {}
         for bl in bltoubl: cnt[bl] = cnt.get(bl,0) + 1
@@ -201,7 +193,7 @@ class ArrayInfo:
         for i,(a1,a2) in enumerate(crosspair): cnt[bltoubl[i]] = cnt.get(bltoubl[i],[]) + [[a1,a2,i]]
         #info['ublindex'] = ublindex = np.concatenate([np.array(cnt[i],dtype=np.int32) for i in range(nUBL)])
         ublindex = np.concatenate([np.array(cnt[i],dtype=np.int32) for i in range(nUBL)])
-        newind = np.arange(nBaseline)[crossindex] = info.crossindex
+        newind = np.arange(nBaseline)[crossindex] = np.arange(crossindex.size, dtype=np.int32)
         ublindex[2] = newind[ublindex[2]]
         info.ublindex = ublindex
         #bl1dmatrix: a symmetric matrix where col/row numbers index ants and entries are bl index (no auto corr)

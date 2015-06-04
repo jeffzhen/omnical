@@ -71,7 +71,7 @@ class RedundantInfo(_O.RedundantInfo):
         '''for convenience of multiplication in update()'''
         assert(key in ['At','Bt'])
         tmp = _O.RedundantInfo.__getattribute__(self, key+'sparse')
-        matrix = np.zeros((self.nAntenna + self.nUBL, len(self.crossindex)))
+        matrix = np.zeros((self.nAntenna + self.nUBL, len(self.bl2d)))
         for i in tmp: matrix[i[0],i[1]] = i[2]
         return sps.csr_matrix(matrix)
     def _set_AtBt(self, key, val):
@@ -138,17 +138,17 @@ class RedundantInfo(_O.RedundantInfo):
         self.autoindex = d[10].astype(np.int32) # index of auto bls among good bls
         #self.crossindex = d[11].astype(np.int32) # index of cross bls among good bls
         crossindex = d[11].astype(np.int32) # index of cross bls among good bls
-        self.crossindex = np.arange(len(crossindex), dtype=np.int32)
-        ncross = len(self.crossindex)
+        #self.crossindex = np.arange(len(crossindex), dtype=np.int32)
+        #ncross = len(self.crossindex)
         # XXX maybe add this as a function
-        if preview_only: return ncross - self.nUBL - self.nAntenna + 2 # XXX return value here, normally not returning anything
+        if preview_only: return #ncross - self.nUBL - self.nAntenna + 2 # XXX return value here, normally not returning anything
         #self.bl2d = d[12].reshape(self.nBaseline,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
-        bl2d = d[12].reshape(self.nBaseline,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
+        bl2d = d[12].reshape(-1,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
         self.bl2d = bl2d[crossindex]
         self.ublcount = d[13].astype(np.int32) # for each ubl, number of corresponding good cross bls
         #self.ublindex = d[14].reshape(ncross,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
-        ublindex = d[14].reshape(ncross,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
-        newind = np.arange(self.nBaseline)[crossindex] = self.crossindex
+        ublindex = d[14].reshape(-1,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
+        newind = np.arange(self.nBaseline)[crossindex] = np.arange(len(crossindex))
         ublindex[2] = newind[ublindex[2]]
         self.ublindex = ublindex
         self.bl1dmatrix = d[15].reshape((self.nAntenna,self.nAntenna)).astype(np.int32) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
@@ -157,18 +157,18 @@ class RedundantInfo(_O.RedundantInfo):
             #sparse_entries = d[16].reshape((len(d[16])/3,3))
             sparse_entries = d[17].reshape((-1,3))
             row,column,value = sparse_entries[:,0],sparse_entries[:,1],sparse_entries[:,2]
-            self.At = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL)).T
+            self.At = sps.csr_matrix((value,(row,column)), shape=(len(self.bl2d),self.nAntenna+self.nUBL)).T
             #sparse_entries = d[17].reshape((len(d[17])/3,3))
             sparse_entries = d[18].reshape((-1,3))
             row,column,value = sparse_entries[:,0],sparse_entries[:,1],sparse_entries[:,2]
-            self.Bt = sps.csr_matrix((value,(row,column)),shape=(ncross, self.nAntenna + self.nUBL)).T
+            self.Bt = sps.csr_matrix((value,(row,column)), shape=(len(self.bl2d),self.nAntenna+self.nUBL)).T
             self.AtAi = d[19].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL)).astype(np.float32)
             self.BtBi = d[20].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL)).astype(np.float32)
             self.totalVisibilityId = d[21].reshape(-1,2).astype(np.int32)
         else:
             # XXX why astype(int) here, but not above?
-            self.At = sps.csr_matrix(d[17].reshape((ncross,self.nAntenna+self.nUBL)).astype(np.int32)).T # A matrix for logcal amplitude
-            self.Bt = sps.csr_matrix(d[18].reshape((ncross,self.nAntenna+self.nUBL)).astype(np.int32)).T # B matrix for logcal phase
+            self.At = sps.csr_matrix(d[17].reshape((-1,self.nAntenna+self.nUBL)).astype(np.int32)).T # A matrix for logcal amplitude
+            self.Bt = sps.csr_matrix(d[18].reshape((-1,self.nAntenna+self.nUBL)).astype(np.int32)).T # B matrix for logcal phase
             self.totalVisibilityId = d[19].reshape(-1,2).astype(np.int32)
     def update(self, txtmode=False):
         '''Initialize other arrays from fundamental arrays'''
@@ -192,6 +192,9 @@ class RedundantInfo(_O.RedundantInfo):
         # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
         d = KEYS
         if self.nAntenna <= self.threshold: d = d[:-3] + d[-1:]
+        self.crossindex = np.arange(len(self.bl2d)) # XXX legacy for file format.
+        self.reversedauto = np.ones(self.nAntenna) # XXX legacy for file format
+        self.autoindex = np.arange(self.nAntenna) # XXX legacy for file format
         def fmt(k):
             if k in ['At','Bt']: 
                 sk = self[k].T
@@ -223,10 +226,6 @@ class RedundantInfo(_O.RedundantInfo):
         self.bltoubl = bl2d[:,2]
         #self.reversed = np.where(bl2d[:,3] == 0, 1, -1).astype(np.int32)
         self.reversed = np.where(bl2d[:,3] == 0, -1, 1).astype(np.int32)
-        self.crossindex = np.arange(self.nBaseline, dtype=np.int32) # XXX mandating no autos here
-        # XXX subsetbl
-        self.reversedauto = np.ones_like(self.reversed)
-        self.autoindex = np.ones_like(self.crossindex)
         self.subsetbl = np.arange(self.nBaseline, dtype=np.int32) # XXX mandating visibilities provided in same order
         # remvoe above eventually
         self.ublcount = np.array([len(ubl_gp) for ubl_gp in reds], dtype=np.int32)
@@ -364,7 +363,7 @@ class RedundantInfo(_O.RedundantInfo):
         '''compare with another RedundantInfo, output True if they are the same and False if they are different'''
         try:
             floatkeys = float_infokeys#['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
-            intkeys = ['nAntenna','nUBL','bltoubl','reversed','crossindex','bl2d','ublcount','bl1dmatrix']
+            intkeys = ['nAntenna','nUBL','bltoubl','reversed','bl2d','ublcount','bl1dmatrix']
             infomatrices=['At','Bt']
             specialkeys = ['ublindex']
             allkeys = floatkeys + intkeys + infomatrices + specialkeys#['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
@@ -417,9 +416,9 @@ class RedundantInfo(_O.RedundantInfo):
         nu = self.nUBL
         A = self.At.T.todense()
         B = self.Bt.T.todense()
-        bl2dcross = self.bl2d[self.crossindex]
+        bl2dcross = self.bl2d
         #print na, nu, B.shape wesdcxaz
-        xyA = np.zeros((len(self.crossindex), 2*na+nu), dtype='int8')
+        xyA = np.zeros((len(self.bl2d), 2*na+nu), dtype='int8')
         yxA = np.zeros_like(xyA)
         xyB = np.zeros_like(xyA)
         yxB = np.zeros_like(xyA)

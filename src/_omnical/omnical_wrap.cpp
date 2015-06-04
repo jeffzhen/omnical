@@ -179,37 +179,6 @@ int RedInfoObject_set_reversed(RedInfoObject *self, PyObject *value, void *closu
     return 0;
 }
 
-// RedundantInfo.crossindex (1D integer array)
-PyObject *RedInfoObject_get_crossindex(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[1] = {self->info.crossindex.size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-        ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.crossindex[i];
-    }
-    return PyArray_Return(rv);
-}
-
-int RedInfoObject_set_crossindex(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "crossindex must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "crossindex must be a 1D array of ints");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    self->info.crossindex.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-        self->info.crossindex[i] = ((int *) PyArray_GETPTR1(v,i))[0];
-    }
-    return 0;
-}
-
 // RedundantInfo.bl2d
 PyObject *RedInfoObject_get_bl2d(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
@@ -426,7 +395,7 @@ int RedInfoObject_set_degenM(RedInfoObject *self, PyObject *value, void *closure
 // RedundantInfo.Atsparse (1D integer array)
 PyObject *RedInfoObject_get_Atsparse(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
-    npy_intp data_dims[2] = {3 * (self->info.crossindex.size()), 3};
+    npy_intp data_dims[2] = {3 * (self->info.bl2d.size()), 3};
     rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
     int cnter = 0;
     for (uint i=0; i < self->info.Atsparse.size(); i++) {
@@ -472,7 +441,7 @@ int RedInfoObject_set_Atsparse(RedInfoObject *self, PyObject *value, void *closu
 // RedundantInfo.Btsparse (2D integer array IO and 3D vector in C++)
 PyObject *RedInfoObject_get_Btsparse(RedInfoObject *self, void *closure) {
     PyArrayObject *rv;
-    npy_intp data_dims[2] = {3 * (self->info.crossindex.size()), 3};
+    npy_intp data_dims[2] = {3 * (self->info.bl2d.size()), 3};
     rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
     int cnter = 0;
     for (unsigned int i=0; i < self->info.Btsparse.size(); i++) {
@@ -640,7 +609,7 @@ static PyGetSetDef RedInfoObject_getseters[] = {
     {"reversed", (getter)RedInfoObject_get_reversed, (setter)RedInfoObject_set_reversed, "reversed", NULL},
     //{"reversedauto", (getter)RedInfoObject_get_reversedauto, (setter)RedInfoObject_set_reversedauto, "reversedauto", NULL},
     //{"autoindex", (getter)RedInfoObject_get_autoindex, (setter)RedInfoObject_set_autoindex, "autoindex", NULL},
-    {"crossindex", (getter)RedInfoObject_get_crossindex, (setter)RedInfoObject_set_crossindex, "crossindex", NULL},
+    //{"crossindex", (getter)RedInfoObject_get_crossindex, (setter)RedInfoObject_set_crossindex, "crossindex", NULL},
     {"bl2d", (getter)RedInfoObject_get_bl2d, (setter)RedInfoObject_set_bl2d, "bl2d", NULL},
     //{"totalVisibilityId", (getter)RedInfoObject_get_totalVisibilityId, (setter)RedInfoObject_set_totalVisibilityId, "totalVisibilityId", NULL},
     {"ublcount", (getter)RedInfoObject_get_ublcount, (setter)RedInfoObject_set_ublcount, "ublcount", NULL},
