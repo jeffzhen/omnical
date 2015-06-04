@@ -158,7 +158,14 @@ class ArrayInfo:
             bl = (subsetant[p[0]],subsetant[p[1]])
             if self.totalVisibilityId_dic.has_key(bl): tmp.append(p)
             elif self.totalVisibilityId_dic.has_key(bl[::-1]): tmp.append(p[::-1])
-        info['bl2d'] = bl2d = np.array(tmp, dtype=np.int32)
+        #info['bl2d'] = bl2d = np.array(tmp, dtype=np.int32)
+        bl2d = np.array(tmp, dtype=np.int32)
+        #info['crossindex'] = crossindex = np.array([i for i,p in enumerate(bl2d) if p[0] != p[1]], dtype=np.int32)
+        crossindex = np.array([i for i,p in enumerate(bl2d) if p[0] != p[1]], dtype=np.int32)
+        info['crossindex'] = np.arange(crossindex.size, dtype=np.int32)
+        nBaseline = len(bl2d)
+        bl2d = bl2d[crossindex]
+        info['bl2d'] = bl2d
         info['nBaseline'] = len(bl2d) # XXX maybe have C api infer this
         # from a pair of good antenna index to bl index
         info['subsetbl'] = np.array([self.get_baseline([subsetant[bl[0]],subsetant[bl[1]]]) 
@@ -180,11 +187,10 @@ class ArrayInfo:
         # autoindex: index of auto bls among good bls
         info['autoindex'] = autoindex = np.array([i for i,p in enumerate(bl2d) if p[0] == p[1]], dtype=np.int32)
         # crossindex: index of cross bls among good bls
-        info['crossindex'] = crossindex = np.array([i for i,p in enumerate(bl2d) if p[0] != p[1]], dtype=np.int32)
         # reversedauto: the index of good bls (auto included) in all bls
         reversedauto = np.arange(info['nBaseline'], dtype=np.int32)
-        for i in autoindex: reversedauto[i] = 1
-        for i,c in enumerate(crossindex): reversedauto[c] = reverse[i]
+        #for i in autoindex: reversedauto[i] = 1
+        #for i,c in enumerate(crossindex): reversedauto[c] = reverse[i]
         info['reversedauto'] = reversedauto
         #ublcount:  for each ubl, the number of good cross bls corresponding to it
         cnt = {}
@@ -193,7 +199,11 @@ class ArrayInfo:
         #ublindex:  //for each ubl, the vector<int> contains (ant1, ant2, crossbl)
         cnt = {}
         for i,(a1,a2) in enumerate(crosspair): cnt[bltoubl[i]] = cnt.get(bltoubl[i],[]) + [[a1,a2,i]]
-        info['ublindex'] = ublindex = np.concatenate([np.array(cnt[i],dtype=np.int32) for i in range(nUBL)])
+        #info['ublindex'] = ublindex = np.concatenate([np.array(cnt[i],dtype=np.int32) for i in range(nUBL)])
+        ublindex = np.concatenate([np.array(cnt[i],dtype=np.int32) for i in range(nUBL)])
+        newind = np.arange(nBaseline)[crossindex] = info.crossindex
+        ublindex[2] = newind[ublindex[2]]
+        info.ublindex = ublindex
         #bl1dmatrix: a symmetric matrix where col/row numbers index ants and entries are bl index (no auto corr)
         # XXX don't like 2**31-1.  whence this number?
         bl1dmatrix = (2**31-1) * np.ones((nAntenna,nAntenna),dtype=np.int32)

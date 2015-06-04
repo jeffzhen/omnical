@@ -136,13 +136,21 @@ class RedundantInfo(_O.RedundantInfo):
         self.reversed = d[8].astype(np.int32) # cross only bl if reversed -1, else 1
         self.reversedauto = d[9].astype(np.int32) # XXX check comment: index of good autos within all bls
         self.autoindex = d[10].astype(np.int32) # index of auto bls among good bls
-        self.crossindex = d[11].astype(np.int32) # index of cross bls among good bls
+        #self.crossindex = d[11].astype(np.int32) # index of cross bls among good bls
+        crossindex = d[11].astype(np.int32) # index of cross bls among good bls
+        self.crossindex = np.arange(len(crossindex), dtype=np.int32)
         ncross = len(self.crossindex)
         # XXX maybe add this as a function
         if preview_only: return ncross - self.nUBL - self.nAntenna + 2 # XXX return value here, normally not returning anything
-        self.bl2d = d[12].reshape(self.nBaseline,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
+        #self.bl2d = d[12].reshape(self.nBaseline,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
+        bl2d = d[12].reshape(self.nBaseline,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
+        self.bl2d = bl2d[crossindex]
         self.ublcount = d[13].astype(np.int32) # for each ubl, number of corresponding good cross bls
-        self.ublindex = d[14].reshape(ncross,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
+        #self.ublindex = d[14].reshape(ncross,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
+        ublindex = d[14].reshape(ncross,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
+        newind = np.arange(self.nBaseline)[crossindex] = self.crossindex
+        ublindex[2] = newind[ublindex[2]]
+        self.ublindex = ublindex
         self.bl1dmatrix = d[15].reshape((self.nAntenna,self.nAntenna)).astype(np.int32) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
         self.degenM = d[16].reshape((self.nAntenna+self.nUBL,self.nAntenna)).astype(np.float32)
         if self.nAntenna > self.threshold:
