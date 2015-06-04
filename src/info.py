@@ -71,7 +71,7 @@ class RedundantInfo(_O.RedundantInfo):
         '''for convenience of multiplication in update()'''
         assert(key in ['At','Bt'])
         tmp = _O.RedundantInfo.__getattribute__(self, key+'sparse')
-        matrix = np.zeros((self.nAntenna + self.nUBL, len(self.bl2d)))
+        matrix = np.zeros((self.nAntenna + len(self.ublcount), len(self.bl2d)))
         for i in tmp: matrix[i[0],i[1]] = i[2]
         return sps.csr_matrix(matrix)
     def _set_AtBt(self, key, val):
@@ -92,6 +92,10 @@ class RedundantInfo(_O.RedundantInfo):
             if k in ['At','Bt']: return _O.RedundantInfo.__getattribute__(self,k+'sparse')
             else: return self[k]
         d = {}
+        self.crossindex = np.arange(len(self.bl2d)) # XXX legacy for file format.
+        self.reversedauto = np.ones(self.nAntenna) # XXX legacy for file format
+        self.autoindex = np.arange(self.nAntenna) # XXX legacy for file format
+        self.nUBL = len(self.ublcount) # XXX legacy for file format
         for k in KEYS: d[k] = fmt(k)
         np.savez(filename, **d)
     def from_npz(self, filename):
@@ -111,7 +115,7 @@ class RedundantInfo(_O.RedundantInfo):
         d = np.array([np.array(datachunk[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
         self.from_array(d, verbose=verbose, preview_only=preview_only) # XXX do i need to store preview return case?
         self.update()
-        if verbose: print "done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),self.nUBL,self.nBaseline)
+        if verbose: print "done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),len(self.ublcount),self.nBaseline)
     def fromfile_txt(self, filename, verbose=False):
         '''Initialize from (txt) file.'''
         if verbose: print 'Reading redundant info from %s' % filename
@@ -119,19 +123,20 @@ class RedundantInfo(_O.RedundantInfo):
         #assert(len(d) >= len(self.keys)) # did we get the expected number of rows?  XXX is this check necessary?
         self.from_array(d, verbose=verbose)
         self.update(txtmode=True)
-        if verbose: print "done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),self.nUBL,self.nBaseline)
+        if verbose: print "done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),len(self.ublcount),self.nBaseline)
     def from_array(self, d, verbose=False, preview_only=False): 
         '''Initialize fields from data contained in 2D float array used to store data to file.'''
         # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
         # XXX maybe not all of these variables should be exposed (i.e. some could be C only)
         # XXX at the least, should validate array dimensions in C wrapper
         self.nAntenna = int(d[0][0]) # XXX did we mean d[0,0]?
-        self.nUBL = int(d[1][0]) # XXX
+        #self.nUBL = int(d[1][0]) # XXX
+        nUBL = int(d[1][0]) # XXX
         self.nBaseline = int(d[2][0]) # XXX
         self.subsetant = d[3].astype(np.int32) # index of good antennas
         self.antloc = d[4].reshape((self.nAntenna,3)).astype(np.float32)
         self.subsetbl = d[5].astype(np.int32) # index of good bls (+autos) within all bls
-        self.ubl = d[6].reshape((self.nUBL,3)).astype(np.float32) # unique bl vectors
+        self.ubl = d[6].reshape((nUBL,3)).astype(np.float32) # unique bl vectors
         self.bltoubl = d[7].astype(np.int32) # cross bl number to ubl index
         self.reversed = d[8].astype(np.int32) # cross only bl if reversed -1, else 1
         self.reversedauto = d[9].astype(np.int32) # XXX check comment: index of good autos within all bls
@@ -152,23 +157,23 @@ class RedundantInfo(_O.RedundantInfo):
         ublindex[2] = newind[ublindex[2]]
         self.ublindex = ublindex
         self.bl1dmatrix = d[15].reshape((self.nAntenna,self.nAntenna)).astype(np.int32) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
-        self.degenM = d[16].reshape((self.nAntenna+self.nUBL,self.nAntenna)).astype(np.float32)
+        self.degenM = d[16].reshape((self.nAntenna+nUBL,self.nAntenna)).astype(np.float32)
         if self.nAntenna > self.threshold:
             #sparse_entries = d[16].reshape((len(d[16])/3,3))
             sparse_entries = d[17].reshape((-1,3))
             row,column,value = sparse_entries[:,0],sparse_entries[:,1],sparse_entries[:,2]
-            self.At = sps.csr_matrix((value,(row,column)), shape=(len(self.bl2d),self.nAntenna+self.nUBL)).T
+            self.At = sps.csr_matrix((value,(row,column)), shape=(len(self.bl2d),self.nAntenna+nUBL)).T
             #sparse_entries = d[17].reshape((len(d[17])/3,3))
             sparse_entries = d[18].reshape((-1,3))
             row,column,value = sparse_entries[:,0],sparse_entries[:,1],sparse_entries[:,2]
-            self.Bt = sps.csr_matrix((value,(row,column)), shape=(len(self.bl2d),self.nAntenna+self.nUBL)).T
-            self.AtAi = d[19].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL)).astype(np.float32)
-            self.BtBi = d[20].reshape((self.nAntenna + self.nUBL,self.nAntenna + self.nUBL)).astype(np.float32)
+            self.Bt = sps.csr_matrix((value,(row,column)), shape=(len(self.bl2d),self.nAntenna+nUBL)).T
+            self.AtAi = d[19].reshape((self.nAntenna + nUBL,self.nAntenna + nUBL)).astype(np.float32)
+            self.BtBi = d[20].reshape((self.nAntenna + nUBL,self.nAntenna + nUBL)).astype(np.float32)
             self.totalVisibilityId = d[21].reshape(-1,2).astype(np.int32)
         else:
             # XXX why astype(int) here, but not above?
-            self.At = sps.csr_matrix(d[17].reshape((-1,self.nAntenna+self.nUBL)).astype(np.int32)).T # A matrix for logcal amplitude
-            self.Bt = sps.csr_matrix(d[18].reshape((-1,self.nAntenna+self.nUBL)).astype(np.int32)).T # B matrix for logcal phase
+            self.At = sps.csr_matrix(d[17].reshape((-1,self.nAntenna+nUBL)).astype(np.int32)).T # A matrix for logcal amplitude
+            self.Bt = sps.csr_matrix(d[18].reshape((-1,self.nAntenna+nUBL)).astype(np.int32)).T # B matrix for logcal phase
             self.totalVisibilityId = d[19].reshape(-1,2).astype(np.int32)
     def update(self, txtmode=False):
         '''Initialize other arrays from fundamental arrays'''
@@ -195,6 +200,7 @@ class RedundantInfo(_O.RedundantInfo):
         self.crossindex = np.arange(len(self.bl2d)) # XXX legacy for file format.
         self.reversedauto = np.ones(self.nAntenna) # XXX legacy for file format
         self.autoindex = np.arange(self.nAntenna) # XXX legacy for file format
+        self.nUBL = len(self.ublcount) # XXX legacy for file format
         def fmt(k):
             if k in ['At','Bt']: 
                 sk = self[k].T
@@ -218,7 +224,7 @@ class RedundantInfo(_O.RedundantInfo):
         ant2ind = {}
         for i,ant in enumerate(self.subsetant): ant2ind[ant] = i
         self.nAntenna = self.subsetant.size
-        self.nUBL = len(reds)
+        nUBL = len(reds)
         #bl2d = np.array([(ant2ind[i],ant2ind[j],u,i<j) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
         bl2d = np.array([(ant2ind[min(i,j)],ant2ind[max(i,j)],u,i<j) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
         self.bl2d = bl2d[:,:2]
@@ -235,7 +241,7 @@ class RedundantInfo(_O.RedundantInfo):
         for n,(i,j) in enumerate(self.bl2d): bl1dmatrix[i,j], bl1dmatrix[j,i] = n,n
         self.bl1dmatrix = bl1dmatrix
         #A: A matrix for logcal amplitude
-        A,B = np.zeros((self.nBaseline,self.nAntenna+self.nUBL)), np.zeros((self.nBaseline,self.nAntenna+self.nUBL))
+        A,B = np.zeros((self.nBaseline,self.nAntenna+nUBL)), np.zeros((self.nBaseline,self.nAntenna+nUBL))
         for n,(i,j) in enumerate(self.bl2d):
             A[n,i], A[n,j], A[n,self.nAntenna+self.bltoubl[n]] = 1,1,1
             B[n,i], B[n,j], B[n,self.nAntenna+self.bltoubl[n]] = -self.reversed[n],self.reversed[n],1
@@ -363,7 +369,7 @@ class RedundantInfo(_O.RedundantInfo):
         '''compare with another RedundantInfo, output True if they are the same and False if they are different'''
         try:
             floatkeys = float_infokeys#['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
-            intkeys = ['nAntenna','nUBL','bltoubl','reversed','bl2d','ublcount','bl1dmatrix']
+            intkeys = ['nAntenna','bltoubl','reversed','bl2d','ublcount','bl1dmatrix']
             infomatrices=['At','Bt']
             specialkeys = ['ublindex']
             allkeys = floatkeys + intkeys + infomatrices + specialkeys#['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
@@ -413,7 +419,7 @@ class RedundantInfo(_O.RedundantInfo):
     def get_xy_AB(self):
         '''return xyA, xyB, yxA, yxB for logcal cross polarizations'''
         na = self.nAntenna
-        nu = self.nUBL
+        nu = len(self.ublcount)
         A = self.At.T.todense()
         B = self.Bt.T.todense()
         bl2dcross = self.bl2d

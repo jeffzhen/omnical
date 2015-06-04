@@ -180,9 +180,10 @@ class RedundantCalibrator:
         assert(data.ndim == 3 and data.shape[-1] == len(self.arrayinfo.totalVisibilityId))
         assert(data.shape == additivein.shape)
         self.nTime, self.nFrequency = data.shape[:2]
+        nUBL = len(self.Info.ublcount)
         if uselogcal or self.rawCalpar is None:
-            self.rawCalpar = np.zeros((self.nTime, self.nFrequency, 3+2*(self.Info.nAntenna+self.Info.nUBL)), dtype=np.float32)
-        assert(self.rawCalpar.shape == (self.nTime,self.nFrequency, 3+2*(self.Info.nAntenna+self.Info.nUBL)))
+            self.rawCalpar = np.zeros((self.nTime, self.nFrequency, 3+2*(self.Info.nAntenna+nUBL)), dtype=np.float32)
+        assert(self.rawCalpar.shape == (self.nTime,self.nFrequency, 3+2*(self.Info.nAntenna+nUBL)))
         if nthread is None: nthread = min(mp.cpu_count() - 1, self.nFrequency)
         if nthread >= 2: return self._redcal_multithread(data, additivein, 0, nthread, verbose=verbose)
         return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, 
@@ -304,7 +305,7 @@ class RedundantCalibrator:
         for utctime, t in zip(self.utctimes, range(len(self.utctimes))):
             sa.date = utctime
             jd[t, :] = struct.unpack('ff', struct.pack('d', sa.date + julDelta))
-        omnifit = np.zeros((self.nTime, self.Info.nUBL , 2 + 3 + 1 + 2 * self.nFrequency), dtype = 'float32')
+        omnifit = np.zeros((self.nTime, len(self.Info.ublcount), 2 + 3 + 1 + 2 * self.nFrequency), dtype = 'float32')
         omnifit[:, :, :2] = jd[:, None]
         omnifit[:, :, 2:5] = np.array(self.Info.ubl).astype('float32')
         omnifit[:, :, 5] = float(self.nFrequency)
@@ -315,6 +316,7 @@ class RedundantCalibrator:
         '''XXX DOCSTRING'''
         errstate = np.geterr()
         np.seterr(invalid = 'ignore')
+        nUBL = len(self.Info.ublcount)
         if self.rawCalpar is None:
             raise Exception("No calibration has been performed since rawCalpar does not exist.")
         if flag is None: flag = np.zeros(self.rawCalpar.shape[:2], dtype='bool')
@@ -322,7 +324,7 @@ class RedundantCalibrator:
             raise TypeError('flag and self.rawCalpar have different shapes %s %s.'%(flag.shape, self.rawCalpar.shape[:2]))
         checks = 1
         bad_count = np.zeros((3,self.Info.nAntenna), dtype='int')
-        bad_ubl_count = np.zeros(self.Info.nUBL, dtype='int')
+        bad_ubl_count = np.zeros(len(self.Info.ublcount), dtype='int')
         median_level = nanmedian(nanmedian(self.rawCalpar[:,:,3:3+self.Info.nAntenna], axis= 0), axis= 1)
         bad_count[0] = np.array([(np.abs(self.rawCalpar[:,:,3+a] - median_level) >= .15)[~flag].sum() for a in range(self.Info.nAntenna)])**2
         if data is not None and data.shape[:2] == self.rawCalpar.shape[:2]:
@@ -348,11 +350,11 @@ class RedundantCalibrator:
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
                 bad_count[2] = np.array([(np.abs(ant_level[a] - median_level)/median_level >= .667)[~flag].sum() for a in range(self.Info.nAntenna)])**2
             ublindex = [np.array(index).astype('int')[:,2] for index in self.Info.ublindex]
-            ubl_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in ublindex[u]]]), axis = 2) for u in range(self.Info.nUBL)])
+            ubl_level = np.array([np.median(np.abs(additiveout[:, :, [crossindex[bl] for bl in ublindex[u]]]), axis = 2) for u in range(nUBL)])
             median_level = np.median(ubl_level, axis = 0)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore",category=RuntimeWarning)
-                bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .667)[~flag].sum() for u in range(self.Info.nUBL)])**2
+                bad_ubl_count += np.array([((ubl_level[u] - median_level)/median_level >= .667)[~flag].sum() for u in range(nUBL)])**2
         np.seterr(invalid = errstate['invalid'])
         bad_count = (np.mean(bad_count,axis=0)/float(np.sum(~flag))**2 * 100).astype('int')
         bad_ubl_count = (bad_ubl_count/float(self.nTime * self.nFrequency)**2 * 100).astype('int')
@@ -389,7 +391,7 @@ class RedundantCalibrator:
         spike_flag = np.zeros_like(nan_flag)
         if '1' in mode:
             median_level = nanmedian(nanmedian(chisq))
-            thresh = nsigma * (2. / (len(self.subsetbl) - self.nAntenna - self.nUBL + 2))**.5 # relative sigma is sqrt(2/k)
+            thresh = nsigma * (2. / (len(self.subsetbl) - self.nAntenna - len(self.ublcount)+ 2))**.5 # relative sigma is sqrt(2/k)
             for i in range(_niter):
                 chisq[nan_flag|spike_flag] = 1e6 * median_level
                 if twindow >= self.nTime:
@@ -414,7 +416,7 @@ class RedundantCalibrator:
         #bl fit flag
         if '2' in mode:
             nubl = 10
-            short_ubl_index = np.argsort(np.linalg.norm(self.ubl, axis=1))[:min(nubl, self.nUBL)]
+            short_ubl_index = np.argsort(np.linalg.norm(self.ubl, axis=1))[:min(nubl, len(self.ublcount))]
             shortest_ubl_vis = self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index] + 1.j * self.rawCalpar[:,:,3+2*self.nAntenna+2*short_ubl_index+1]
             change_rate = np.median(np.abs(shortest_ubl_vis[:-1] - shortest_ubl_vis[1:]), axis = 2)
             nan_mask2 = np.isnan(change_rate)|np.isinf(change_rate)
@@ -540,8 +542,9 @@ def load_omnifit(path, info=None):
     if not os.path.isfile(path): raise IOError("Path %s does not exist."%path)
     if info is None: info = path.replace('.omnifit', '.binfo')
     if type(info) == type('a'): info = read_redundantinfo(info)
+    nUBL = len(info.ublcount)
     omnifit = np.fromfile(path, dtype = 'float32')
-    omnifit.shape = (omnifit.shape[0] / (info['nUBL']) / (2 + 3 + 1 + 2 * int(omnifit[5])), info['nUBL'], 2 + 3 + 1 + 2 * int(omnifit[3]))
+    omnifit.shape = (omnifit.shape[0] / nUBL / (2 + 3 + 1 + 2 * int(omnifit[5])), nUBL, 2 + 3 + 1 + 2 * int(omnifit[3]))
     return omnifit
 
 def get_omnitime(omnistuff):
@@ -562,11 +565,12 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
         info = info.get_info()
     except:
         pass
-    if plot_3 and info['nUBL'] < 3:
+    nUBL = len(info.ublcount)
+    if plot_3 and nUBL < 3:
         plot_3 = False
 
     colors=[]
-    colorgrid = int(math.ceil((info['nUBL']/12.+1)**.34))
+    colorgrid = int(math.ceil((nUBL/12.+1)**.34))
     for red in range(colorgrid):
         for green in range(colorgrid):
             for blue in range(colorgrid):
@@ -609,16 +613,16 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
                     outputdata[i] = outputdata[i] + [(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]) + 1.j * np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker, color, info['ubl'][ubl])]
 
                 ubl += 1
-                if ubl == info['nUBL']:
+                if ubl == nUBL:
                     #if i == 1:
                         #ax.text(-(len(ds)-1 + 0.7)*plotrange, -0.7*plotrange, "#Ant:%i\n#UBL:%i"%(info['nAntenna'],info['nUBL']),bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.2))
-                    ax.set_title(title + "\nGood Antenna count: %i\nUBL count: %i"%(info['nAntenna'],info['nUBL']))
+                    ax.set_title(title + "\nGood Antenna count: %i\nUBL count: %i"%(info['nAntenna'],nUBL))
                     ax.grid(True)
                     ax.set(adjustable='datalim', aspect=1)
                     ax.set_xlabel('Real')
                     ax.set_ylabel('Imag')
                     break
-            if ubl == info['nUBL']:
+            if ubl == nUBL:
                 break
     plt.axis([-plotrange, plotrange, -plotrange, plotrange])
     if oppath is not None:
@@ -1179,11 +1183,11 @@ def extract_crosspol_ubl(data, info):
         raise AttributeError('Datas first demension need to have length 2 corresponding to xy/yx. Current input shape %s.'%data.shape)
 
     output_shape = np.array(data.shape)
-    output_shape[-1] = info['nUBL']
+    output_shape[-1] = len(info.ublcount)
     output = np.empty(output_shape, dtype='complex64')
     chisq = np.zeros(output_shape[:-1], dtype='float32')
 
-    for u in range(info['nUBL']):
+    for u in range(len(info.ublcount)):
         blindex = info['subsetbl'][info['crossindex'][info['ublindex'][u][:,2].astype(int)]]
         ureversed = info['reversed'][info['ublindex'][u][:,2].astype(int)] == -1
         nreversed = np.sum(ureversed)

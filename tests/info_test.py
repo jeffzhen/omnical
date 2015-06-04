@@ -39,7 +39,6 @@ class TestRedInfo(unittest.TestCase):
         i.init_from_redundancies(reds,antpos)
         self.assertEqual(i.nAntenna,4)
         self.assertTrue(np.all(i.antloc == antpos))
-        self.assertEqual(i.nUBL,2)
         self.assertEqual(i.nBaseline,5)
         self.assertEqual(i.ublcount[0],3)
         self.assertEqual(i.ublcount[1],2)
@@ -63,7 +62,7 @@ class TestRedInfo(unittest.TestCase):
         i2.init_from_redundancies(reds, antpos)
         self.assertTrue(np.all(i1.antloc == i2.antloc))
         self.assertTrue(np.all(i1.ublindex[:,:2] == i2.ublindex[:,:2]))
-        self.assertTrue(np.all(i1.bl2d[i1.crossindex[i1.ublindex[:,2]]] == i2.bl2d[i2.crossindex[i2.ublindex[:,2]]]))
+        self.assertTrue(np.all(i1.bl2d[i1.ublindex[:,2]] == i2.bl2d[i2.ublindex[:,2]]))
         self.assertTrue(np.allclose(i1.ubl, i2.ubl, 1e-4))
         #import IPython; IPython.embed()
         #self.assertTrue(i1.compare(i2, tol=1e-3, verbose=VERBOSE)) # XXX this won't work b/c baselines reordered

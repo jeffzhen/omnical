@@ -21,7 +21,7 @@ using namespace std;
 
 struct redundantinfo{
 	int nAntenna;//number of good antennas among all (64) antennas, same as the length of subsetant
-	int nUBL;//number of unique baselines
+	//int nUBL;//number of unique baselines
 	//int nBaseline;
 	//int nCross;
 	//vector<int> subsetant;//the index of good antennas in all (64) antennas, currently not used

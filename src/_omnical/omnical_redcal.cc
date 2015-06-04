@@ -29,7 +29,8 @@ const float MAX_POW_2 = pow(10, 10); //limiting the base of ^2 to be 10^10
 void initcalmodule(calmemmodule* module, redundantinfo* info){
 	int nant = info->nAntenna;
 	int nbl = info->bl2d.size();
-	int nubl = info->nUBL;
+	//int nubl = info->nUBL;
+    int nubl = info->ublindex.size();
 	int ncross = nbl;
 	(module->amp1).resize(ncross);
 	(module->amp2).resize(ncross);
@@ -470,7 +471,8 @@ void vecmatmul(vector<vector<int> > * A, vector<float> * v, vector<float> * yfit
 
 void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module){
 	int nant = info->nAntenna;
-	int nubl = info->nUBL;
+	//int nubl = info->nUBL;
+	int nubl = info->ublindex.size();
 	//int nbl = info->nBaseline;
 	int ncross = info->bl2d.size();
 	////read in amp and args
@@ -557,6 +559,7 @@ vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >*
 }
 
 void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
+	int nubl = info->ublindex.size();
 	//cout << "lincal DBG" << info->ublindex[(info->nUBL)-1][0][0] << " " << info->ublindex[(info->nUBL)-1][0][1] << " " << info->ublindex[(info->nUBL)-1][0][2] <<endl<<flush;
 	//int DBGg1 = info->ublindex[(info->nUBL)-1][0][0];
 	//int DBGg2 = info->ublindex[(info->nUBL)-1][0][1];
@@ -576,12 +579,12 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		module->g0[a][1] = amptmp * sin(calpar->at(3 + info->nAntenna + a));
 	}
 	if (command != 1){
-		for (int u = 0; u < info->nUBL; u++){
+		for (int u = 0; u < nubl; u++){
 			module->ubl0[u][0] = calpar->at(3 + 2 * info->nAntenna + 2 * u);
 			module->ubl0[u][1] = calpar->at(3 + 2 * info->nAntenna + 2 * u + 1);
 		}
 	} else{//if command is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input
-		for (int u = 0; u < info->nUBL; u++){
+		for (int u = 0; u < nubl; u++){
 			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 				cbl = info->ublindex[u][i][2];
 				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
@@ -660,7 +663,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		}
 
 		////ubl M
-		for (int u = 0; u < info->nUBL; u++){
+		for (int u = 0; u < nubl; u++){
 			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 				cbl = info->ublindex[u][i][2];
 				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
@@ -779,6 +782,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 
 
 void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
+    int nubl = info->ublindex.size();
 	//cout << "lincal DBG" << info->ublindex[(info->nUBL)-1][0][0] << " " << info->ublindex[(info->nUBL)-1][0][1] << " " << info->ublindex[(info->nUBL)-1][0][2] <<endl<<flush;
 	//int DBGg1 = info->ublindex[(info->nUBL)-1][0][0];
 	//int DBGg2 = info->ublindex[(info->nUBL)-1][0][1];
@@ -798,7 +802,7 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 		module->g0[a][1] = amptmp * sin(calpar->at(3 + info->nAntenna + a));
 	}
 
-	for (int u = 0; u < info->nUBL; u++){
+	for (int u = 0; u < nubl; u++){
 		module->ubl0[u][0] = 1;
 		module->ubl0[u][1] = 0;
 	}
@@ -943,11 +947,12 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 
 void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* module){//forces the calibration parameters to have average 1 amp, and no shifting the image in phase. Note: 1) If you have not absolute calibrated the data, there's no point in running this, because this can only ensure that the calpars don't screw up already absolute calibrated data. 2) the antloc and ubl stored in redundant info must be computed from idealized antloc, otherwise the error in antloc from perfect redundancy will roll into this result, in an unknown fashion.
 	////load data
+    int nubl = info->ublindex.size();
 	vector<float> pha1(info->nAntenna, 0);
 	for (int a = 0 ; a < info->nAntenna; a ++){
 		pha1[a] = calpar->at(3 + info->nAntenna + a);
 	}
-	for (int u = 0 ; u < info->nUBL; u ++){
+	for (int u = 0 ; u < nubl; u ++){
 		module->ubl1[u][0] = amp(calpar->at(3 + 2 * info->nAntenna + 2 * u), calpar->at(3 + 2 * info->nAntenna + 2 * u + 1));
 		module->ubl1[u][1] = phase(calpar->at(3 + 2 * info->nAntenna + 2 * u), calpar->at(3 + 2 * info->nAntenna + 2 * u + 1));
 	}
@@ -970,7 +975,7 @@ void removeDegen(vector<float> *calpar, redundantinfo * info, calmemmodule* modu
 	}
 
 	////correct ublfit
-	for (int u = 0 ; u < info->nUBL; u ++){
+	for (int u = 0 ; u < nubl; u ++){
 		module->ubl2[u][0] = module->ubl1[u][0] * ampfactor * ampfactor;
 		module->ubl2[u][1] = module->ubl1[u][1] + module->x1[info->nAntenna + u];
 		calpar->at(3 + 2 * info->nAntenna + 2 * u) = module->ubl2[u][0] * cos(module->ubl2[u][1]);

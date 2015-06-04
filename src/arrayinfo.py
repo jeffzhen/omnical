@@ -138,7 +138,8 @@ class ArrayInfo:
             return u
         info['ubl'] = ubl = np.array([f(i,u) for i,u in enumerate(ublall) if not badUBL.has_key(i)], dtype=np.float32)
         for k in badUBL: ubl2goodubl[k] = -1
-        info['nUBL'] = nUBL = ubl.shape[0] # XXX maybe have C api automatically infer this
+        #info['nUBL'] = nUBL = ubl.shape[0] # XXX maybe have C api automatically infer this
+        nUBL = ubl.shape[0] # XXX maybe have C api automatically infer this
         badubl = [ublall[i] for i in badUBL]
         #find nBaseline (include auto bls) and subsetbl
         #bl2d:  from 1d bl index to a pair of antenna numbers

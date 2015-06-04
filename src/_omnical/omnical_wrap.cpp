@@ -62,18 +62,18 @@ int RedInfoObject_set_nAntenna(RedInfoObject *self, PyObject *value, void *closu
 }
 
 // RedundantInfo.nUBL
-PyObject *RedInfoObject_get_nUBL(RedInfoObject *self, void *closure) {
-    return Py_BuildValue("l", self->info.nUBL);
-}
-
-int RedInfoObject_set_nUBL(RedInfoObject *self, PyObject *value, void *closure) {
-    if (!PyInt_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "nUBL must be an integer");
-        return -1;
-    }
-    self->info.nUBL = (int) PyInt_AsLong(value);
-    return 0;
-}
+//PyObject *RedInfoObject_get_nUBL(RedInfoObject *self, void *closure) {
+//    return Py_BuildValue("l", self->info.nUBL);
+//}
+//
+//int RedInfoObject_set_nUBL(RedInfoObject *self, PyObject *value, void *closure) {
+//    if (!PyInt_Check(value)) {
+//        PyErr_Format(PyExc_ValueError, "nUBL must be an integer");
+//        return -1;
+//    }
+//    self->info.nUBL = (int) PyInt_AsLong(value);
+//    return 0;
+//}
 
 // RedundantInfo.antloc (1D integer array)
 //PyObject *RedInfoObject_get_antloc(RedInfoObject *self, void *closure) {
@@ -598,7 +598,7 @@ int RedInfoObject_set_BtBi(RedInfoObject *self, PyObject *value, void *closure) 
 
 static PyGetSetDef RedInfoObject_getseters[] = {
     {"nAntenna", (getter)RedInfoObject_get_nAntenna, (setter)RedInfoObject_set_nAntenna, "nAntenna", NULL},
-    {"nUBL", (getter)RedInfoObject_get_nUBL, (setter)RedInfoObject_set_nUBL, "nUBL", NULL},
+    //{"nUBL", (getter)RedInfoObject_get_nUBL, (setter)RedInfoObject_set_nUBL, "nUBL", NULL},
     //{"nBaseline", (getter)RedInfoObject_get_nBaseline, (setter)RedInfoObject_set_nBaseline, "nBaseline", NULL},
     //{"nCross", (getter)RedInfoObject_get_nCross, (setter)RedInfoObject_set_nCross, "nCross", NULL},
     //{"subsetant", (getter)RedInfoObject_get_subsetant, (setter)RedInfoObject_set_subsetant, "subsetant", NULL},
@@ -707,7 +707,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//return 
         return NULL;
     }
     vector<vector<float> > data_v(nbls, vector<float>(2, 0));
-    vector<float> calpar_v(3 + 2*(redinfo->info.nUBL + redinfo->info.nAntenna), 0);
+    vector<float> calpar_v(3 + 2*(redinfo->info.ublindex.size() + redinfo->info.nAntenna), 0);
     vector<vector<float> >additivein_v(nbls, vector<float>(2, 0));
     vector<vector<float> >additiveout_v(nbls, vector<float>(2, 0));
     // check that dims of additivein and data match
@@ -833,7 +833,7 @@ PyObject *redcal2_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in pla
     nfreq = PyArray_DIM(data,1);
     nbls = PyArray_DIM(data,2);
     vector<vector<float> > data_v(nbls, vector<float>(2, 0));
-    vector<float> calpar_v(3 + 2*(redinfo->info.nUBL + redinfo->info.nAntenna), 0);
+    vector<float> calpar_v(3 + 2*(redinfo->info.ublindex.size() + redinfo->info.nAntenna), 0);
     vector<vector<float> >additivein_v(nbls, vector<float>(2, 0));
     vector<vector<float> >additiveout_v(nbls, vector<float>(2, 0));
     // check that dims of additivein and data match
@@ -961,7 +961,7 @@ PyObject *gaincal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in pla
     nfreq = PyArray_DIM(data,1);
     nbls = PyArray_DIM(data,2);
     vector<vector<float> > data_v(nbls, vector<float>(2, 0));
-    vector<float> calpar_v(3 + 2*(redinfo->info.nUBL + redinfo->info.nAntenna), 0);
+    vector<float> calpar_v(3 + 2*(redinfo->info.ublindex.size()+ redinfo->info.nAntenna), 0);
     vector<vector<float> >additivein_v(nbls, vector<float>(2, 0));
     vector<vector<float> >additiveout_v(nbls, vector<float>(2, 0));
     // check that dims of additivein and data match
