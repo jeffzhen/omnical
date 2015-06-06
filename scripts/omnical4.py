@@ -607,11 +607,13 @@ with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=RuntimeWarning)
     overall_angle = omni.medianAngle(xy_candidates, axis = -1) / 2
 
-    median_overall_angle = omni.medianAngle(omni.medianAngle(xy_candidates, axis = -1), axis = 0) / 2
+    median_overall_angle = omni.medianAngle(xy_candidates.transpose(0,2,1).reshape((xy_candidates.shape[0]*xy_candidates.shape[2],xy_candidates.shape[1])), axis = 0) / 2
     prev_valid = -1
+    valids1 = np.zeros(len(median_overall_angle), dtype='bool')
     for i in range(1, len(median_overall_angle)):
         if not (np.isnan(median_overall_angle[i-1]) or (prev_valid >= 0 and abs((median_overall_angle[i-1] - median_overall_angle[prev_valid] + PI/2)%PI-PI/2) > PI/4)):
             prev_valid = i - 1
+            valids1[i-1] = True
         if prev_valid >= 0:
             offset = median_overall_angle[prev_valid]-PI/2
         else:
@@ -636,10 +638,31 @@ cdata2 = np.empty_like(cdata)
 for p, pol in enumerate(crosspols.keys()):
     cdata2[p] = omni.apply_calpar2(cdata[p], crosscalpar2[pol[0]], crosscalpar2[pol[1]], c.totalVisibilityId)
 del(cdata)
+
 ####apply cross pol solution to 'xx'############
 apply_pol = crosspols.keys()[0][1] + crosspols.keys()[0][1]
 #gain
 calibrators[apply_pol].rawCalpar[..., 3+c.nAntenna:3+2*c.nAntenna] = (calibrators[apply_pol].rawCalpar[..., 3+c.nAntenna:3+2*c.nAntenna] + c.antloc[:,:2].dot(sol.transpose(1,0,2)).transpose(1,2,0) + overall_angle[..., None] + PI)%TPI -PI
+
+###use gain phase to try to fix pi jump for a second time
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=RuntimeWarning)
+    median_calpar_angle = omni.medianAngle(omni.medianAngle(calibrators[apply_pol].rawCalpar[..., 3+c.nAntenna:3+2*c.nAntenna], axis = 0), axis = -1)
+    prev_valid = -1
+    valids2 = np.zeros(len(median_calpar_angle), dtype='bool')
+    for i in range(1, len(median_calpar_angle)):
+        if not (np.isnan(median_calpar_angle[i-1]) ):#or (prev_valid >= 0 and abs((median_calpar_angle[i-1] - median_calpar_angle[prev_valid] + PI/2)%PI-PI/2) > PI/4)):
+            prev_valid = i - 1
+            valids2[i-1] = True
+        if prev_valid >= 0:
+            offset = median_calpar_angle[prev_valid]-PI/2
+        else:
+            offset = -PI/2
+        median_calpar_angle[i] = (median_calpar_angle[i] - offset)%(PI) + offset
+    pi_jump = median_calpar_angle - omni.medianAngle(omni.medianAngle(calibrators[apply_pol].rawCalpar[..., 3+c.nAntenna:3+2*c.nAntenna], axis = 0), axis = -1)
+    
+
+
 #ubl fits
 old_ubl_fits = calibrators[apply_pol].rawCalpar[..., 3+2*c.nAntenna::2] + 1.j * calibrators[apply_pol].rawCalpar[..., 3+2*c.nAntenna+1::2]
 new_ubl_fits = old_ubl_fits / np.exp(1.j * c.ubl[:,:2].dot(sol.transpose(1,0,2)).transpose(1,2,0))

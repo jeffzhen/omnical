@@ -40,7 +40,7 @@ chi2 = np.concatenate((chis), axis = 0)
 dof = len(info['crossindex']) * 2*nadd / (2*nadd + 1) - (info['nAntenna'] + info['nUBL'] - 2)
 
 
-
+print "WARNING: THE TSYS MODEL IS INCORRECT SINCE ITS (XX+YY)/2"
 f = np.load('/data2/home/hz2ug/PSA64_plot_for_zaki/tsys_model_jy_corrected.npz')
 noise = np.array(f['tsys_jy'] **2) / (43*100./nchan*1e6)
 
