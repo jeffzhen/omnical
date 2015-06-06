@@ -651,7 +651,7 @@ with warnings.catch_warnings():
     prev_valid = -1
     valids2 = np.zeros(len(median_calpar_angle), dtype='bool')
     for i in range(1, len(median_calpar_angle)):
-        if not (np.isnan(median_calpar_angle[i-1]) ):#or (prev_valid >= 0 and abs((median_calpar_angle[i-1] - median_calpar_angle[prev_valid] + PI/2)%PI-PI/2) > PI/4)):
+        if not (np.isnan(median_calpar_angle[i-1])or (prev_valid >= 0 and abs((median_calpar_angle[i-1] - median_calpar_angle[prev_valid] + PI/2)%PI-PI/2) > PI/4)):
             prev_valid = i - 1
             valids2[i-1] = True
         if prev_valid >= 0:
