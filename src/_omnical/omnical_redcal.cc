@@ -29,7 +29,6 @@ const float MAX_POW_2 = pow(10, 10); //limiting the base of ^2 to be 10^10
 void initcalmodule(calmemmodule* module, redundantinfo* info){
 	int nant = info->nAntenna;
 	int nbl = info->bl2d.size();
-	//int nubl = info->nUBL;
     int nubl = info->ublindex.size();
 	int ncross = nbl;
 	(module->amp1).resize(ncross);
@@ -471,9 +470,7 @@ void vecmatmul(vector<vector<int> > * A, vector<float> * v, vector<float> * yfit
 
 void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module){
 	int nant = info->nAntenna;
-	//int nubl = info->nUBL;
 	int nubl = info->ublindex.size();
-	//int nbl = info->nBaseline;
 	int ncross = info->bl2d.size();
 	////read in amp and args
 	for (int b = 0; b < ncross; b++){
@@ -562,11 +559,7 @@ vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >*
 
 void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
 	int nubl = info->ublindex.size();
-	//cout << "lincal DBG" << info->ublindex[(info->nUBL)-1][0][0] << " " << info->ublindex[(info->nUBL)-1][0][1] << " " << info->ublindex[(info->nUBL)-1][0][2] <<endl<<flush;
-	//int DBGg1 = info->ublindex[(info->nUBL)-1][0][0];
-	//int DBGg2 = info->ublindex[(info->nUBL)-1][0][1];
-	//int DBGbl = info->ublindex[(info->nUBL)-1][0][2];
-
+    int ai, aj; // antenna indices
 	////initialize data and g0 ubl0
 	for (unsigned int b = 0; b < (module->cdata1).size(); b++){
 		module->cdata1[b][0] = data->at(b)[0] - additivein->at(b)[0];
@@ -589,13 +582,11 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		for (int u = 0; u < nubl; u++){
 			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 				cbl = info->ublindex[u][i][2];
+                ai = info->bl2d[cbl][0]; aj = info->bl2d[cbl][1];
 				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
-				//module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
-				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] ;//* info->reversed[cbl];
-                // XXX ideally would not have ublindex holding antenna info (which is a repeat of bl2d)
-				module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
-				//module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
-				module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]);// * info->reversed[cbl];
+				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1];
+				module->ubl2dgrp2[u][i][0] = module->g0[ai][0] * module->g0[aj][0] + module->g0[ai][1] * module->g0[aj][1];
+				module->ubl2dgrp2[u][i][1] = (module->g0[ai][0] * module->g0[aj][1] - module->g0[ai][1] * module->g0[aj][0]);
 			}
 
 			module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
@@ -677,13 +668,11 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		for (int u = 0; u < nubl; u++){
 			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 				cbl = info->ublindex[u][i][2];
+                ai = info->bl2d[cbl][0]; aj = info->bl2d[cbl][1];
 				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
-				//module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
 				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] ;
-                // XXX ideally would not have ublindex holding antenna info (which is a repeat of bl2d)
-				module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
-				//module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
-				module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]);
+				module->ubl2dgrp2[u][i][0] = module->g0[ai][0] * module->g0[aj][0] + module->g0[ai][1] * module->g0[aj][1];
+				module->ubl2dgrp2[u][i][1] = (module->g0[ai][0] * module->g0[aj][1] - module->g0[ai][1] * module->g0[aj][0]);
 			}
 
 			module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
@@ -702,20 +691,6 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 				module->ubl0[u][0] = stepsize2 * module->ubl0[u][0] + stepsize * module->ubl3[u][0];
 				module->ubl0[u][1] = stepsize2 * module->ubl0[u][1] + stepsize * module->ubl3[u][1];
 			}
-			//else{
-				////make sure there's no error on unique baselines with only 1 baseline
-				//for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
-					//cbl = info->ublindex[u][i][2];
-					//module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
-					//module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
-					//module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
-					//module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
-				//}
-
-				//module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
-				//module->ubl0[u][0] = module->ubl3[u][0];
-				//module->ubl0[u][1] = module->ubl3[u][1];
-			//}
 		}
 
 		//compute chisq and decide convergence
@@ -726,12 +701,9 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 				a2 = info->bl2d[b][1];
 				gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
 				gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
-				//module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
-				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1];// * info->reversed[b];
-				//module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1];
 				module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] + gim * module->ubl0[info->bltoubl[b]][0];
 				chisq2 += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
-				//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
 			}
 		}
 		componentchange = (chisq - chisq2) / chisq;
@@ -742,15 +714,12 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			//make sure there's no error on unique baselines with only 1 baseline
 				for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 					cbl = info->ublindex[u][i][2];
+                    ai = info->bl2d[cbl][0]; aj = info->bl2d[cbl][1];
 					module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
-					//module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
-					module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1];// * info->reversed[cbl];
-                // XXX ideally would not have ublindex holding antenna info (which is a repeat of bl2d)
-					module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
-					//module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
-					module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]);// * info->reversed[cbl];
+					module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1];
+					module->ubl2dgrp2[u][i][0] = module->g0[ai][0] * module->g0[aj][0] + module->g0[ai][1] * module->g0[aj][1];
+					module->ubl2dgrp2[u][i][1] = (module->g0[ai][0] * module->g0[aj][1] - module->g0[ai][1] * module->g0[aj][0]);
 				}
-
 				module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
 				module->ubl0[u][0] = module->ubl3[u][0];
 				module->ubl0[u][1] = module->ubl3[u][1];
@@ -802,10 +771,6 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 
 void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
     int nubl = info->ublindex.size();
-	//cout << "lincal DBG" << info->ublindex[(info->nUBL)-1][0][0] << " " << info->ublindex[(info->nUBL)-1][0][1] << " " << info->ublindex[(info->nUBL)-1][0][2] <<endl<<flush;
-	//int DBGg1 = info->ublindex[(info->nUBL)-1][0][0];
-	//int DBGg2 = info->ublindex[(info->nUBL)-1][0][1];
-	//int DBGbl = info->ublindex[(info->nUBL)-1][0][2];
 
 	////initialize data and g0 ubl0
 	for (unsigned int b = 0; b < (module->cdata1).size(); b++){
