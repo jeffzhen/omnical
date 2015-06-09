@@ -201,8 +201,8 @@ class ArrayInfo:
         #info['ublindex'] = ublindex = np.concatenate([np.array(cnt[i],dtype=np.int32) for i in range(nUBL)])
         ublindex = np.concatenate([np.array(cnt[i],dtype=np.int32) for i in range(nUBL)])
         newind = np.arange(nBaseline)[crossindex] = np.arange(crossindex.size, dtype=np.int32)
-        ublindex[2] = newind[ublindex[2]]
-        info.ublindex = ublindex
+        ublindex[:,2] = newind[ublindex[:,2]]
+        info.ublindex = ublindex[:,2] # XXX could clean this up
         #bl1dmatrix: a symmetric matrix where col/row numbers index ants and entries are bl index (no auto corr)
         # XXX don't like 2**31-1.  whence this number?
         bl1dmatrix = (2**31-1) * np.ones((nAntenna,nAntenna),dtype=np.int32)

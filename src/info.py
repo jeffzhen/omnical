@@ -169,10 +169,8 @@ class RedundantInfo(_O.RedundantInfo):
         #self.ublindex = d[14].reshape(ncross,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
         ublindex = d[14].reshape(-1,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,crossbl)
         newind = np.arange(self.nBaseline)[crossindex] = np.arange(len(crossindex))
-        ublindex[2] = newind[ublindex[2]]
-        # does ublindex need to have antenna indices reversed?  yes.
-        for cnt,(i,j,k) in enumerate(ublindex): ublindex[cnt] = (bl2d[k,0],bl2d[k,1],k)
-        self.ublindex = ublindex
+        ublindex[:,2] = newind[ublindex[:,2]]
+        self.ublindex = ublindex[:,2] # XXX could clean this up
         self.bl1dmatrix = d[15].reshape((self.nAntenna,self.nAntenna)).astype(np.int32) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
         self.degenM = d[16].reshape((self.nAntenna+nUBL,self.nAntenna)).astype(np.float32)
         if self.nAntenna > self.threshold:
@@ -232,6 +230,10 @@ class RedundantInfo(_O.RedundantInfo):
                     row,col = sk.nonzero()
                     return np.vstack([row,col,sk[row,col]]).T
                 else: return sk.todense()
+            elif k in ['ublindex']: # XXX legacy for file format
+                d = np.zeros((self.ublindex.size,3), dtype=np.int)
+                d[:,2] = self.ublindex
+                return d
             else: return self[k]
         d = [fmt(k) for k in d]
         d = [[MARKER]]+[k for i in zip(d,[[MARKER]]*len(d)) for k in i]
@@ -259,7 +261,7 @@ class RedundantInfo(_O.RedundantInfo):
         # remvoe above eventually
         self.ublcount = np.array([len(ubl_gp) for ubl_gp in reds], dtype=np.int32)
         bl2d[:,2] = np.arange(self.nBaseline)
-        self.ublindex = bl2d[:,:3]
+        self.ublindex = bl2d[:,2] # XXX clean this up?
         bl1dmatrix = (2**31-1) * np.ones((self.nAntenna,self.nAntenna),dtype=np.int32)
         for n,(i,j) in enumerate(self.bl2d): bl1dmatrix[i,j], bl1dmatrix[j,i] = n,n
         self.bl1dmatrix = bl1dmatrix
@@ -426,11 +428,6 @@ class RedundantInfo(_O.RedundantInfo):
                 #except: diff.append(False)
             diff.append(True)
             
-            # XXX changed ublindex representation.  how much depends on this?
-            #try:
-            #    for i,j in zip(self['ublindex'],info['ublindex']):
-            #        diff[-1] = diff[-1] and (la.norm(np.array(i) - np.array(j))==0)
-            #except: diff[-1] = False
             bool = True
             for i in diff: bool &= i
             #print the first key found different (this will only trigger when the two info's have the same shape, so probably not very useful)

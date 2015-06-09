@@ -490,7 +490,7 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	////rewrap args
 	for(int i = 0; i < nubl; i ++){
 		for (uint j = 0; j < (module->ublgrp1)[i].size(); j ++){
-			(module->ublgrp1)[i][j] = module->pha1[info->ublindex[i][j][2]];
+			(module->ublgrp1)[i][j] = module->pha1[info->ublindex[i][j]];
 		}
 	}
 
@@ -581,7 +581,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 	} else{//if command is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input
 		for (int u = 0; u < nubl; u++){
 			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
-				cbl = info->ublindex[u][i][2];
+				cbl = info->ublindex[u][i];
                 ai = info->bl2d[cbl][0]; aj = info->bl2d[cbl][1];
 				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
 				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1];
@@ -667,7 +667,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		////ubl M
 		for (int u = 0; u < nubl; u++){
 			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
-				cbl = info->ublindex[u][i][2];
+				cbl = info->ublindex[u][i];
                 ai = info->bl2d[cbl][0]; aj = info->bl2d[cbl][1];
 				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
 				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] ;
@@ -713,7 +713,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			for (unsigned int u = 0; u < module->ubl3.size(); u++){
 			//make sure there's no error on unique baselines with only 1 baseline
 				for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
-					cbl = info->ublindex[u][i][2];
+					cbl = info->ublindex[u][i];
                     ai = info->bl2d[cbl][0]; aj = info->bl2d[cbl][1];
 					module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
 					module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1];

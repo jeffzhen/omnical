@@ -260,14 +260,12 @@ PyObject *RedInfoObject_get_ublindex(RedInfoObject *self, void *closure) {
     for (i=0; i < self->info.ublcount.size(); i++) {
         cnt += self->info.ublcount[i];
     }
-    npy_intp data_dims[2] = {cnt, 3};
-    rv = (PyArrayObject *) PyArray_SimpleNew(2, data_dims, PyArray_INT);
+    npy_intp data_dims[1] = {cnt};
+    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
     cnt = 0;
     for (i=0; i < self->info.ublindex.size(); i++) {
         for (j=0; j < self->info.ublindex[i].size(); j++) {
-            ((int *) PyArray_GETPTR2(rv,cnt,0))[0] = self->info.ublindex[i][j][0];
-            ((int *) PyArray_GETPTR2(rv,cnt,1))[0] = self->info.ublindex[i][j][1];
-            ((int *) PyArray_GETPTR2(rv,cnt,2))[0] = self->info.ublindex[i][j][2];
+            ((int *) PyArray_GETPTR1(rv,cnt))[0] = self->info.ublindex[i][j];
             cnt++;
         }
     }
@@ -278,7 +276,6 @@ int RedInfoObject_set_ublindex(RedInfoObject *self, PyObject *value, void *closu
     PyArrayObject *v;
     int cnt=0;
     int i,j;
-    vector<int> dummy (3,0);
     
     if (!PyArray_Check(value)) {
         PyErr_Format(PyExc_ValueError, "ublindex must be a numpy array");
@@ -289,8 +286,8 @@ int RedInfoObject_set_ublindex(RedInfoObject *self, PyObject *value, void *closu
     for (i=0; i < self->info.ublcount.size(); i++) {
         cnt += self->info.ublcount[i];
     }
-    if (PyArray_NDIM(v) != 2 || PyArray_TYPE(v) != PyArray_INT || PyArray_DIM(v,0) != cnt || PyArray_DIM(v,1) != 3) {
-        PyErr_Format(PyExc_ValueError, "ublindex must (%d,3) array of ints, based on ublcount", cnt);
+    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT || PyArray_DIM(v,0) != cnt) {
+        PyErr_Format(PyExc_ValueError, "ublindex must be a (%d,) array of ints, based on ublcount", cnt);
         return -1;
     }
     self->info.ublindex.resize(self->info.ublcount.size()); // XXX bother checking size before resizing?
@@ -298,10 +295,7 @@ int RedInfoObject_set_ublindex(RedInfoObject *self, PyObject *value, void *closu
     for (i=0; i < self->info.ublcount.size(); i++) {
         self->info.ublindex[i].resize(self->info.ublcount[i]); // XXX bother checking size before resizing?
         for (j=0; j < self->info.ublcount[i]; j++) {
-            dummy[0] = ((int *) PyArray_GETPTR2(v,cnt,0))[0];
-            dummy[1] = ((int *) PyArray_GETPTR2(v,cnt,1))[0];
-            dummy[2] = ((int *) PyArray_GETPTR2(v,cnt,2))[0];
-            self->info.ublindex[i][j] = dummy;
+            self->info.ublindex[i][j] = ((int *) PyArray_GETPTR1(v,cnt))[0];
             cnt++;
         }
     }
