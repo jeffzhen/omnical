@@ -87,6 +87,13 @@ class RedundantInfo(_O.RedundantInfo):
     #def keys(self): return [k for k in dir(self) if not k.startswith('_')] # XXX should exclude functions
     def __getitem__(self,k): return self.__getattribute__(k)
     def __setitem__(self,k,val): return self.__setattr__(k,val)
+    def permute_data(self, data):
+        '''Put input data into order required by omnical.  Assuming bls are last axis of data.'''
+        #return data[...,self.subsetbl] # XXX keep it simple for now
+        d = data[...,self.subsetbl].copy()
+        for i,r in enumerate(self._reversed):
+            if r == -1: d[...,i] = d[...,i].conj()
+        return d
     def to_npz(self, filename):
         def fmt(k):
             if k in ['At','Bt']: return _O.RedundantInfo.__getattribute__(self,k+'sparse')
@@ -138,7 +145,11 @@ class RedundantInfo(_O.RedundantInfo):
         self.subsetbl = d[5].astype(np.int32) # index of good bls (+autos) within all bls
         self.ubl = d[6].reshape((nUBL,3)).astype(np.float32) # unique bl vectors
         self.bltoubl = d[7].astype(np.int32) # cross bl number to ubl index
-        self.reversed = d[8].astype(np.int32) # cross only bl if reversed -1, else 1
+        reverse = d[8].astype(np.int32) # cross only bl if reversed -1, else 1
+        if True:
+            self.reversed = np.ones_like(reverse)
+            self._reversed = reverse
+        else: self.reversed = reverse
         self.reversedauto = d[9].astype(np.int32) # XXX check comment: index of good autos within all bls
         self.autoindex = d[10].astype(np.int32) # index of auto bls among good bls
         #self.crossindex = d[11].astype(np.int32) # index of cross bls among good bls
@@ -149,12 +160,19 @@ class RedundantInfo(_O.RedundantInfo):
         if preview_only: return #ncross - self.nUBL - self.nAntenna + 2 # XXX return value here, normally not returning anything
         #self.bl2d = d[12].reshape(self.nBaseline,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
         bl2d = d[12].reshape(-1,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
-        self.bl2d = bl2d[crossindex]
+        bl2dc = bl2d[crossindex]
+        if False:
+            bl2dc0 = np.where(reverse == 1, bl2dc[:,0], bl2dc[:,1])
+            bl2dc1 = np.where(reverse == 1, bl2dc[:,1], bl2dc[:,0])
+            bl2dc[:,0],bl2dc[:,1] = bl2dc0,bl2dc1
+        self.bl2d = bl2dc
         self.ublcount = d[13].astype(np.int32) # for each ubl, number of corresponding good cross bls
         #self.ublindex = d[14].reshape(ncross,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
-        ublindex = d[14].reshape(-1,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,ant1,ant2,crossbl)
+        ublindex = d[14].reshape(-1,3).astype(np.int32) # for each ubl, the vector<int> contains (i,j,crossbl)
         newind = np.arange(self.nBaseline)[crossindex] = np.arange(len(crossindex))
         ublindex[2] = newind[ublindex[2]]
+        # does ublindex need to have antenna indices reversed?  yes.
+        for cnt,(i,j,k) in enumerate(ublindex): ublindex[cnt] = (bl2d[k,0],bl2d[k,1],k)
         self.ublindex = ublindex
         self.bl1dmatrix = d[15].reshape((self.nAntenna,self.nAntenna)).astype(np.int32) #a symmetric matrix where col/row numbers are antenna indices and entries are 1d baseline index not counting auto corr
         self.degenM = d[16].reshape((self.nAntenna+nUBL,self.nAntenna)).astype(np.float32)
@@ -173,8 +191,14 @@ class RedundantInfo(_O.RedundantInfo):
         else:
             # XXX why astype(int) here, but not above?
             self.At = sps.csr_matrix(d[17].reshape((-1,self.nAntenna+nUBL)).astype(np.int32)).T # A matrix for logcal amplitude
-            self.Bt = sps.csr_matrix(d[18].reshape((-1,self.nAntenna+nUBL)).astype(np.int32)).T # B matrix for logcal phase
+            #self.Bt = sps.csr_matrix(d[18].reshape((-1,self.nAntenna+nUBL)).astype(np.int32)).T # B matrix for logcal phase
             self.totalVisibilityId = d[19].reshape(-1,2).astype(np.int32)
+        # XXX overwriting Bt because it's malformed
+        crosspair = [p for p in self.bl2d]
+        B = np.zeros((len(crosspair),self.nAntenna+nUBL))
+        for i,cp in enumerate(crosspair): B[i,cp[0]], B[i,cp[1]], B[i,self.nAntenna+self.bltoubl[i]] = -1,1,1
+        # XXX setting Bt twice segfaults
+        self.Bt = sps.csr_matrix(B).T
     def update(self, txtmode=False):
         '''Initialize other arrays from fundamental arrays'''
         #The sparse matrices are treated a little differently because they are not rectangular
@@ -226,12 +250,13 @@ class RedundantInfo(_O.RedundantInfo):
         self.nAntenna = self.subsetant.size
         nUBL = len(reds)
         #bl2d = np.array([(ant2ind[i],ant2ind[j],u,i<j) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
-        bl2d = np.array([(ant2ind[min(i,j)],ant2ind[max(i,j)],u,i<j) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
+        #bl2d = np.array([(ant2ind[min(i,j)],ant2ind[max(i,j)],u,i<j) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
+        bl2d = np.array([(ant2ind[i],ant2ind[j],u) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
         self.bl2d = bl2d[:,:2]
         self.nBaseline = bl2d.shape[0]
         self.bltoubl = bl2d[:,2]
         #self.reversed = np.where(bl2d[:,3] == 0, 1, -1).astype(np.int32)
-        self.reversed = np.where(bl2d[:,3] == 0, -1, 1).astype(np.int32)
+        self.reversed = np.ones(bl2d.shape[1], dtype=np.int32)
         self.subsetbl = np.arange(self.nBaseline, dtype=np.int32) # XXX mandating visibilities provided in same order
         # remvoe above eventually
         self.ublcount = np.array([len(ubl_gp) for ubl_gp in reds], dtype=np.int32)
@@ -370,7 +395,8 @@ class RedundantInfo(_O.RedundantInfo):
         try:
             floatkeys = float_infokeys#['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
             intkeys = ['nAntenna','bltoubl','reversed','bl2d','ublcount','bl1dmatrix']
-            infomatrices=['At','Bt']
+            #infomatrices=['At','Bt']
+            infomatrices=['At']
             specialkeys = ['ublindex']
             allkeys = floatkeys + intkeys + infomatrices + specialkeys#['antloc','ubl','nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB','A','B','At','Bt']
             diff = []

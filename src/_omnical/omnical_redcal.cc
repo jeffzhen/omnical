@@ -487,7 +487,8 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 		}
 
 		module->amp1[b] = log10(amp(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1]));
-		module->pha1[b] = phase(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1]) * info->reversed[b];
+		//module->pha1[b] = phase(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1]) * info->reversed[b];
+		module->pha1[b] = phase(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1]);// * info->reversed[b];
 	}
 	////rewrap args
 	for(int i = 0; i < nubl; i ++){
@@ -524,7 +525,8 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 
 	for(int b = 0; b < ncross; b++) {
 		float amp = pow(10, module->x1[nant + info->bltoubl[b]] + module->x1[info->bl2d[b][0]] + module->x1[info->bl2d[b][1]]);
-		float phase =  module->x2[nant + info->bltoubl[b]] * info->reversed[b] - module->x2[info->bl2d[b][0]] + module->x2[info->bl2d[b][1]];
+		//float phase =  module->x2[nant + info->bltoubl[b]] * info->reversed[b] - module->x2[info->bl2d[b][0]] + module->x2[info->bl2d[b][1]];
+		float phase =  module->x2[nant + info->bltoubl[b]] - module->x2[info->bl2d[b][0]] + module->x2[info->bl2d[b][1]];
 		additiveout->at(b)[0] = data->at(b)[0] - additivein->at(b)[0] - amp * cos(phase);
 		additiveout->at(b)[1] = data->at(b)[1] - additivein->at(b)[1] - amp * sin(phase);
 	}
@@ -588,9 +590,12 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 				cbl = info->ublindex[u][i][2];
 				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
-				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+				//module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] ;//* info->reversed[cbl];
+                // XXX ideally would not have ublindex holding antenna info (which is a repeat of bl2d)
 				module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
-				module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+				//module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+				module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]);// * info->reversed[cbl];
 			}
 
 			module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
@@ -605,8 +610,10 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		a2 = info->bl2d[b][1];
 		gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
 		gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
-		module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
-		module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+		//module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
+		module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1];// * info->reversed[b];
+		//module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+		module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] + gim * module->ubl0[info->bltoubl[b]][0];
 		delta = (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
 		chisq += delta;
 		//if (delta != 0){
@@ -636,13 +643,17 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 					module->g2[a] = vector<float>(2,0);
 				}else if(info->bl2d[cbl][1] == a3){
 					module->g1[a] = module->cdata1[cbl];
-					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
-					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+					//module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1]);
+					//module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
 				}else{
 					module->g1[a][0] = module->cdata1[cbl][0];
 					module->g1[a][1] = -module->cdata1[cbl][1];////vij needs to be conjugated
-					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
-					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+					//module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-1));////Mi-j needs to be conjugated
+					//module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-1) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
 				}
 			}
 			//(module->g1)[a3] = vector<float>(2,0);
@@ -667,9 +678,12 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 				cbl = info->ublindex[u][i][2];
 				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
-				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+				//module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] ;
+                // XXX ideally would not have ublindex holding antenna info (which is a repeat of bl2d)
 				module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
-				module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+				//module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+				module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]);
 			}
 
 			module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
@@ -712,24 +726,29 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 				a2 = info->bl2d[b][1];
 				gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
 				gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
-				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
-				module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+				//module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
+				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1];// * info->reversed[b];
+				//module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+				module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] + gim * module->ubl0[info->bltoubl[b]][0];
 				chisq2 += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
 				//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
 			}
 		}
 		componentchange = (chisq - chisq2) / chisq;
 
-		if (componentchange > 0){//if improved, keep g0 and ubl0 updates, and update single-bl ubls and chisq
+        if (componentchange > 0){//if improved, keep g0 and ubl0 updates, and update single-bl ubls and chisq
 			chisq = chisq2;
 			for (unsigned int u = 0; u < module->ubl3.size(); u++){
 			//make sure there's no error on unique baselines with only 1 baseline
 				for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 					cbl = info->ublindex[u][i][2];
 					module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
-					module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+					//module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] * info->reversed[cbl];
+					module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1];// * info->reversed[cbl];
+                // XXX ideally would not have ublindex holding antenna info (which is a repeat of bl2d)
 					module->ubl2dgrp2[u][i][0] = module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][0] + module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][1];
-					module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+					//module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]) * info->reversed[cbl];
+					module->ubl2dgrp2[u][i][1] = (module->g0[info->ublindex[u][i][0]][0] * module->g0[info->ublindex[u][i][1]][1] - module->g0[info->ublindex[u][i][0]][1] * module->g0[info->ublindex[u][i][1]][0]);// * info->reversed[cbl];
 				}
 
 				module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
@@ -816,8 +835,10 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 		a2 = info->bl2d[b][1];
 		gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
 		gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
-		module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
-		module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+		//module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
+		module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1];// * info->reversed[b];
+		//module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+		module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] + gim * module->ubl0[info->bltoubl[b]][0];
 		delta = (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
 		chisq += delta;
 		//if (delta != 0){
@@ -847,13 +868,17 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 					module->g2[a] = vector<float>(2,0);
 				}else if(info->bl2d[cbl][1] == a3){
 					module->g1[a] = module->cdata1[cbl];
-					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
-					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+					//module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1]);
+					//module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
 				}else{
 					module->g1[a][0] = module->cdata1[cbl][0];
 					module->g1[a][1] = -module->cdata1[cbl][1];////vij needs to be conjugated
-					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
-					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+					//module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-1));////Mi-j needs to be conjugated
+					//module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-1) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
 				}
 			}
 			//(module->g1)[a3] = vector<float>(2,0);
@@ -890,8 +915,10 @@ void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, r
 				a2 = info->bl2d[b][1];
 				gre = module->g0[a1][0] * module->g0[a2][0] + module->g0[a1][1] * module->g0[a2][1];
 				gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
-				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
-				module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+				//module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1] * info->reversed[b];
+				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1];
+				//module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
+				module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] + gim * module->ubl0[info->bltoubl[b]][0];
 				chisq2 += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
 				//cout << gre << " " << gim << " " << module->ubl0[info->bltoubl[b]][0] << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
 			}

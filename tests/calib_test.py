@@ -87,6 +87,7 @@ class TestRedundantCalibrator(unittest.TestCase):
             max_iter = 50
             step_size = .2
             ####import data##################
+            # XXX need to figure out baseline order in this file
             datapath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_data.txt'
             with open(datapath) as f:
                 rawinfo = [[float(x) for x in line.split()] for line in f]
@@ -109,7 +110,6 @@ class TestRedundantCalibrator(unittest.TestCase):
             calibrator.computeUBLFit = True
 
             calibrator.logcal(data, np.zeros_like(data), verbose=VERBOSE)
-            log = np.copy(calibrator.rawCalpar)
             log = np.copy(calibrator.rawCalpar)
             ampcal = log[0,0,3:info['nAntenna']+3]
             phasecal = log[0,0,info['nAntenna']+3: info['nAntenna']*2+3]

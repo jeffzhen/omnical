@@ -163,8 +163,7 @@ class ArrayInfo:
         bl2d = np.array(tmp, dtype=np.int32)
         crossindex = np.array([i for i,p in enumerate(bl2d) if p[0] != p[1]], dtype=np.int32)
         nBaseline = len(bl2d)
-        bl2d = bl2d[crossindex]
-        info['bl2d'] = bl2d
+        bl2d = bl2d[crossindex] # make bl2d only hold crosscorrelations
         info['nBaseline'] = len(bl2d) # XXX maybe have C api infer this
         # from a pair of good antenna index to bl index
         info['subsetbl'] = np.array([self.get_baseline([subsetant[bl[0]],subsetant[bl[1]]]) 
@@ -182,7 +181,16 @@ class ArrayInfo:
             if dis(bl,ubl[bltoubl[k]]) < tol: reverse.append(-1)
             elif dis(bl,-ubl[bltoubl[k]]) < tol: reverse.append(1)
             else : raise ValueError('bltoubl[%d] points to wrong ubl index' % (k))
-        info['reversed'] = np.array(reverse, dtype=np.int32)
+        reverse = np.array(reverse, dtype=np.int32)
+        if True:
+            info['reversed'] = np.ones_like(reverse)
+            info._reversed = reverse # XXX store this to remember what we did
+            bl2d0 = np.where(reverse == 1, bl2d[:,0], bl2d[:,1])
+            bl2d1 = np.where(reverse == 1, bl2d[:,1], bl2d[:,0])
+            bl2d[:,0],bl2d[:,1] = bl2d0,bl2d1
+        else: info.reversed = reverse
+        crosspair = [p for p in bl2d if p[0] != p[1]] # recompute crosspair for reversed indices
+        info.bl2d = bl2d
         reversedauto = np.arange(info['nBaseline'], dtype=np.int32)
         #for i in autoindex: reversedauto[i] = 1
         #ublcount:  for each ubl, the number of good cross bls corresponding to it
@@ -214,7 +222,8 @@ class ArrayInfo:
         info['At'] = sps.csr_matrix(A).T
         #B: B matrix for logcal phase
         B = np.zeros((len(crosspair),nAntenna+nUBL))
-        for i,cp in enumerate(crosspair): B[i,cp[0]], B[i,cp[1]], B[i,nAntenna+bltoubl[i]] = -reverse[i],reverse[i],1
+        #for i,cp in enumerate(crosspair): B[i,cp[0]], B[i,cp[1]], B[i,nAntenna+bltoubl[i]] = -reverse[i],reverse[i],1
+        for i,cp in enumerate(crosspair): B[i,cp[0]], B[i,cp[1]], B[i,nAntenna+bltoubl[i]] = -1,1,1
         info['Bt'] = sps.csr_matrix(B).T
         info.update()
         return info

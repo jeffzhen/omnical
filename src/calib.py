@@ -186,8 +186,8 @@ class RedundantCalibrator:
         assert(self.rawCalpar.shape == (self.nTime,self.nFrequency, 3+2*(self.Info.nAntenna+nUBL)))
         if nthread is None: nthread = min(mp.cpu_count() - 1, self.nFrequency)
         if nthread >= 2: return self._redcal_multithread(data, additivein, 0, nthread, verbose=verbose)
-        return _O.redcal(data[:,:,self.Info.subsetbl], self.rawCalpar, self.Info, 
-            additivein[:,:,self.Info.subsetbl], removedegen=int(self.removeDegeneracy), uselogcal=uselogcal, 
+        return _O.redcal(self.Info.permute_data(data), self.rawCalpar, self.Info, 
+            self.Info.permute_data(additivein), removedegen=int(self.removeDegeneracy), uselogcal=uselogcal, 
             maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), 
             computeUBLFit=int(self.computeUBLFit), trust_period=self.trust_period)
     def lincal(self, data, additivein, nthread=None, verbose=False):
@@ -219,7 +219,7 @@ class RedundantCalibrator:
             additiveouts[i] = mp.RawArray('f', self.nTime * (fchunk[i][1] - fchunk[i][0]) * len(self.Info.subsetbl) * 2)#factor of 2 for re/im
             np_additiveouts[i] = np.frombuffer(additiveouts[i], dtype='complex64')
             np_additiveouts[i].shape = (data.shape[0], fchunk[i][1]-fchunk[i][0], len(self.Info.subsetbl))
-            threads[i] = mp.Process(target = _redcal, args = (data[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], rawCalpar[i], self.Info, additivein[:, fchunk[i][0]:fchunk[i][1], self.Info.subsetbl], additiveouts[i]), kwargs=kwarg)
+            threads[i] = mp.Process(target = _redcal, args = (self.Info.permute_data(data[:,fchunk[i][0]:fchunk[i][1],:]), rawCalpar[i], self.Info, self.Info.permute_data(additivein[:,fchunk[i][0]:fchunk[i][1],:]), additiveouts[i]), kwargs=kwarg)
         if verbose:
             print "Starting %s Process"%cal_name[uselogcal],
             sys.stdout.flush()
