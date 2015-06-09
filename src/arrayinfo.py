@@ -182,16 +182,14 @@ class ArrayInfo:
             elif dis(bl,-ubl[bltoubl[k]]) < tol: reverse.append(1)
             else : raise ValueError('bltoubl[%d] points to wrong ubl index' % (k))
         reverse = np.array(reverse, dtype=np.int32)
-        if True:
-            info['reversed'] = np.ones_like(reverse)
-            info._reversed = reverse # XXX store this to remember what we did
-            bl2d0 = np.where(reverse == 1, bl2d[:,0], bl2d[:,1])
-            bl2d1 = np.where(reverse == 1, bl2d[:,1], bl2d[:,0])
-            bl2d[:,0],bl2d[:,1] = bl2d0,bl2d1
-        else: info.reversed = reverse
+        #info['reversed'] = np.ones_like(reverse)
+        info._reversed = reverse # XXX store this to remember what we did
+        bl2d0 = np.where(reverse == 1, bl2d[:,0], bl2d[:,1])
+        bl2d1 = np.where(reverse == 1, bl2d[:,1], bl2d[:,0])
+        bl2d[:,0],bl2d[:,1] = bl2d0,bl2d1
         crosspair = [p for p in bl2d if p[0] != p[1]] # recompute crosspair for reversed indices
         info.bl2d = bl2d
-        reversedauto = np.arange(info['nBaseline'], dtype=np.int32)
+        #reversedauto = np.arange(info['nBaseline'], dtype=np.int32)
         #for i in autoindex: reversedauto[i] = 1
         #ublcount:  for each ubl, the number of good cross bls corresponding to it
         cnt = {}

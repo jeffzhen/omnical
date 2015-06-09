@@ -29,7 +29,7 @@ struct redundantinfo{
 	//vector<int> subsetbl;//the index of good baselines (auto included) in all baselines
 	//vector<vector<float> > ubl;//unique baseline vectors
 	vector<int> bltoubl;//cross bl number to ubl index
-	vector<int> reversed;//cross only bl if reversed -1, otherwise 1
+	//vector<int> reversed;//cross only bl if reversed -1, otherwise 1
 	//vector<int> reversedauto;//auto included bl if reversed -1, otherwise 1, currently not used
 	//vector<int> autoindex;//index of auto bls among good bls, currently not used
 	//vector<int> crossindex;//index of cross bls among good bls

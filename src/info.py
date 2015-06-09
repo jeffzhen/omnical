@@ -89,7 +89,7 @@ class RedundantInfo(_O.RedundantInfo):
     def __setitem__(self,k,val): return self.__setattr__(k,val)
     def permute_data(self, data):
         '''Put input data into order required by omnical.  Assuming bls are last axis of data.'''
-        #return data[...,self.subsetbl] # XXX keep it simple for now
+        # XXX ultimately want this to remap based on provided bl indicies
         d = data[...,self.subsetbl].copy()
         for i,r in enumerate(self._reversed):
             if r == -1: d[...,i] = d[...,i].conj()
@@ -102,6 +102,7 @@ class RedundantInfo(_O.RedundantInfo):
         self.crossindex = np.arange(len(self.bl2d)) # XXX legacy for file format.
         self.reversedauto = np.ones(self.nAntenna) # XXX legacy for file format
         self.autoindex = np.arange(self.nAntenna) # XXX legacy for file format
+        self.reversed = np.ones(self.nBaseline) # XXX legacy for file format
         self.nUBL = len(self.ublcount) # XXX legacy for file format
         for k in KEYS: d[k] = fmt(k)
         np.savez(filename, **d)
@@ -146,10 +147,8 @@ class RedundantInfo(_O.RedundantInfo):
         self.ubl = d[6].reshape((nUBL,3)).astype(np.float32) # unique bl vectors
         self.bltoubl = d[7].astype(np.int32) # cross bl number to ubl index
         reverse = d[8].astype(np.int32) # cross only bl if reversed -1, else 1
-        if True:
-            self.reversed = np.ones_like(reverse)
-            self._reversed = reverse
-        else: self.reversed = reverse
+        #self.reversed = np.ones_like(reverse)
+        self._reversed = reverse
         self.reversedauto = d[9].astype(np.int32) # XXX check comment: index of good autos within all bls
         self.autoindex = d[10].astype(np.int32) # index of auto bls among good bls
         #self.crossindex = d[11].astype(np.int32) # index of cross bls among good bls
@@ -224,6 +223,7 @@ class RedundantInfo(_O.RedundantInfo):
         self.crossindex = np.arange(len(self.bl2d)) # XXX legacy for file format.
         self.reversedauto = np.ones(self.nAntenna) # XXX legacy for file format
         self.autoindex = np.arange(self.nAntenna) # XXX legacy for file format
+        self.reversed = np.ones(self.nBaseline) # XXX legacy for file format
         self.nUBL = len(self.ublcount) # XXX legacy for file format
         def fmt(k):
             if k in ['At','Bt']: 
@@ -255,8 +255,6 @@ class RedundantInfo(_O.RedundantInfo):
         self.bl2d = bl2d[:,:2]
         self.nBaseline = bl2d.shape[0]
         self.bltoubl = bl2d[:,2]
-        #self.reversed = np.where(bl2d[:,3] == 0, 1, -1).astype(np.int32)
-        self.reversed = np.ones(bl2d.shape[1], dtype=np.int32)
         self.subsetbl = np.arange(self.nBaseline, dtype=np.int32) # XXX mandating visibilities provided in same order
         # remvoe above eventually
         self.ublcount = np.array([len(ubl_gp) for ubl_gp in reds], dtype=np.int32)
@@ -269,7 +267,7 @@ class RedundantInfo(_O.RedundantInfo):
         A,B = np.zeros((self.nBaseline,self.nAntenna+nUBL)), np.zeros((self.nBaseline,self.nAntenna+nUBL))
         for n,(i,j) in enumerate(self.bl2d):
             A[n,i], A[n,j], A[n,self.nAntenna+self.bltoubl[n]] = 1,1,1
-            B[n,i], B[n,j], B[n,self.nAntenna+self.bltoubl[n]] = -self.reversed[n],self.reversed[n],1
+            B[n,i], B[n,j], B[n,self.nAntenna+self.bltoubl[n]] = -1,1,1
         self.At, self.Bt = sps.csr_matrix(A).T, sps.csr_matrix(B).T
         # XXX nothing up to this point requires antloc
         self.antloc = antpos.take(self.subsetant, axis=0).astype(np.float32) # XXX check this
@@ -290,7 +288,7 @@ class RedundantInfo(_O.RedundantInfo):
         x = 0
         for y in self.ublcount:
             #reds.append([(self.subsetant[i],self.subsetant[j]) for i,j in self.ublindex[x:x+y,:2]])
-            reds.append([(self.subsetant[i],self.subsetant[j]) if self.reversed[k] == 1 else (self.subsetant[j],self.subsetant[i]) for i,j,k in self.ublindex[x:x+y]])
+            reds.append([(self.subsetant[i],self.subsetant[j]) for i,j,k in self.ublindex[x:x+y]])
             x += y
         return reds
     #def from_arrayinfo(self, arrayinfoPath=None, verbose=False, badAntenna=[], badUBLpair=[], tol=1e-6):
@@ -394,7 +392,8 @@ class RedundantInfo(_O.RedundantInfo):
         '''compare with another RedundantInfo, output True if they are the same and False if they are different'''
         try:
             floatkeys = float_infokeys#['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
-            intkeys = ['nAntenna','bltoubl','reversed','bl2d','ublcount','bl1dmatrix']
+            #intkeys = ['nAntenna','bltoubl','reversed','bl2d','ublcount','bl1dmatrix']
+            intkeys = ['nAntenna','bltoubl','bl2d','ublcount','bl1dmatrix']
             #infomatrices=['At','Bt']
             infomatrices=['At']
             specialkeys = ['ublindex']

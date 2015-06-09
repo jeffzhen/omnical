@@ -257,7 +257,8 @@ class RedundantCalibrator:
             raise ValueError("self.totalVisibilityId of length %i is shorter than max index in subsetbl %i. Probably you are using an outdated version of redundantinfo."%(len(self.totalVisibilityId), np.max(self.Info.subsetbl)))
         mdata = np.zeros((self.rawCalpar.shape[0], self.rawCalpar.shape[1], len(self.totalVisibilityId)), dtype='complex64')
         mdata[..., self.Info.subsetbl[self.Info.crossindex]] = (self.rawCalpar[..., 3 + 2 * (self.Info.nAntenna)::2] + 1.j * self.rawCalpar[..., 4 + 2 * (self.Info.nAntenna)::2])[..., self.Info.bltoubl]
-        mdata[..., self.Info.subsetbl[self.Info.crossindex]] = np.abs(mdata[..., self.Info.subsetbl[self.Info.crossindex]]) * np.exp(self.Info.reversed * 1.j * np.angle(mdata[..., self.Info.subsetbl[self.Info.crossindex]])) * 10.**(self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,0]] + self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,1]]) * np.exp(-1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,0]] + 1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,1]])
+        #mdata[..., self.Info.subsetbl[self.Info.crossindex]] = np.abs(mdata[..., self.Info.subsetbl[self.Info.crossindex]]) * np.exp(self.Info.reversed * 1.j * np.angle(mdata[..., self.Info.subsetbl[self.Info.crossindex]])) * 10.**(self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,0]] + self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,1]]) * np.exp(-1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,0]] + 1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,1]])
+        mdata[..., self.Info.subsetbl[self.Info.crossindex]] = np.abs(mdata[..., self.Info.subsetbl[self.Info.crossindex]]) * np.exp(1.j * np.angle(mdata[..., self.Info.subsetbl[self.Info.crossindex]])) * 10.**(self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,0]] + self.rawCalpar[..., 3 + self.Info.bl2d[self.Info.crossindex,1]]) * np.exp(-1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,0]] + 1.j * self.rawCalpar[..., 3 + self.Info.nAntenna + self.Info.bl2d[self.Info.crossindex,1]])
         return mdata
     def get_omnichisq(self):
         '''XXX DOCSTRING'''
@@ -458,23 +459,23 @@ class RedundantCalibrator:
         if antpair[0]==antpair[1]: return "auto correlation"
         elif crossblindex == 99999: return "bad ubl"
         return self.Info.bltoubl[crossblindex]
-    def get_reversed(self,antpair): # XXX should this be part of info?
-        '''need to do compute_redundantinfo first
-        input the antenna pair, return -1 if it is a reversed bl and 1 if it is not reversed'''
-        #check if the input is a list, tuple, np.array of two numbers
-        if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
-            raise Exception("input needs to be a list of two numbers")
-        elif len(np.array(antpair)) != 2:
-            raise Exception("input needs to be a list of two numbers")
-        elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
-            raise Exception("input needs to be number not string")
-        #check if self.info['bl1dmatrix'] exists
-        try: _ = self.Info.bl1dmatrix
-        except: raise Exception("needs Info.bl1dmatrix")
-        crossblindex=self.Info.bl1dmatrix[antpair[0]][antpair[1]]
-        if antpair[0] == antpair[1]: return 1
-        if crossblindex == 99999: return 'badbaseline'
-        return self.Info.reversed[crossblindex]
+    #def get_reversed(self,antpair): # XXX should this be part of info?
+    #    '''need to do compute_redundantinfo first
+    #    input the antenna pair, return -1 if it is a reversed bl and 1 if it is not reversed'''
+    #    #check if the input is a list, tuple, np.array of two numbers
+    #    if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
+    #        raise Exception("input needs to be a list of two numbers")
+    #    elif len(np.array(antpair)) != 2:
+    #        raise Exception("input needs to be a list of two numbers")
+    #    elif type(antpair[0]) == str or type(antpair[0]) == np.string_:
+    #        raise Exception("input needs to be number not string")
+    #    #check if self.info['bl1dmatrix'] exists
+    #    try: _ = self.Info.bl1dmatrix
+    #    except: raise Exception("needs Info.bl1dmatrix")
+    #    crossblindex=self.Info.bl1dmatrix[antpair[0]][antpair[1]]
+    #    if antpair[0] == antpair[1]: return 1
+    #    if crossblindex == 99999: return 'badbaseline'
+    #    return self.Info.reversed[crossblindex]
 
 ##########################Sub-class#############################
 # XXX application to PAPER should be in another file
@@ -609,8 +610,10 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
                 if (plot_single_ubl or len(info['ublindex'][ubl]) > 1) and (not (plot_3 or plot_1 >= 0) or ubl in select_ubl_index):
                     if plot_3 or plot_1 >= 0:
                         color = [[1,0,0],[0,1,0],[0,0,1]][select_ubl_index.tolist().index(ubl)]
-                    ax.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker=marker, color=color)
-                    outputdata[i] = outputdata[i] + [(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]) + 1.j * np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker, color, info['ubl'][ubl])]
+                    #ax.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker=marker, color=color)
+                    ax.scatter(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]),np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]), marker=marker, color=color)
+                    #outputdata[i] = outputdata[i] + [(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]) + 1.j * np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')])*info['reversed'][np.array(info['ublindex'][ubl][:,2]).astype('int')], marker, color, info['ubl'][ubl])]
+                    outputdata[i] = outputdata[i] + [(np.real(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]) + 1.j * np.imag(d[np.array(info['ublindex'][ubl][:,2]).astype('int')]), marker, color, info['ubl'][ubl])]
 
                 ubl += 1
                 if ubl == nUBL:
@@ -790,13 +793,16 @@ def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
                 get_ubl_fit = []#a recipe for how to get the ublfit and solvefor the unsolved antenna
                 for a1, a2, bl in info['ublindex'][third_ubl].astype('int'):
                     if (a1 not in unsolved_ant) and (a2 not in unsolved_ant):
-                        get_ubl_fit.append([a1, a2, bl, info['reversed'][bl]])
+                        #get_ubl_fit.append([a1, a2, bl, info['reversed'][bl]])
+                        get_ubl_fit.append([a1, a2, bl, 1])
                 for a1, a2, bl in info['ublindex'][third_ubl].astype('int'):
                     if (a1 not in unsolved_ant) and (a2 == a):
-                        get_ubl_fit.append([a1, a2, bl, info['reversed'][bl], 0])
+                        #get_ubl_fit.append([a1, a2, bl, info['reversed'][bl], 0])
+                        get_ubl_fit.append([a1, a2, bl, 1, 0])
                         break
                     if (a2 not in unsolved_ant) and (a1 == a):
-                        get_ubl_fit.append([a1, a2, bl, info['reversed'][bl], 1])
+                        #get_ubl_fit.append([a1, a2, bl, info['reversed'][bl], 1])
+                        get_ubl_fit.append([a1, a2, bl, 1, 1])
                         break
                 additional_solution_path.append(get_ubl_fit)
                 ant_solved += 1
@@ -1189,7 +1195,8 @@ def extract_crosspol_ubl(data, info):
 
     for u in range(len(info.ublcount)):
         blindex = info['subsetbl'][info['crossindex'][info['ublindex'][u][:,2].astype(int)]]
-        ureversed = info['reversed'][info['ublindex'][u][:,2].astype(int)] == -1
+        #ureversed = info['reversed'][info['ublindex'][u][:,2].astype(int)] == -1
+        ureversed = n.ones_like(info['ublindex'][u][:,2], dtype=n.int) == -1
         nreversed = np.sum(ureversed)
         if nreversed == 0:#no reversed
             output[..., u] = np.mean(data[..., blindex], axis=-1)

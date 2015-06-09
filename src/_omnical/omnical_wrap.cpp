@@ -149,35 +149,35 @@ int RedInfoObject_set_bltoubl(RedInfoObject *self, PyObject *value, void *closur
 }
 
 // RedundantInfo.reversed (1D integer array)
-PyObject *RedInfoObject_get_reversed(RedInfoObject *self, void *closure) {
-    PyArrayObject *rv;
-    npy_intp data_dims[1] = {self->info.reversed.size()};
-    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
-    for (int i=0; i < data_dims[0]; i++) {
-        ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.reversed[i];
-    }
-    return PyArray_Return(rv);
-}
-
-int RedInfoObject_set_reversed(RedInfoObject *self, PyObject *value, void *closure) {
-    PyArrayObject *v;
-    npy_intp dim1;
-    if (!PyArray_Check(value)) {
-        PyErr_Format(PyExc_ValueError, "reversed must be a numpy array");
-        return -1;
-    }
-    v = (PyArrayObject *) value;
-    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT) {
-        PyErr_Format(PyExc_ValueError, "reversed must be a 1D array of ints");
-        return -1;
-    }
-    dim1 = PyArray_DIM(v,0);
-    self->info.reversed.resize(dim1);
-    for (int i=0; i < dim1; i++) {
-        self->info.reversed[i] = ((int *) PyArray_GETPTR1(v,i))[0];
-    }
-    return 0;
-}
+//PyObject *RedInfoObject_get_reversed(RedInfoObject *self, void *closure) {
+//    PyArrayObject *rv;
+//    npy_intp data_dims[1] = {self->info.reversed.size()};
+//    rv = (PyArrayObject *) PyArray_SimpleNew(1, data_dims, PyArray_INT);
+//    for (int i=0; i < data_dims[0]; i++) {
+//        ((int *) PyArray_GETPTR1(rv,i))[0] = self->info.reversed[i];
+//    }
+//    return PyArray_Return(rv);
+//}
+//
+//int RedInfoObject_set_reversed(RedInfoObject *self, PyObject *value, void *closure) {
+//    PyArrayObject *v;
+//    npy_intp dim1;
+//    if (!PyArray_Check(value)) {
+//        PyErr_Format(PyExc_ValueError, "reversed must be a numpy array");
+//        return -1;
+//    }
+//    v = (PyArrayObject *) value;
+//    if (PyArray_NDIM(v) != 1 || PyArray_TYPE(v) != PyArray_INT) {
+//        PyErr_Format(PyExc_ValueError, "reversed must be a 1D array of ints");
+//        return -1;
+//    }
+//    dim1 = PyArray_DIM(v,0);
+//    self->info.reversed.resize(dim1);
+//    for (int i=0; i < dim1; i++) {
+//        self->info.reversed[i] = ((int *) PyArray_GETPTR1(v,i))[0];
+//    }
+//    return 0;
+//}
 
 // RedundantInfo.bl2d
 PyObject *RedInfoObject_get_bl2d(RedInfoObject *self, void *closure) {
@@ -606,7 +606,7 @@ static PyGetSetDef RedInfoObject_getseters[] = {
     //{"subsetbl", (getter)RedInfoObject_get_subsetbl, (setter)RedInfoObject_set_subsetbl, "subsetbl", NULL},
     //{"ubl", (getter)RedInfoObject_get_ubl, (setter)RedInfoObject_set_ubl, "ubl", NULL},
     {"bltoubl", (getter)RedInfoObject_get_bltoubl, (setter)RedInfoObject_set_bltoubl, "bltoubl", NULL},
-    {"reversed", (getter)RedInfoObject_get_reversed, (setter)RedInfoObject_set_reversed, "reversed", NULL},
+    //{"reversed", (getter)RedInfoObject_get_reversed, (setter)RedInfoObject_set_reversed, "reversed", NULL},
     //{"reversedauto", (getter)RedInfoObject_get_reversedauto, (setter)RedInfoObject_set_reversedauto, "reversedauto", NULL},
     //{"autoindex", (getter)RedInfoObject_get_autoindex, (setter)RedInfoObject_set_autoindex, "autoindex", NULL},
     //{"crossindex", (getter)RedInfoObject_get_crossindex, (setter)RedInfoObject_set_crossindex, "crossindex", NULL},
