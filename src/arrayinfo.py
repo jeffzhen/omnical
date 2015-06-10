@@ -182,30 +182,24 @@ class ArrayInfo:
             elif dis(bl,-ubl[bltoubl[k]]) < tol: reverse.append(1)
             else : raise ValueError('bltoubl[%d] points to wrong ubl index' % (k))
         reverse = np.array(reverse, dtype=np.int32)
-        #info['reversed'] = np.ones_like(reverse)
         info._reversed = reverse # XXX store this to remember what we did
         bl2d0 = np.where(reverse == 1, bl2d[:,0], bl2d[:,1])
         bl2d1 = np.where(reverse == 1, bl2d[:,1], bl2d[:,0])
         bl2d[:,0],bl2d[:,1] = bl2d0,bl2d1
         crosspair = [p for p in bl2d if p[0] != p[1]] # recompute crosspair for reversed indices
         info.bl2d = bl2d
-        #reversedauto = np.arange(info['nBaseline'], dtype=np.int32)
-        #for i in autoindex: reversedauto[i] = 1
         #ublcount:  for each ubl, the number of good cross bls corresponding to it
         cnt = {}
         for bl in bltoubl: cnt[bl] = cnt.get(bl,0) + 1
         info['ublcount'] = np.array([cnt[i] for i in range(nUBL)], dtype=np.int32)
-        #ublindex:  //for each ubl, the vector<int> contains (ant1, ant2, crossbl)
+        #ublindex:  //for each ubl, the set of corresponding indices of baselines in bl2d
         cnt = {}
         for i,(a1,a2) in enumerate(crosspair): cnt[bltoubl[i]] = cnt.get(bltoubl[i],[]) + [[a1,a2,i]]
-        #info['ublindex'] = ublindex = np.concatenate([np.array(cnt[i],dtype=np.int32) for i in range(nUBL)])
         ublindex = np.concatenate([np.array(cnt[i],dtype=np.int32) for i in range(nUBL)])
         newind = np.arange(nBaseline)[crossindex] = np.arange(crossindex.size, dtype=np.int32)
-        ublindex[:,2] = newind[ublindex[:,2]]
-        info.ublindex = ublindex[:,2] # XXX could clean this up
+        info.ublindex = newind[ublindex[:,2]]
         #bl1dmatrix: a symmetric matrix where col/row numbers index ants and entries are bl index (no auto corr)
-        # XXX don't like 2**31-1.  whence this number?
-        bl1dmatrix = (2**31-1) * np.ones((nAntenna,nAntenna),dtype=np.int32)
+        bl1dmatrix = (2**31-1) * np.ones((nAntenna,nAntenna),dtype=np.int32) # XXX don't like 2**31-1.  whence this number?
         for i,cp in enumerate(crosspair): bl1dmatrix[cp[1],cp[0]], bl1dmatrix[cp[0],cp[1]] = i,i
         info['bl1dmatrix'] = bl1dmatrix
         #degenM:

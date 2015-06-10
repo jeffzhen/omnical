@@ -177,8 +177,8 @@ class RedundantCalibrator:
     #    return self.arrayinfo.read_arrayinfo(arrayinfopath,verbose=verbose) # XXX if works, clean up
     def _redcal(self, data, additivein, nthread=None, verbose=False, uselogcal=0):
         '''for best performance, try setting nthread to larger than number of cores.'''
-        assert(data.ndim == 3 and data.shape[-1] == len(self.arrayinfo.totalVisibilityId))
-        assert(data.shape == additivein.shape)
+        #assert(data.ndim == 3 and data.shape[-1] == len(self.arrayinfo.totalVisibilityId))
+        #assert(data.shape == additivein.shape) # XXX is this taken care of in wrapper?
         self.nTime, self.nFrequency = data.shape[:2]
         nUBL = len(self.Info.ublcount)
         if uselogcal or self.rawCalpar is None:
@@ -186,10 +186,14 @@ class RedundantCalibrator:
         assert(self.rawCalpar.shape == (self.nTime,self.nFrequency, 3+2*(self.Info.nAntenna+nUBL)))
         if nthread is None: nthread = min(mp.cpu_count() - 1, self.nFrequency)
         if nthread >= 2: return self._redcal_multithread(data, additivein, 0, nthread, verbose=verbose)
-        return _O.redcal(self.Info.permute_data(data), self.rawCalpar, self.Info, 
-            self.Info.permute_data(additivein), removedegen=int(self.removeDegeneracy), uselogcal=uselogcal, 
+        return _O.redcal(data, self.rawCalpar, self.Info, 
+            additivein, removedegen=int(self.removeDegeneracy), uselogcal=uselogcal, 
             maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), 
             computeUBLFit=int(self.computeUBLFit), trust_period=self.trust_period)
+        #return _O.redcal(self.Info.permute_data(data), self.rawCalpar, self.Info, 
+        #    self.Info.permute_data(additivein), removedegen=int(self.removeDegeneracy), uselogcal=uselogcal, 
+        #    maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), 
+        #    computeUBLFit=int(self.computeUBLFit), trust_period=self.trust_period)
     def lincal(self, data, additivein, nthread=None, verbose=False):
         '''XXX DOCSTRING'''
         return self._redcal(data, additivein, nthread=nthread, verbose=verbose, uselogcal=0)
@@ -219,7 +223,8 @@ class RedundantCalibrator:
             additiveouts[i] = mp.RawArray('f', self.nTime * (fchunk[i][1] - fchunk[i][0]) * len(self.Info.subsetbl) * 2)#factor of 2 for re/im
             np_additiveouts[i] = np.frombuffer(additiveouts[i], dtype='complex64')
             np_additiveouts[i].shape = (data.shape[0], fchunk[i][1]-fchunk[i][0], len(self.Info.subsetbl))
-            threads[i] = mp.Process(target = _redcal, args = (self.Info.permute_data(data[:,fchunk[i][0]:fchunk[i][1],:]), rawCalpar[i], self.Info, self.Info.permute_data(additivein[:,fchunk[i][0]:fchunk[i][1],:]), additiveouts[i]), kwargs=kwarg)
+            threads[i] = mp.Process(target = _redcal, args = (data[:,fchunk[i][0]:fchunk[i][1],:], rawCalpar[i], self.Info, additivein[:,fchunk[i][0]:fchunk[i][1],:], additiveouts[i]), kwargs=kwarg)
+            #threads[i] = mp.Process(target = _redcal, args = (self.Info.permute_data(data[:,fchunk[i][0]:fchunk[i][1],:]), rawCalpar[i], self.Info, self.Info.permute_data(additivein[:,fchunk[i][0]:fchunk[i][1],:]), additiveouts[i]), kwargs=kwarg)
         if verbose:
             print "Starting %s Process"%cal_name[uselogcal],
             sys.stdout.flush()

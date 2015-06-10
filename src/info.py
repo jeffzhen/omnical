@@ -94,6 +94,26 @@ class RedundantInfo(_O.RedundantInfo):
         for i,r in enumerate(self._reversed):
             if r == -1: d[...,i] = d[...,i].conj()
         return d
+    def make_dd(self, data):
+        '''Legacy interface to create the data dict used by 'load_data' from the array of all
+        visibilities the was formerly used by omnical.  Makes use of info.subsetbl and info._reversed,
+        which are only preserved for this legacy interface.''' # XXX get rid of this function someday
+        dd = {}
+        for bl,ind,rev in zip(self.bl_order(),self.subsetbl,self._reversed):
+            if rev == -1: bl = bl[::-1]
+            dd[bl] = data[...,ind]
+        return dd
+    def load_data(self, dd):
+        '''Create a data array ordered for use in _omnical.redcal.  'dd' is
+        a dict whose keys are (i,j) antenna tuples; antennas i,j should be ordered to reflect 
+        the conjugation convention of the provided data.  'dd' values are 2D arrays
+        of (time,freq) data.''' # XXX does time/freq ordering matter.  should data be 2D instead?
+        return np.array([dd[bl] if dd.has_key(bl) else dd[bl[::-1]].conj()
+            for bl in self.bl_order()]).transpose((1,2,0))
+    def bl_order(self):
+        '''Return (i,j) baseline tuples in the order that they should appear in data.  Antenna indicies
+        are in real-world order (as opposed to the internal ordering used in subsetant).'''
+        return [(self.subsetant[i],self.subsetant[j]) for (i,j) in self.bl2d]
     def to_npz(self, filename):
         def fmt(k):
             if k in ['At','Bt']: return _O.RedundantInfo.__getattribute__(self,k+'sparse')
@@ -190,7 +210,7 @@ class RedundantInfo(_O.RedundantInfo):
             self.At = sps.csr_matrix(d[17].reshape((-1,self.nAntenna+nUBL)).astype(np.int32)).T # A matrix for logcal amplitude
             #self.Bt = sps.csr_matrix(d[18].reshape((-1,self.nAntenna+nUBL)).astype(np.int32)).T # B matrix for logcal phase
             self.totalVisibilityId = d[19].reshape(-1,2).astype(np.int32)
-        # XXX overwriting Bt because it's malformed
+        # XXX overwriting Bt because it depends on reversed
         crosspair = [p for p in self.bl2d]
         B = np.zeros((len(crosspair),self.nAntenna+nUBL))
         for i,cp in enumerate(crosspair): B[i,cp[0]], B[i,cp[1]], B[i,self.nAntenna+self.bltoubl[i]] = -1,1,1
@@ -240,7 +260,7 @@ class RedundantInfo(_O.RedundantInfo):
         return np.concatenate([np.asarray(k).flatten() for k in d])
     def init_from_redundancies(self, reds, antpos):
         '''Initialize RedundantInfo from a list where each entry is a group of redundant baselines.
-        each baseline is a (i,j) tuple, where i,j are antenna indices.  To ensure baselines are
+        Each baseline is a (i,j) tuple, where i,j are antenna indices.  To ensure baselines are
         oriented to be redundant, it may be necessary to have i > j.  If this is the case, then
         when calibrating visibilities listed as j,i data will have to be conjugated.'''
         ants = {}
@@ -251,8 +271,6 @@ class RedundantInfo(_O.RedundantInfo):
         for i,ant in enumerate(self.subsetant): ant2ind[ant] = i
         self.nAntenna = self.subsetant.size
         nUBL = len(reds)
-        #bl2d = np.array([(ant2ind[i],ant2ind[j],u,i<j) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
-        #bl2d = np.array([(ant2ind[min(i,j)],ant2ind[max(i,j)],u,i<j) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
         bl2d = np.array([(ant2ind[i],ant2ind[j],u) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
         self.bl2d = bl2d[:,:2]
         self.nBaseline = bl2d.shape[0]
@@ -260,8 +278,7 @@ class RedundantInfo(_O.RedundantInfo):
         self.subsetbl = np.arange(self.nBaseline, dtype=np.int32) # XXX mandating visibilities provided in same order
         # remvoe above eventually
         self.ublcount = np.array([len(ubl_gp) for ubl_gp in reds], dtype=np.int32)
-        bl2d[:,2] = np.arange(self.nBaseline)
-        self.ublindex = bl2d[:,2] # XXX clean this up?
+        self.ublindex = np.arange(self.nBaseline, dtype=np.int32)
         bl1dmatrix = (2**31-1) * np.ones((self.nAntenna,self.nAntenna),dtype=np.int32)
         for n,(i,j) in enumerate(self.bl2d): bl1dmatrix[i,j], bl1dmatrix[j,i] = n,n
         self.bl1dmatrix = bl1dmatrix
@@ -283,14 +300,10 @@ class RedundantInfo(_O.RedundantInfo):
         self.update()
     def list_redundancies(self):
         '''After initialization, return redundancies in the same format used in init_from_redundancies.'''
-        # XXX broken
-        #bls = self.bl2d[self.crossindex,:2]
-        #bls = [(i,j) if self.reversed[cnt] < 0 else (j,i) for cnt,(i,j) in enumerate(bls)]
         reds = []
         x = 0
         for y in self.ublcount:
-            #reds.append([(self.subsetant[i],self.subsetant[j]) for i,j in self.ublindex[x:x+y,:2]])
-            reds.append([(self.subsetant[i],self.subsetant[j]) for i,j,k in self.ublindex[x:x+y]])
+            reds.append([(self.subsetant[self.bl2d[k,0]],self.subsetant[self.bl2d[k,1]]) for k in self.ublindex[x:x+y]])
             x += y
         return reds
     #def from_arrayinfo(self, arrayinfoPath=None, verbose=False, badAntenna=[], badUBLpair=[], tol=1e-6):
