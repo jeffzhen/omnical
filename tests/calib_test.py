@@ -1,16 +1,14 @@
-import unittest, omnical.info as Oi, omnical.calib as Oc, omnical._omnical as _O
-import omnical.calibration_omni as omni
-import random
-import numpy as np
-import numpy.linalg as la
-import commands, os, time, math, ephem, shutil
+import omnical.info as Oi, omnical.calib as Oc, omnical._omnical as _O
+#import omnical.calibration_omni as omni
+import numpy as np, numpy.linalg as la
+import os, unittest
 
 redinfo_psa32 = os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt'
 infotestpath = os.path.dirname(os.path.realpath(__file__)) + '/redundantinfo_test.bin'
 
 VERBOSE = False
 
-class TestRedundantCalibrator(unittest.TestCase):
+class TestRedCal(unittest.TestCase):
     def setUp(self):
         self.i = Oi.RedundantInfo()
         self.i.fromfile_txt(redinfo_psa32)
@@ -37,11 +35,9 @@ class TestRedundantCalibrator(unittest.TestCase):
             calibrator.compute_redundantinfo(arrayinfopath)
             _info = calibrator.Info # XXX set aside original info to check if redundancies are sufficient to cal
             # XXX experimental test of redundancy initialization
-            reds = _info.list_redundancies()
-            antpos = np.zeros((nant,3),dtype=np.float)
-            for i,ant in enumerate(_info.subsetant): antpos[ant] = _info.antloc[i]
+            reds,antpos = _info.get_reds(), _info.get_antpos()
             info = Oi.RedundantInfo()
-            info.init_from_redundancies(reds, antpos)
+            info.init_from_reds(reds, antpos)
             calibrator.Info = info
             ####import data##################
             datapath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_data.txt'
@@ -50,7 +46,7 @@ class TestRedundantCalibrator(unittest.TestCase):
             data = np.array([i[0] + 1.0j*i[1] for i in rawinfo[:-1]],dtype = 'complex64')    #last element of rawinfo is empty
             data = data.reshape((1,1,len(data)))
             dd = _info.make_dd(data) # XXX if bl info were stored with data in file, could remove this interface, and also wouldn't need the original info, only the one generated from redundancies
-            data = info.load_data(dd)
+            data = info.order_data(dd)
             ####do calibration################
             calibrator.removeDegeneracy = True
             calibrator.removeAdditive = False
@@ -92,11 +88,9 @@ class TestRedundantCalibrator(unittest.TestCase):
         calibrator.compute_redundantinfo(arrayinfopath)
         _info = calibrator.Info # XXX set aside original info to check if redundancies are sufficient to cal
         # XXX experimental test of redundancy initialization
-        reds = _info.list_redundancies()
-        antpos = np.zeros((nant,3),dtype=np.float)
-        for i,ant in enumerate(_info.subsetant): antpos[ant] = _info.antloc[i]
+        reds,antpos = _info.get_reds(), _info.get_antpos()
         info = Oi.RedundantInfo()
-        info.init_from_redundancies(reds, antpos)
+        info.init_from_reds(reds, antpos)
         calibrator.Info = info
 
         ####Config parameters###################################
@@ -124,7 +118,7 @@ class TestRedundantCalibrator(unittest.TestCase):
             noise = (np.random.normal(scale = std, size = data.shape) + 1.0j*np.random.normal(scale = std, size = data.shape)).astype('complex64')
             ndata = truedata + noise
             dd = _info.make_dd(ndata) # XXX if bl info were stored with data in file, could remove this interface, and also wouldn't need the original info, only the one generated from redundancies
-            ndata = info.load_data(dd)
+            ndata = info.order_data(dd)
             calibrator.logcal(ndata, np.zeros_like(ndata), verbose=VERBOSE)
             calibrator.lincal(ndata, np.zeros_like(ndata), verbose=VERBOSE)
 
