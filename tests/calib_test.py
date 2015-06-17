@@ -5,6 +5,7 @@ import os, unittest
 
 redinfo_psa32 = os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt'
 infotestpath = os.path.dirname(os.path.realpath(__file__)) + '/redundantinfo_test.bin'
+testdata = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/calib_test_data_%02d.npz'
 
 VERBOSE = False
 
@@ -27,25 +28,22 @@ class TestRedCal(unittest.TestCase):
         #check that logcal give 0 chi2 for all 20 testinfos
         diff = np.zeros(20)
         for index in range(20):
-            fileindex = index+1   #filenames have index that start with 1
-            ####Import arrayinfo##########################
-            arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_array_info.txt'
-            nant = 56
-            calibrator = Oc.RedundantCalibrator(nant)
-            calibrator.compute_redundantinfo(arrayinfopath)
-            _info = calibrator.Info # XXX set aside original info to check if redundancies are sufficient to cal
-            # XXX experimental test of redundancy initialization
-            reds,antpos = _info.get_reds(), _info.get_antpos()
-            info = Oi.RedundantInfo()
-            info.init_from_reds(reds, antpos)
-            calibrator.Info = info
-            ####import data##################
-            datapath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_data.txt'
-            with open(datapath) as f:
-                rawinfo = [[float(x) for x in line.split()] for line in f]
-            data = np.array([i[0] + 1.0j*i[1] for i in rawinfo[:-1]],dtype = 'complex64')    #last element of rawinfo is empty
-            data = data.reshape((1,1,len(data)))
-            dd = _info.make_dd(data) # XXX if bl info were stored with data in file, could remove this interface, and also wouldn't need the original info, only the one generated from redundancies
+            arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(index+1)+'_array_info.txt'
+            calibrator = Oc.RedundantCalibrator(56)
+            calibrator.compute_redundantinfo(arrayinfopath, tol=.1)
+            if False: # XXX this was to migrate files so they include bl order w/ data
+                _info = calibrator.Info # XXX needs to have been initialized the old way (w/o reds)
+                datapath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(index+1)+'_data.txt'
+                with open(datapath) as f:
+                    rawinfo = [[float(x) for x in line.split()] for line in f]
+                data = np.array([i[0] + 1.0j*i[1] for i in rawinfo[:-1]],dtype = 'complex64') #last element is empty
+                data = data.reshape((1,1,len(data)))
+                dd = _info.make_dd(data)
+                np.savez('calib_test_data_%02d.npz' % index, bls=np.array(dd.keys()), vis=np.array(dd.values()))
+            info = calibrator.Info
+            npz = np.load(testdata % index)
+            bls = [tuple(bl) for bl in npz['bls']]
+            dd = dict(zip(bls, npz['vis']))
             data = info.order_data(dd)
             ####do calibration################
             calibrator.removeDegeneracy = True
@@ -64,7 +62,7 @@ class TestRedCal(unittest.TestCase):
             calpar = 10**(ampcal)*np.exp(1.0j*phasecal)
             ublfit = log[0,0,3+2*info['nAntenna']::2]+1.0j*log[0,0,3+2*info['nAntenna']+1::2]
             ####import real calibration parameter
-            calparpath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_calpar.txt'
+            calparpath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(index+1)+'_calpar.txt'
             with open(calparpath) as f:
                 rawinfo = [[float(x) for x in line.split()] for line in f]
             temp = np.array(rawinfo[:-1])
@@ -83,25 +81,16 @@ class TestRedCal(unittest.TestCase):
         ####import arrayinfo################
         arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_array_info.txt'
         nant = 56
-        #calibrator = omni.RedundantCalibrator(nant)
         calibrator = Oc.RedundantCalibrator(nant)
         calibrator.compute_redundantinfo(arrayinfopath)
-        _info = calibrator.Info # XXX set aside original info to check if redundancies are sufficient to cal
-        # XXX experimental test of redundancy initialization
-        reds,antpos = _info.get_reds(), _info.get_antpos()
-        info = Oi.RedundantInfo()
-        info.init_from_reds(reds, antpos)
-        calibrator.Info = info
+        info = calibrator.Info
+        npz = np.load(testdata % (fileindex-1))
+        bls = [tuple(bl) for bl in npz['bls']]
+        dd = dict(zip(bls, npz['vis']))
+        data = info.order_data(dd)
 
         ####Config parameters###################################
         needrawcal = True #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
-
-        ####import data##################
-        datapath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_data.txt'
-        with open(datapath) as f:
-            rawinfo = [[float(x) for x in line.split()] for line in f]
-        data = np.array([i[0] + 1.0j*i[1] for i in rawinfo[:-1]],dtype = 'complex64')    #last element of rawinfo is empty
-        truedata = data.reshape((1,1,len(data)))
         std = 0.1
 
         ####do calibration################
@@ -116,9 +105,7 @@ class TestRedCal(unittest.TestCase):
 
         for i in range(length):
             noise = (np.random.normal(scale = std, size = data.shape) + 1.0j*np.random.normal(scale = std, size = data.shape)).astype('complex64')
-            ndata = truedata + noise
-            dd = _info.make_dd(ndata) # XXX if bl info were stored with data in file, could remove this interface, and also wouldn't need the original info, only the one generated from redundancies
-            ndata = info.order_data(dd)
+            ndata = data + noise
             calibrator.logcal(ndata, np.zeros_like(ndata), verbose=VERBOSE)
             calibrator.lincal(ndata, np.zeros_like(ndata), verbose=VERBOSE)
 

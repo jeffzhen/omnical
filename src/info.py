@@ -186,7 +186,9 @@ class RedundantInfo(_O.RedundantInfo):
             # XXX why astype(int) here, but not above?
             self.At = sps.csr_matrix(d[17].reshape((-1,self.nAntenna+nUBL)).astype(np.int32)).T # A matrix for logcal amplitude
             #self.Bt = sps.csr_matrix(d[18].reshape((-1,self.nAntenna+nUBL)).astype(np.int32)).T # B matrix for logcal phase
-            self.totalVisibilityId = d[19].reshape(-1,2).astype(np.int32)
+            try: self.totalVisibilityId = d[19].reshape(-1,2).astype(np.int32)
+            except(IndexError): # old files were saved w/o this field
+                pass
         # XXX overwriting Bt because it depends on reversed
         crosspair = [p for p in self.bl2d]
         B = np.zeros((len(crosspair),self.nAntenna+nUBL))
@@ -219,6 +221,7 @@ class RedundantInfo(_O.RedundantInfo):
         self.autoindex = np.arange(self.nAntenna) # XXX legacy for file format
         self.reversed = np.ones(self.nBaseline) # XXX legacy for file format
         self.nUBL = len(self.ublcount) # XXX legacy for file format
+        self.subsetbl = np.arange(self.nBaseline, dtype=np.int32) # XXX legacy for file format
         def fmt(k):
             if k in ['At','Bt']: 
                 sk = self[k].T
@@ -251,7 +254,6 @@ class RedundantInfo(_O.RedundantInfo):
         self.bl2d = bl2d[:,:2]
         self.nBaseline = bl2d.shape[0]
         self.bltoubl = bl2d[:,2]
-        #self.subsetbl = np.arange(self.nBaseline, dtype=np.int32) # XXX mandating visibilities provided in same order
         self.ublcount = np.array([len(ubl_gp) for ubl_gp in reds], dtype=np.int32)
         self.ublindex = np.arange(self.nBaseline, dtype=np.int32)
         bl1dmatrix = (2**31-1) * np.ones((self.nAntenna,self.nAntenna),dtype=np.int32)

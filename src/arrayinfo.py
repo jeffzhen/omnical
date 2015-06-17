@@ -6,14 +6,14 @@ from info import RedundantInfo
 
 class ArrayInfo:
     '''Store information about an antenna array needed for computing redundancy and indexing matrices.'''
-    def __init__(self, nTotalAnt, badAntenna=[], badUBLpair=[]):
+    def __init__(self, nTotalAnt, badAntenna=[], badUBLpair=[], tol=1e-6):
         self.nTotalAnt = nTotalAnt
         self.nTotalBaselineAuto = (nTotalAnt + 1) * nTotalAnt / 2
         self.nTotalBaselineCross = (nTotalAnt - 1) * nTotalAnt / 2
         self.antennaLocation = np.zeros((nTotalAnt, 3))
         side = int(nTotalAnt**.5)
         for a in range(nTotalAnt): self.antennaLocation[a] = np.array([a/side, a%side, 0])
-        self.antennaLocationTolerance = 1e-6
+        self.antennaLocationTolerance = tol
         self.badAntenna = badAntenna
         self.badUBLpair = badUBLpair
         #PAPER miriad convention by default
@@ -23,7 +23,7 @@ class ArrayInfo:
     def _gen_totalVisibilityId_dic(self):
         self.totalVisibilityId_dic = {}
         for i, (a1,a2) in enumerate(self.totalVisibilityId): self.totalVisibilityId_dic[(a1,a2)] = i
-    def get_baseline(self,bl):
+    def get_baseline(self,bl): # XXX unused except for legacy _compute_redundantinfo
         '''inverse function of totalVisibilityId, calculate the bl index from 
         the antenna pair. It allows flipping of a1 and a2, will return same result'''
         bl = tuple(bl)
@@ -67,9 +67,9 @@ class ArrayInfo:
             bl2gp = {}
             for i,gp in enumerate(reds):
                 for bl in gp: bl2gp[bl] = bl2gp[bl[::-1]] = i
-            if ubls: ubls = [bl2gp[bl] for bl in ubls]
+            if ubls: ubls = [bl2gp[bl] for bl in ubls if bl2gp.has_key(bl)]
             else: ubls = range(len(reds))
-            if ex_ubls: ex_ubls = [bl2gp[bl] for bl in ex_ubls]
+            if ex_ubls: ex_ubls = [bl2gp[bl] for bl in ex_ubls if bl2gp.has_key(bl)]
             else: ex_ubls = []
             reds = [gp for i,gp in enumerate(reds) if i in ubls and i not in ex_ubls]
         if bls is None: bls = [bl for gp in reds for bl in gp]
@@ -114,7 +114,7 @@ class ArrayInfo:
                     ublgp[u] += [(j,i) for i,j in ublgp.pop(nu)]
                     ubl_v[u] /= len(ublgp[u]) # final step in weighted avg of ubl vectors
         return [v for v in ublgp.values() if len(v) > 1] # no such thing as redundancy of one
-    def compute_UBL(self,tolerance = 0.1):
+    def compute_UBL(self,tolerance = 0.1): # XXX unused except legacy _compute_redundantinfo
         '''XXX DOCSTRING'''
         if tolerance == 0:
             tolerance = np.min(np.linalg.norm(np.array(self.antennaLocation) - self.antennaLocation[0], axis=1)) / 1e6
@@ -165,12 +165,19 @@ class ArrayInfo:
         for key in self.totalVisibilityUBL:
             self.totalVisibilityUBL[key] = ublmap[self.totalVisibilityUBL[key]]
         return ubl_vec
-    def compute_redundantinfo(self, arrayinfoPath=None, verbose=False, badAntenna=[], badUBLpair=[], antennaLocationTolerance=1e-6):
+    def compute_redundantinfo(self, arrayinfoPath=None, tol=1e-6):
         '''Use provided antenna locations (in arrayinfoPath) to derive redundancy equations'''
-        # XXX could these be set somewhere else so they aren't passed in?
-        self.antennaLocationTolerance = tol = antennaLocationTolerance
-        self.badAntenna += badAntenna
-        self.badUBLpair += badUBLpair
+        self.antennaLocationTolerance = tol
+        if arrayinfoPath is not None: self.read_arrayinfo(arrayinfoPath)
+        reds = self.compute_reds(tol=tol)
+        reds = self.filter_reds(reds, bls=self.totalVisibilityId_dic.keys(), 
+                ex_ants=list(self.badAntenna), ex_ubls=[tuple(p) for p in self.badUBLpair])
+        info = RedundantInfo()
+        info.init_from_reds(reds, self.antennaLocation)
+        return info
+    def _compute_redundantinfo(self, arrayinfoPath=None, tol=1e-6): # XXX remove this legacy interface?
+        '''Legacy version of compute_redundantinfo if you need subsetbls for data ordering.'''
+        self.antennaLocationTolerance = tol
         if arrayinfoPath is not None: self.read_arrayinfo(arrayinfoPath)
         info = RedundantInfo()
         # exclude bad antennas
@@ -192,7 +199,6 @@ class ArrayInfo:
             return u
         info['ubl'] = ubl = np.array([f(i,u) for i,u in enumerate(ublall) if not badUBL.has_key(i)], dtype=np.float32)
         for k in badUBL: ubl2goodubl[k] = -1
-        #info['nUBL'] = nUBL = ubl.shape[0] # XXX maybe have C api automatically infer this
         nUBL = ubl.shape[0] # XXX maybe have C api automatically infer this
         badubl = [ublall[i] for i in badUBL]
         #find nBaseline (include auto bls) and subsetbl
@@ -213,7 +219,6 @@ class ArrayInfo:
             bl = (subsetant[p[0]],subsetant[p[1]])
             if self.totalVisibilityId_dic.has_key(bl): tmp.append(p)
             elif self.totalVisibilityId_dic.has_key(bl[::-1]): tmp.append(p[::-1])
-        #info['bl2d'] = bl2d = np.array(tmp, dtype=np.int32)
         bl2d = np.array(tmp, dtype=np.int32)
         crossindex = np.array([i for i,p in enumerate(bl2d) if p[0] != p[1]], dtype=np.int32)
         nBaseline = len(bl2d)

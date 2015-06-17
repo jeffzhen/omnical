@@ -441,8 +441,8 @@ class RedundantCalibrator:
         else: ubl_flag = np.zeros_like(nan_flag)
         return_flag = (nan_flag|spike_flag|ubl_flag)
         return return_flag
-    def compute_redundantinfo(self, arrayinfoPath=None, verbose=False, badAntenna=[], badUBLpair=[], antennaLocationTolerance=1e-6):
-        self.Info = self.arrayinfo.compute_redundantinfo(arrayinfoPath=arrayinfoPath, verbose=verbose, badAntenna=badAntenna, badUBLpair=badUBLpair, antennaLocationTolerance=antennaLocationTolerance)
+    def compute_redundantinfo(self, arrayinfoPath=None, tol=1e-6):
+        self.Info = self.arrayinfo.compute_redundantinfo(arrayinfoPath=arrayinfoPath, tol=tol)
     def get_ublindex(self,antpair): # XXX should this be part of info?
         '''need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
         input the antenna pair(as a list of two numbers), return the corresponding ubl index'''
