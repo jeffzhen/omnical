@@ -10,7 +10,7 @@ import numpy as np
 import os, sys
 import _omnical as _O
 from info import RedundantInfo
-from arrayinfo import ArrayInfo
+from arrayinfo import ArrayInfo, ArrayInfoLegacy
 import warnings
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
@@ -145,7 +145,7 @@ class RedundantCalibrator:
     to create the info field of the instance by either computing it or reading it 
     from a text file.'''
     def __init__(self, nTotalAnt, info=None):
-        self.arrayinfo = ArrayInfo(nTotalAnt) # XXX if works, clean up
+        self.arrayinfo = ArrayInfoLegacy(nTotalAnt) # XXX if works, clean up
         self.Info = None
         self.removeDegeneracy = True
         self.removeAdditive = False
@@ -172,7 +172,8 @@ class RedundantCalibrator:
         self.totalVisibilityId = self.Info.totalVisibilityId # XXX might this raise an exception?
         self._gen_totalVisibilityId_dic()
     def write_redundantinfo(self, filename, overwrite=False, verbose=False):
-        self.Info.tofile(filename, overwrite=overwrite, verbose=verbose)
+        #self.Info.tofile(filename, overwrite=overwrite, verbose=verbose)
+        self.Info.to_npz(filename)
     #def read_arrayinfo(self, arrayinfopath, verbose = False):
     #    return self.arrayinfo.read_arrayinfo(arrayinfopath,verbose=verbose) # XXX if works, clean up
     def _redcal(self, data, additivein, nthread=None, verbose=False, uselogcal=0):

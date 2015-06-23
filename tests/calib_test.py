@@ -4,15 +4,16 @@ import numpy as np, numpy.linalg as la
 import os, unittest
 
 redinfo_psa32 = os.path.dirname(os.path.realpath(__file__)) + '/../doc/redundantinfo_PSA32.txt'
-infotestpath = os.path.dirname(os.path.realpath(__file__)) + '/redundantinfo_test.bin'
+#infotestpath = os.path.dirname(os.path.realpath(__file__)) + '/redundantinfo_test.bin'
+infotestpath = os.path.dirname(os.path.realpath(__file__)) + '/calib_test_redinfo.npz'
 testdata = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/calib_test_data_%02d.npz'
 
 VERBOSE = False
 
 class TestRedCal(unittest.TestCase):
-    def setUp(self):
-        self.i = Oi.RedundantInfo()
-        self.i.fromfile_txt(redinfo_psa32)
+    #def setUp(self):
+    #    self.i = Oi.RedundantInfo()
+    #    self.i.fromfile_txt(redinfo_psa32)
     def tearDown(self):
         if os.path.exists(infotestpath): os.remove(infotestpath)
 
@@ -21,7 +22,9 @@ class TestRedCal(unittest.TestCase):
         calibrator.compute_redundantinfo()
         calibrator.write_redundantinfo(infotestpath, verbose=VERBOSE)
         info2 = Oi.RedundantInfo(filename=infotestpath)
-        self.assertTrue(calibrator.Info.compare(info2, tol=1e-3))
+        self.assertEqual(calibrator.Info.nAntenna, info2.nAntenna)
+        self.assertEqual(calibrator.Info.nBaseline, info2.nBaseline)
+        self.assertEqual(calibrator.Info.get_reds(), info2.get_reds())
         os.remove(infotestpath)
 
     def test_logcal(self):

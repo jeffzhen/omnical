@@ -13,11 +13,11 @@ class TestRedInfo(unittest.TestCase):
         if os.path.exists(tmpfile): os.remove(tmpfile)
         if os.path.exists(tmpnpz): os.remove(tmpnpz)
     def test_init(self):
-        i = Oi.RedundantInfo(threshold=64)
+        i = Oi.RedundantInfoLegacy(threshold=64)
         self.assertEqual(i.threshold, 64)
         class RedInf(Oi.RedundantInfo):
             testcase = False
-            def fromfile(self, filename, verbose=VERBOSE, preview_only=False):
+            def from_npz(self, filename):
                 self.testcase = True
         i = RedInf(filename='whatever')
         self.assertTrue(i.testcase)
@@ -30,7 +30,7 @@ class TestRedInfo(unittest.TestCase):
         self.assertEqual(i.nAntenna, 64)
         self.assertEqual(i['nAntenna'], 64)
     def test_compare(self):
-        i = Oi.RedundantInfo()
+        i = Oi.RedundantInfoLegacy()
         self.assertTrue(i.compare(i, verbose=VERBOSE))
     def test_init_from_reds(self):
         antpos = np.array([[0.,0,0],[1,0,0],[2,0,0],[3,0,0]])
@@ -48,10 +48,10 @@ class TestRedInfo(unittest.TestCase):
     def test_bl_order(self):
         antpos = np.array([[0.,0,0],[1,0,0],[2,0,0],[3,0,0]])
         reds = [[(0,1),(1,2),(2,3)],[(0,2),(1,3)]]
-        i = Oi.RedundantInfo()
+        i = Oi.RedundantInfoLegacy()
         i.init_from_reds(reds,antpos)
         self.assertEqual(i.bl_order(), [bl for ublgp in reds for bl in ublgp])
-        i = Oi.RedundantInfo()
+        i = Oi.RedundantInfoLegacy()
         i.fromfile_txt(redinfo_psa32)
         self.assertEqual(i.bl_order()[:5], [(0,4),(1,4),(2,4),(3,4),(0,5)])
     def test_order_data(self):
@@ -80,7 +80,7 @@ class TestRedInfo(unittest.TestCase):
         reds2 = i.get_reds()
         self.assertEqual(reds, reds2)
     def test_tofrom_reds(self):
-        i1 = Oi.RedundantInfo()
+        i1 = Oi.RedundantInfoLegacy()
         i1.fromfile_txt(redinfo_psa32)
         reds = i1.get_reds()
         antpos = i1.get_antpos()
@@ -98,9 +98,9 @@ class TestRedInfo(unittest.TestCase):
     #    i2.fromfile_txt(redinfo_psa32)
     #    self.assertTrue(i2.compare(i1,verbose=VERBOSE))
     def test_tofromarray(self):
-        i1 = Oi.RedundantInfo()
+        i1 = Oi.RedundantInfoLegacy()
         i1.fromfile_txt(redinfo_psa32)
-        i2 = Oi.RedundantInfo()
+        i2 = Oi.RedundantInfoLegacy()
         d = i1.to_array(verbose=VERBOSE)
         # XXX yuck
         d = np.array(d)
@@ -110,14 +110,14 @@ class TestRedInfo(unittest.TestCase):
         i2.update()
         self.assertTrue(i1.compare(i2, verbose=VERBOSE))
     def test_tofromfile(self):
-        i1 = Oi.RedundantInfo()
+        i1 = Oi.RedundantInfoLegacy()
         i1.fromfile_txt(redinfo_psa32)
-        i2 = Oi.RedundantInfo()
+        i2 = Oi.RedundantInfoLegacy()
         i1.tofile(tmpfile)
         i2.fromfile(tmpfile)
         self.assertTrue(i1.compare(i2, verbose=VERBOSE))
     def test_tofromnpz(self):
-        i1 = Oi.RedundantInfo()
+        i1 = Oi.RedundantInfoLegacy()
         i1.fromfile_txt(redinfo_psa32)
         i2 = Oi.RedundantInfo()
         i1.to_npz(tmpnpz)

@@ -1,9 +1,150 @@
 import _omnical as _O
 import numpy as np, numpy.linalg as la
-import warnings, os, time
+import warnings
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import scipy.sparse as sps
+
+#  ___        _              _          _   ___       __     
+# | _ \___ __| |_  _ _ _  __| |__ _ _ _| |_|_ _|_ _  / _|___ 
+# |   / -_) _` | || | ' \/ _` / _` | ' \  _|| || ' \|  _/ _ \
+# |_|_\___\__,_|\_,_|_||_\__,_\__,_|_||_\__|___|_||_|_| \___/
+
+class RedundantInfo(_O.RedundantInfo):
+    '''Container for metadata used by redundant calibrator, which is eventually passed into C++ routines.'''
+    def __init__(self, filename=None):
+        _O.RedundantInfo.__init__(self)
+        if filename: self.from_npz(filename)
+    def _get_AtBt(self, key):
+        '''for convenience of multiplication in update()'''
+        assert(key in ['At','Bt'])
+        tmp = _O.RedundantInfo.__getattribute__(self, key+'sparse')
+        matrix = np.zeros((self.nAntenna + len(self.ublcount), len(self.bl2d)))
+        for i in tmp: matrix[i[0],i[1]] = i[2]
+        return sps.csr_matrix(matrix)
+    def _set_AtBt(self, key, val):
+        assert(key in ['At','Bt'])
+        nonzeros = np.array(val.nonzero()).transpose()
+        self.__setattr__(key+'sparse', np.array([[i,j,val[i,j]] for i,j in nonzeros], dtype=np.int32))
+    def __getattribute__(self, key):
+        if key in ['At','Bt']: return self._get_AtBt(key)
+        else: return _O.RedundantInfo.__getattribute__(self, key)
+    def __setattr__(self, key, val):
+        if key in ['At','Bt']: return self._set_AtBt(key, val)
+        else: return _O.RedundantInfo.__setattr__(self, key, val)
+    def __getitem__(self,k): return self.__getattribute__(k)
+    def __setitem__(self,k,val): return self.__setattr__(k,val)
+    def order_data(self, dd):
+        '''Create a data array ordered for use in _omnical.redcal.  'dd' is
+        a dict whose keys are (i,j) antenna tuples; antennas i,j should be ordered to reflect 
+        the conjugation convention of the provided data.  'dd' values are 2D arrays
+        of (time,freq) data.''' # XXX does time/freq ordering matter.  should data be 2D instead?
+        return np.array([dd[bl] if dd.has_key(bl) else dd[bl[::-1]].conj()
+            for bl in self.bl_order()]).transpose((1,2,0))
+    def bl_order(self):
+        '''Return (i,j) baseline tuples in the order that they should appear in data.  Antenna indicies
+        are in real-world order (as opposed to the internal ordering used in subsetant).'''
+        return [(self.subsetant[i],self.subsetant[j]) for (i,j) in self.bl2d]
+    def to_npz(self, filename):
+        '''Write enough to a numpy npz file to enable RedundantInfo to be reconstructed.'''
+        reds = self.get_reds()
+        antpos = self.get_antpos()
+        # XXX how expensive is constructing At,Bt, AtAi, BtBi?  Do we need to store them?
+        np.savez(filename, reds=reds, antpos=antpos)
+    def from_npz(self, filename):
+        '''Initialize RedundantInfo from a numpy npz file written by 'to_npz'.'''
+        npz = np.load(filename)
+        # XXX how expensive is constructing At,Bt, AtAi, BtBi?  Do we need to store them?
+        self.init_from_reds(npz['reds'], npz['antpos'])
+    def update(self):
+        '''Initialize other arrays from fundamental arrays'''
+        #The sparse matrices are treated a little differently because they are not rectangular
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore",category=DeprecationWarning)
+            if self.AtAi.size == 0:
+                self.AtAi = la.pinv(self.At.dot(self.At.T).todense(),rcond=1e-6).astype(np.float32)#(AtA)^-1
+                self.BtBi = la.pinv(self.Bt.dot(self.Bt.T).todense(),rcond=1e-6).astype(np.float32)#(BtB)^-1
+    def init_from_reds(self, reds, antpos):
+        '''Initialize RedundantInfo from a list where each entry is a group of redundant baselines.
+        Each baseline is a (i,j) tuple, where i,j are antenna indices.  To ensure baselines are
+        oriented to be redundant, it may be necessary to have i > j.  If this is the case, then
+        when calibrating visibilities listed as j,i data will have to be conjugated.'''
+        ants = {}
+        for ubl_gp in reds:
+            for (i,j) in ubl_gp: ants[i] = ants[j] = None
+        self.subsetant = np.array(ants.keys(), dtype=np.int32)
+        ant2ind = {}
+        for i,ant in enumerate(self.subsetant): ant2ind[ant] = i
+        self.nAntenna = self.subsetant.size
+        nUBL = len(reds)
+        bl2d = np.array([(ant2ind[i],ant2ind[j],u) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
+        self.bl2d = bl2d[:,:2]
+        self.nBaseline = bl2d.shape[0]
+        self.bltoubl = bl2d[:,2]
+        self.ublcount = np.array([len(ubl_gp) for ubl_gp in reds], dtype=np.int32)
+        self.ublindex = np.arange(self.nBaseline, dtype=np.int32)
+        bl1dmatrix = (2**31-1) * np.ones((self.nAntenna,self.nAntenna),dtype=np.int32)
+        for n,(i,j) in enumerate(self.bl2d): bl1dmatrix[i,j], bl1dmatrix[j,i] = n,n
+        self.bl1dmatrix = bl1dmatrix
+        #A: A matrix for logcal amplitude
+        A,B = np.zeros((self.nBaseline,self.nAntenna+nUBL)), np.zeros((self.nBaseline,self.nAntenna+nUBL))
+        for n,(i,j) in enumerate(self.bl2d):
+            A[n,i], A[n,j], A[n,self.nAntenna+self.bltoubl[n]] = 1,1,1
+            B[n,i], B[n,j], B[n,self.nAntenna+self.bltoubl[n]] = -1,1,1
+        self.At, self.Bt = sps.csr_matrix(A).T, sps.csr_matrix(B).T
+        # XXX nothing up to this point requires antloc; in principle, degenM can be deduced
+        # from reds alone, removing need for antpos.  So that'd be nice, someday
+        self.antloc = antpos.take(self.subsetant, axis=0).astype(np.float32)
+        self.ubl = np.array([np.mean([antpos[j]-antpos[i] for i,j in ublgp],axis=0) for ublgp in reds], dtype=np.float32) 
+        # XXX why are 1,0 appended to positions/ubls?
+        a = np.array([np.append(ai,1) for ai in self.antloc], dtype=np.float32)
+        d = np.array([np.append(ubli,0) for ubli in self.ubl], dtype=np.float32)
+        m1 = -a.dot(la.pinv(a.T.dot(a))).dot(a.T)
+        m2 = d.dot(la.pinv(a.T.dot(a))).dot(a.T)
+        self.degenM = np.append(m1,m2,axis=0)
+        self.update()
+    def get_reds(self):
+        '''After initialization, return redundancies in the same format used in init_from_reds.  Requires that
+        ublcount, ublindex, subsetant, and bl2d be set.'''
+        reds = []
+        x = 0
+        for y in self.ublcount:
+            reds.append([(self.subsetant[self.bl2d[k,0]],self.subsetant[self.bl2d[k,1]]) for k in self.ublindex[x:x+y]])
+            x += y
+        return reds
+    def get_antpos(self):
+        '''After initialization, return antenna positions in the format used by init_from_reds.'''
+        antpos = np.zeros((self.subsetant.max()+1,3),dtype=np.float)
+        for i,ant in enumerate(self.subsetant): antpos[ant] = self.antloc[i]
+        return antpos
+    def get_xy_AB(self):
+        '''return xyA, xyB, yxA, yxB for logcal cross polarizations'''
+        na = self.nAntenna
+        nu = len(self.ublcount)
+        A = self.At.T.todense()
+        B = self.Bt.T.todense()
+        bl2dcross = self.bl2d
+        #print na, nu, B.shape wesdcxaz
+        xyA = np.zeros((len(self.bl2d), 2*na+nu), dtype='int8')
+        yxA = np.zeros_like(xyA)
+        xyB = np.zeros_like(xyA)
+        yxB = np.zeros_like(xyA)
+        xyA[:, 2*na:] = A[:, na:]
+        xyB[:, 2*na:] = B[:, na:]
+        for i in range(len(xyA)):
+            xyA[i, bl2dcross[i,0]] = A[i, bl2dcross[i,0]]
+            xyA[i, na + bl2dcross[i,1]] = A[i, bl2dcross[i,1]]
+            xyB[i, bl2dcross[i,0]] = B[i, bl2dcross[i,0]]
+            xyB[i, na + bl2dcross[i,1]] = B[i, bl2dcross[i,1]]
+        yxA[:, :na] = xyA[:, na:2*na]
+        yxA[:, na:2*na] = xyA[:, :na]
+        yxA[:, 2*na:] = xyA[:, 2*na:]
+        yxB[:, :na] = xyB[:, na:2*na]
+        yxB[:, na:2*na] = xyB[:, :na]
+        yxB[:, 2*na:] = xyB[:, 2*na:]
+        return xyA, xyB, yxA, yxB
+    
+import os
 
 KEYS = [
     'nAntenna', # number of usable ants (not total number)
@@ -30,57 +171,18 @@ KEYS = [
     'totalVisibilityId', # (all_baselines, 2) ai,aj antenna numbers for every possible bl; defines order of data to be loaded into omnical solver XXX if totalVisibilityId only holds good data, then subsetbl becomes pointless
 ]
 
-#infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
-infokeys = ['nAntenna','nUBL','antloc','bltoubl','reversed','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
-infokeys_optional = ['totalVisibilityId']
-#binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','At','Bt']
-binaryinfokeys=['nAntenna','nUBL','antloc','bltoubl','reversed','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','At','Bt']
-cal_name = {0: "Lincal", 1: "Logcal"}
-
-int_infokeys = ['nAntenna','nUBL']
-#intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
-intarray_infokeys = ['bltoubl','reversed','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','A','B','At','Bt']
-intarray_infokeys_optional = ['totalVisibilityId']
-
-#float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 float_infokeys = ['degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 
 MARKER = 9999999
 
-#  ___        _              _          _   ___       __     
-# | _ \___ __| |_  _ _ _  __| |__ _ _ _| |_|_ _|_ _  / _|___ 
-# |   / -_) _` | || | ' \/ _` / _` | ' \  _|| || ' \|  _/ _ \
-# |_|_\___\__,_|\_,_|_||_\__,_\__,_|_||_\__|___|_||_|_| \___/
-
-class RedundantInfo(_O.RedundantInfo):
-    '''Container for metadata used by redundant calibrator, which is eventually passed into C++ routines.'''
+class RedundantInfoLegacy(RedundantInfo):
     def __init__(self, filename=None, verbose=False, preview_only=False, txtmode=False, threshold=128):
-        _O.RedundantInfo.__init__(self)
-        self.threshold = threshold # XXX move to versions
+        RedundantInfo.__init__(self, filename=None)
+        self.threshold = threshold 
         if filename:
             if txtmode: self.fromfile_txt(filename, verbose=verbose, preview_only=preview_only)
             else: self.fromfile(filename, verbose=verbose, preview_only=preview_only)
         self.totalVisibilityId = np.zeros_like(self.bl2d) # XXX placeholder for now
-    def _get_AtBt(self, key):
-        '''for convenience of multiplication in update()'''
-        assert(key in ['At','Bt'])
-        tmp = _O.RedundantInfo.__getattribute__(self, key+'sparse')
-        matrix = np.zeros((self.nAntenna + len(self.ublcount), len(self.bl2d)))
-        for i in tmp: matrix[i[0],i[1]] = i[2]
-        return sps.csr_matrix(matrix)
-    def _set_AtBt(self, key, val):
-        assert(key in ['At','Bt'])
-        nonzeros = np.array(val.nonzero()).transpose()
-        self.__setattr__(key+'sparse', np.array([[i,j,val[i,j]] for i,j in nonzeros], dtype=np.int32))
-    def __getattribute__(self, key):
-        if key in ['At','Bt']: return self._get_AtBt(key)
-        else: return _O.RedundantInfo.__getattribute__(self, key)
-    def __setattr__(self, key, val):
-        if key in ['At','Bt']: return self._set_AtBt(key, val)
-        else: return _O.RedundantInfo.__setattr__(self, key, val)
-    #def keys(self): return [k for k in dir(self) if not k.startswith('_')] # XXX should exclude functions
-    def __getitem__(self,k): return self.__getattribute__(k)
-    def __setitem__(self,k,val): return self.__setattr__(k,val)
     def make_dd(self, data):
         '''Legacy interface to create the data dict used by 'order_data' from the array of all
         visibilities the was formerly used by omnical.  Makes use of info.subsetbl and info._reversed,
@@ -90,28 +192,22 @@ class RedundantInfo(_O.RedundantInfo):
             if rev == -1: bl = bl[::-1]
             dd[bl] = data[...,ind]
         return dd
-    def order_data(self, dd):
-        '''Create a data array ordered for use in _omnical.redcal.  'dd' is
-        a dict whose keys are (i,j) antenna tuples; antennas i,j should be ordered to reflect 
-        the conjugation convention of the provided data.  'dd' values are 2D arrays
-        of (time,freq) data.''' # XXX does time/freq ordering matter.  should data be 2D instead?
-        return np.array([dd[bl] if dd.has_key(bl) else dd[bl[::-1]].conj()
-            for bl in self.bl_order()]).transpose((1,2,0))
-    def bl_order(self):
-        '''Return (i,j) baseline tuples in the order that they should appear in data.  Antenna indicies
-        are in real-world order (as opposed to the internal ordering used in subsetant).'''
-        return [(self.subsetant[i],self.subsetant[j]) for (i,j) in self.bl2d]
-    def to_npz(self, filename):
-        '''Write enough to a numpy npz file to enable RedundantInfo to be reconstructed.'''
-        reds = self.get_reds()
-        antpos = self.get_antpos()
-        # XXX how expensive is constructing At,Bt, AtAi, BtBi?  Do we need to store them?
-        np.savez(filename, reds=reds, antpos=antpos)
-    def from_npz(self, filename):
-        '''Initialize RedundantInfo from a numpy npz file written by 'to_npz'.'''
-        npz = np.load(filename)
-        # XXX how expensive is constructing At,Bt, AtAi, BtBi?  Do we need to store them?
-        self.init_from_reds(npz['reds'], npz['antpos'])
+    def fromfile_txt(self, filename, verbose=False):
+        '''Initialize from (txt) file.  This is a legacy interface; writing to txt files is no longer supported.'''
+        if verbose: print 'Reading redundant info from %s' % filename
+        d = np.array([np.array(map(float, line.split())) for line in open(filename)])
+        self.from_array(d, verbose=verbose)
+        self.update()
+        if verbose: print "done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),len(self.ublcount),self.nBaseline)
+    def tofile(self, filename, overwrite=False, verbose=False):
+        '''XXX DOCSTRING'''
+        assert(not os.path.exists(filename) or overwrite)
+        if verbose: print 'Writing info to', filename
+        d = self.to_array(verbose=verbose)
+        f = open(filename,'wb')
+        d.tofile(f)
+        f.close()
+        if verbose: print "Info file successfully written to", filename
     def fromfile(self, filename, verbose=False, preview_only=False): # XXX what is preview?
         '''Initialize from (binary) file.'''
         if verbose: print 'Reading redundant info from %s' % filename
@@ -122,13 +218,31 @@ class RedundantInfo(_O.RedundantInfo):
         self.from_array(d, verbose=verbose, preview_only=preview_only) # XXX do i need to store preview return case?
         self.update()
         if verbose: print "done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),len(self.ublcount),self.nBaseline)
-    def fromfile_txt(self, filename, verbose=False):
-        '''Initialize from (txt) file.  This is a legacy interface; writing to txt files is no longer supported.'''
-        if verbose: print 'Reading redundant info from %s' % filename
-        d = np.array([np.array(map(float, line.split())) for line in open(filename)])
-        self.from_array(d, verbose=verbose)
-        self.update()
-        if verbose: print "done. nAntenna,nUBL,nBaseline = %i,%i,%i" % (len(self.subsetant),len(self.ublcount),self.nBaseline)
+    def to_array(self, verbose=False):
+        # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
+        d = KEYS
+        if self.nAntenna <= self.threshold: d = d[:-3] + d[-1:]
+        self.crossindex = np.arange(len(self.bl2d)) # XXX legacy for file format.
+        self.reversedauto = np.ones(self.nAntenna) # XXX legacy for file format
+        self.autoindex = np.arange(self.nAntenna) # XXX legacy for file format
+        self.reversed = np.ones(self.nBaseline) # XXX legacy for file format
+        self.nUBL = len(self.ublcount) # XXX legacy for file format
+        self.subsetbl = np.arange(self.nBaseline, dtype=np.int32) # XXX legacy for file format
+        def fmt(k):
+            if k in ['At','Bt']: 
+                sk = self[k].T
+                if self.nAntenna > self.threshold:
+                    row,col = sk.nonzero()
+                    return np.vstack([row,col,sk[row,col]]).T
+                else: return sk.todense()
+            elif k in ['ublindex']: # XXX legacy for file format
+                d = np.zeros((self.ublindex.size,3), dtype=np.int)
+                d[:,2] = self.ublindex
+                return d
+            else: return self[k]
+        d = [fmt(k) for k in d]
+        d = [[MARKER]]+[k for i in zip(d,[[MARKER]]*len(d)) for k in i]
+        return np.concatenate([np.asarray(k).flatten() for k in d])
     def from_array(self, d, verbose=False, preview_only=False): 
         '''Initialize fields from data contained in 2D float array used to store data to file.'''
         # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
@@ -195,102 +309,7 @@ class RedundantInfo(_O.RedundantInfo):
         for i,cp in enumerate(crosspair): B[i,cp[0]], B[i,cp[1]], B[i,self.nAntenna+self.bltoubl[i]] = -1,1,1
         # XXX setting Bt twice segfaults
         self.Bt = sps.csr_matrix(B).T
-    def update(self):
-        '''Initialize other arrays from fundamental arrays'''
-        #The sparse matrices are treated a little differently because they are not rectangular
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore",category=DeprecationWarning)
-            if self.AtAi.size == 0:
-                self.AtAi = la.pinv(self.At.dot(self.At.T).todense(),rcond=1e-6).astype(np.float32)#(AtA)^-1
-                self.BtBi = la.pinv(self.Bt.dot(self.Bt.T).todense(),rcond=1e-6).astype(np.float32)#(BtB)^-1
-    def tofile(self, filename, overwrite=False, verbose=False):
-        '''XXX DOCSTRING'''
-        assert(not os.path.exists(filename) or overwrite)
-        if verbose: print 'Writing info to', filename
-        d = self.to_array(verbose=verbose)
-        f = open(filename,'wb')
-        d.tofile(f)
-        f.close()
-        if verbose: print "Info file successfully written to", filename
-    def to_array(self, verbose=False):
-        # XXX from_array and to_array do not match, need to change that, but this affects fromfile & fromfile_txt
-        d = KEYS
-        if self.nAntenna <= self.threshold: d = d[:-3] + d[-1:]
-        self.crossindex = np.arange(len(self.bl2d)) # XXX legacy for file format.
-        self.reversedauto = np.ones(self.nAntenna) # XXX legacy for file format
-        self.autoindex = np.arange(self.nAntenna) # XXX legacy for file format
-        self.reversed = np.ones(self.nBaseline) # XXX legacy for file format
-        self.nUBL = len(self.ublcount) # XXX legacy for file format
-        self.subsetbl = np.arange(self.nBaseline, dtype=np.int32) # XXX legacy for file format
-        def fmt(k):
-            if k in ['At','Bt']: 
-                sk = self[k].T
-                if self.nAntenna > self.threshold:
-                    row,col = sk.nonzero()
-                    return np.vstack([row,col,sk[row,col]]).T
-                else: return sk.todense()
-            elif k in ['ublindex']: # XXX legacy for file format
-                d = np.zeros((self.ublindex.size,3), dtype=np.int)
-                d[:,2] = self.ublindex
-                return d
-            else: return self[k]
-        d = [fmt(k) for k in d]
-        d = [[MARKER]]+[k for i in zip(d,[[MARKER]]*len(d)) for k in i]
-        return np.concatenate([np.asarray(k).flatten() for k in d])
-    def init_from_reds(self, reds, antpos):
-        '''Initialize RedundantInfo from a list where each entry is a group of redundant baselines.
-        Each baseline is a (i,j) tuple, where i,j are antenna indices.  To ensure baselines are
-        oriented to be redundant, it may be necessary to have i > j.  If this is the case, then
-        when calibrating visibilities listed as j,i data will have to be conjugated.'''
-        ants = {}
-        for ubl_gp in reds:
-            for (i,j) in ubl_gp: ants[i] = ants[j] = None
-        self.subsetant = np.array(ants.keys(), dtype=np.int32)
-        ant2ind = {}
-        for i,ant in enumerate(self.subsetant): ant2ind[ant] = i
-        self.nAntenna = self.subsetant.size
-        nUBL = len(reds)
-        bl2d = np.array([(ant2ind[i],ant2ind[j],u) for u,ubl_gp in enumerate(reds) for i,j in ubl_gp], dtype=np.int32)
-        self.bl2d = bl2d[:,:2]
-        self.nBaseline = bl2d.shape[0]
-        self.bltoubl = bl2d[:,2]
-        self.ublcount = np.array([len(ubl_gp) for ubl_gp in reds], dtype=np.int32)
-        self.ublindex = np.arange(self.nBaseline, dtype=np.int32)
-        bl1dmatrix = (2**31-1) * np.ones((self.nAntenna,self.nAntenna),dtype=np.int32)
-        for n,(i,j) in enumerate(self.bl2d): bl1dmatrix[i,j], bl1dmatrix[j,i] = n,n
-        self.bl1dmatrix = bl1dmatrix
-        #A: A matrix for logcal amplitude
-        A,B = np.zeros((self.nBaseline,self.nAntenna+nUBL)), np.zeros((self.nBaseline,self.nAntenna+nUBL))
-        for n,(i,j) in enumerate(self.bl2d):
-            A[n,i], A[n,j], A[n,self.nAntenna+self.bltoubl[n]] = 1,1,1
-            B[n,i], B[n,j], B[n,self.nAntenna+self.bltoubl[n]] = -1,1,1
-        self.At, self.Bt = sps.csr_matrix(A).T, sps.csr_matrix(B).T
-        # XXX nothing up to this point requires antloc; in principle, degenM can be deduced
-        # from reds alone, removing need for antpos.  So that'd be nice, someday
-        self.antloc = antpos.take(self.subsetant, axis=0).astype(np.float32)
-        self.ubl = np.array([np.mean([antpos[j]-antpos[i] for i,j in ublgp],axis=0) for ublgp in reds], dtype=np.float32) 
-        # XXX why are 1,0 appended to positions/ubls?
-        a = np.array([np.append(ai,1) for ai in self.antloc], dtype=np.float32)
-        d = np.array([np.append(ubli,0) for ubli in self.ubl], dtype=np.float32)
-        m1 = -a.dot(la.pinv(a.T.dot(a))).dot(a.T)
-        m2 = d.dot(la.pinv(a.T.dot(a))).dot(a.T)
-        self.degenM = np.append(m1,m2,axis=0)
-        self.update()
-    def get_reds(self):
-        '''After initialization, return redundancies in the same format used in init_from_reds.  Requires that
-        ublcount, ublindex, subsetant, and bl2d be set.'''
-        reds = []
-        x = 0
-        for y in self.ublcount:
-            reds.append([(self.subsetant[self.bl2d[k,0]],self.subsetant[self.bl2d[k,1]]) for k in self.ublindex[x:x+y]])
-            x += y
-        return reds
-    def get_antpos(self):
-        '''After initialization, return antenna positions in the format used by init_from_reds.'''
-        antpos = np.zeros((self.subsetant.max()+1,3),dtype=np.float)
-        for i,ant in enumerate(self.subsetant): antpos[ant] = self.antloc[i]
-        return antpos
-    def compare(self, info, verbose=False, tol=1e-5):
+    def compare(self, info, verbose=False, tol=1e-5): # XXX after trimming things, this func is almost meaningless
         '''compare with another RedundantInfo, output True if they are the same and False if they are different'''
         try:
             floatkeys = float_infokeys#['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
@@ -338,30 +357,3 @@ class RedundantInfo(_O.RedundantInfo):
         except(ValueError):
             print "info doesn't have the same shape"
             return False
-    def get_xy_AB(self):
-        '''return xyA, xyB, yxA, yxB for logcal cross polarizations'''
-        na = self.nAntenna
-        nu = len(self.ublcount)
-        A = self.At.T.todense()
-        B = self.Bt.T.todense()
-        bl2dcross = self.bl2d
-        #print na, nu, B.shape wesdcxaz
-        xyA = np.zeros((len(self.bl2d), 2*na+nu), dtype='int8')
-        yxA = np.zeros_like(xyA)
-        xyB = np.zeros_like(xyA)
-        yxB = np.zeros_like(xyA)
-        xyA[:, 2*na:] = A[:, na:]
-        xyB[:, 2*na:] = B[:, na:]
-        for i in range(len(xyA)):
-            xyA[i, bl2dcross[i,0]] = A[i, bl2dcross[i,0]]
-            xyA[i, na + bl2dcross[i,1]] = A[i, bl2dcross[i,1]]
-            xyB[i, bl2dcross[i,0]] = B[i, bl2dcross[i,0]]
-            xyB[i, na + bl2dcross[i,1]] = B[i, bl2dcross[i,1]]
-        yxA[:, :na] = xyA[:, na:2*na]
-        yxA[:, na:2*na] = xyA[:, :na]
-        yxA[:, 2*na:] = xyA[:, 2*na:]
-        yxB[:, :na] = xyB[:, na:2*na]
-        yxB[:, na:2*na] = xyB[:, :na]
-        yxB[:, 2*na:] = xyB[:, 2*na:]
-        return xyA, xyB, yxA, yxB
-    

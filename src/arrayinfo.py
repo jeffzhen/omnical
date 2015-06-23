@@ -6,61 +6,17 @@ from info import RedundantInfo
 
 class ArrayInfo:
     '''Store information about an antenna array needed for computing redundancy and indexing matrices.'''
-    def __init__(self, nTotalAnt, badAntenna=[], badUBLpair=[], tol=1e-6):
+    # XXX i think we're moving toward getting rid of this class, because it is all derivative
+    def __init__(self, nTotalAnt, badAntenna=[], badUBLpair=[]):
         self.nTotalAnt = nTotalAnt
-        self.nTotalBaselineAuto = (nTotalAnt + 1) * nTotalAnt / 2
-        self.nTotalBaselineCross = (nTotalAnt - 1) * nTotalAnt / 2
         self.antennaLocation = np.zeros((nTotalAnt, 3))
+        # XXX don't like next 2 lines.  need to avoid guessing.
         side = int(nTotalAnt**.5)
         for a in range(nTotalAnt): self.antennaLocation[a] = np.array([a/side, a%side, 0])
-        self.antennaLocationTolerance = tol
         self.badAntenna = badAntenna
         self.badUBLpair = badUBLpair
         #PAPER miriad convention by default
         self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j+1)] for j in range(nTotalAnt)])
-        self._gen_totalVisibilityId_dic()
-        self.totalVisibilityUBL = None
-    def _gen_totalVisibilityId_dic(self):
-        self.totalVisibilityId_dic = {}
-        for i, (a1,a2) in enumerate(self.totalVisibilityId): self.totalVisibilityId_dic[(a1,a2)] = i
-    def get_baseline(self,bl): # XXX unused except for legacy _compute_redundantinfo
-        '''inverse function of totalVisibilityId, calculate the bl index from 
-        the antenna pair. It allows flipping of a1 and a2, will return same result'''
-        bl = tuple(bl)
-        try: return self.totalVisibilityId_dic[bl]
-        except(KeyError): pass
-        try: return self.totalVisibilityId_dic[bl[::-1]]
-        except(KeyError): return None
-    def read_arrayinfo(self, arrayinfopath, verbose=False):
-        '''array info is the minimum set of information to uniquely describe a 
-        redundant array, and is needed to compute redundant info. It includes, 
-        in each line, bad antenna indices, bad unique bl indices, tolerance 
-        of error when checking redundancy, antenna locations, and visibility's 
-        antenna pairing conventions. Unlike redundant info which is a self-contained 
-        dictionary, items in array info each have their own fields in the instance.'''
-        if verbose: print "Reading", arrayinfopath
-        with open(arrayinfopath) as f: rawinfo = [[float(x) for x in line.split()] for line in f]
-        self.badAntenna = np.array(rawinfo[0], dtype=np.int)
-        if self.badAntenna[0] < 0: self.badAntenna = np.zeros(0) # XXX special significance for < 0?
-        rawpair = np.array(rawinfo[1], dtype=np.int)
-        if rawpair.shape[0] == 0 or rawpair.shape[0] % 2 != 0 or rawpair.min() < 0: # XXX shouldn't accept bad states
-            self.badUBLpair = np.array([])
-        else: self.badUBLpair = np.reshape(rawpair,(len(rawpair)/2,2))
-        self.antennaLocationTolerance = rawinfo[2][0]
-        for a in range(len(self.antennaLocation)):
-            assert(len(rawinfo[a+3]) == 3)
-            self.antennaLocation[a] = np.array(rawinfo[a+3])
-        bl = 0
-        vis_id = []
-        max_bl_cnt = self.nTotalAnt * (self.nTotalAnt + 1) / 2
-        maxline = len(rawinfo)
-        while len(rawinfo[bl + 3 + len(self.antennaLocation)]) == 2: # XXX don't like while loop
-            assert(bl < max_bl_cnt)
-            vis_id.append(np.array(rawinfo[bl + 3 + len(self.antennaLocation)], dtype=np.int))
-            bl += 1
-            if bl + 3 + len(self.antennaLocation) >= maxline: break
-        self.totalVisibilityId = np.array(vis_id, dtype=np.int)
-        self._gen_totalVisibilityId_dic()
     def filter_reds(self, reds, bls=None, ex_bls=None, ants=None, ex_ants=None, ubls=None, ex_ubls=None):
         '''Filter redundancies to include/exclude the specified bls, antennas, and unique bl groups.'''
         if ubls or ex_ubls:
@@ -114,6 +70,68 @@ class ArrayInfo:
                     ublgp[u] += [(j,i) for i,j in ublgp.pop(nu)]
                     ubl_v[u] /= len(ublgp[u]) # final step in weighted avg of ubl vectors
         return [v for v in ublgp.values() if len(v) > 1] # no such thing as redundancy of one
+    def compute_redundantinfo(self, tol=1e-6):
+        '''Use provided antenna locations (in arrayinfoPath) to derive redundancy equations'''
+        reds = self.compute_reds(tol=tol)
+        reds = self.filter_reds(reds, bls=self.totalVisibilityId.keys(), 
+                ex_ants=list(self.badAntenna), ex_ubls=[tuple(p) for p in self.badUBLpair])
+        info = RedundantInfo()
+        info.init_from_reds(reds, self.antennaLocation)
+        return info
+
+class ArrayInfoLegacy(ArrayInfo):
+    '''Legacy interface/mechanism for ArrayInfo.  Deprecated.'''
+    def __init__(self, nTotalAnt, badAntenna=[], badUBLpair=[], tol=1e-6):
+        ArrayInfo.__init__(self, nTotalAnt, badAntenna=badAntenna, badUBLpair=badUBLpair)
+        self.antennaLocationTolerance = tol
+        self.nTotalBaselineAuto = (nTotalAnt + 1) * nTotalAnt / 2
+        self.nTotalBaselineCross = (nTotalAnt - 1) * nTotalAnt / 2
+        self.totalVisibilityUBL = None
+        self._gen_totalVisibilityId_dic()
+    def _gen_totalVisibilityId_dic(self):
+        self.totalVisibilityId_dic = {}
+        for i, (a1,a2) in enumerate(self.totalVisibilityId): self.totalVisibilityId_dic[(a1,a2)] = i
+    def compute_redundantinfo(self, arrayinfoPath=None, tol=1e-6):
+        if arrayinfoPath is not None: self.read_arrayinfo(arrayinfoPath)
+        ArrayInfo.compute_redundantinfo(self, tol=tol)
+    def read_arrayinfo(self, arrayinfopath, verbose=False):
+        '''array info is the minimum set of information to uniquely describe a 
+        redundant array, and is needed to compute redundant info. It includes, 
+        in each line, bad antenna indices, bad unique bl indices, tolerance 
+        of error when checking redundancy, antenna locations, and visibility's 
+        antenna pairing conventions. Unlike redundant info which is a self-contained 
+        dictionary, items in array info each have their own fields in the instance.'''
+        if verbose: print "Reading", arrayinfopath
+        with open(arrayinfopath) as f: rawinfo = [[float(x) for x in line.split()] for line in f]
+        self.badAntenna = np.array(rawinfo[0], dtype=np.int)
+        if self.badAntenna[0] < 0: self.badAntenna = np.zeros(0) # XXX special significance for < 0?
+        rawpair = np.array(rawinfo[1], dtype=np.int)
+        if rawpair.shape[0] == 0 or rawpair.shape[0] % 2 != 0 or rawpair.min() < 0: # XXX shouldn't accept bad states
+            self.badUBLpair = np.array([])
+        else: self.badUBLpair = np.reshape(rawpair,(len(rawpair)/2,2))
+        self.antennaLocationTolerance = rawinfo[2][0]
+        for a in range(len(self.antennaLocation)):
+            assert(len(rawinfo[a+3]) == 3)
+            self.antennaLocation[a] = np.array(rawinfo[a+3])
+        bl = 0
+        vis_id = []
+        max_bl_cnt = self.nTotalAnt * (self.nTotalAnt + 1) / 2
+        maxline = len(rawinfo)
+        while len(rawinfo[bl + 3 + len(self.antennaLocation)]) == 2: # XXX don't like while loop
+            assert(bl < max_bl_cnt)
+            vis_id.append(np.array(rawinfo[bl + 3 + len(self.antennaLocation)], dtype=np.int))
+            bl += 1
+            if bl + 3 + len(self.antennaLocation) >= maxline: break
+        self.totalVisibilityId = np.array(vis_id, dtype=np.int)
+        self._gen_totalVisibilityId_dic()
+    def get_baseline(self,bl): # XXX unused except for legacy _compute_redundantinfo
+        '''inverse function of totalVisibilityId, calculate the bl index from 
+        the antenna pair. It allows flipping of a1 and a2, will return same result'''
+        bl = tuple(bl)
+        try: return self.totalVisibilityId_dic[bl]
+        except(KeyError): pass
+        try: return self.totalVisibilityId_dic[bl[::-1]]
+        except(KeyError): return None
     def compute_UBL(self,tolerance = 0.1): # XXX unused except legacy _compute_redundantinfo
         '''XXX DOCSTRING'''
         if tolerance == 0:
@@ -165,17 +183,7 @@ class ArrayInfo:
         for key in self.totalVisibilityUBL:
             self.totalVisibilityUBL[key] = ublmap[self.totalVisibilityUBL[key]]
         return ubl_vec
-    def compute_redundantinfo(self, arrayinfoPath=None, tol=1e-6):
-        '''Use provided antenna locations (in arrayinfoPath) to derive redundancy equations'''
-        self.antennaLocationTolerance = tol
-        if arrayinfoPath is not None: self.read_arrayinfo(arrayinfoPath)
-        reds = self.compute_reds(tol=tol)
-        reds = self.filter_reds(reds, bls=self.totalVisibilityId_dic.keys(), 
-                ex_ants=list(self.badAntenna), ex_ubls=[tuple(p) for p in self.badUBLpair])
-        info = RedundantInfo()
-        info.init_from_reds(reds, self.antennaLocation)
-        return info
-    def _compute_redundantinfo(self, arrayinfoPath=None, tol=1e-6): # XXX remove this legacy interface?
+    def compute_redundantinfo(self, arrayinfoPath=None, tol=1e-6): # XXX remove this legacy interface?
         '''Legacy version of compute_redundantinfo if you need subsetbls for data ordering.'''
         self.antennaLocationTolerance = tol
         if arrayinfoPath is not None: self.read_arrayinfo(arrayinfoPath)
