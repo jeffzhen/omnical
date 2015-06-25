@@ -2,7 +2,7 @@ import unittest, omnical._omnical as _O
 import omnical.info as Oi
 import numpy as np
 import numpy.linalg as la
-import os, time, math 
+import os, time, math
 
 class TestMethods(unittest.TestCase):
     def setUp(self):
@@ -24,11 +24,37 @@ class TestMethods(unittest.TestCase):
         self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna+1::2] == 0))
         self.assertTrue(np.all(additiveout == 0))
 
+    def test_redcal_log_inplace(self):
+        data = np.ones((10,20,32*33/2), dtype=np.complex64)
+        additivein = np.zeros_like(data)
+        additiveout = np.zeros_like(data) + 1 + 1j
+        calpar = np.zeros((10,20,3+2*(self.i.nAntenna+self.i.ublcount.size)),dtype='float32')
+        _O.redcal(data, calpar, self.i, additivein, additiveout)
+        self.assertTrue(np.all(calpar[:,:,:3+2*self.i.nAntenna] == 0))
+        self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna::2] == 1))
+        self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna+1::2] == 0))
+        self.assertTrue(np.all(additiveout == 0))
+
     def test_redcal_lin(self):
         data = np.ones((10,20,32*33/2), dtype=np.complex64)
         additivein = np.zeros_like(data)
         calpar = np.zeros((10,20,3+2*(self.i.nAntenna+self.i.ublcount.size)),dtype='float32')
         additiveout = _O.redcal(data, calpar, self.i, additivein, uselogcal=0)
+        #print calpar[0,0,:3+2*self.i.nAntenna]
+        self.assertTrue(np.all(calpar[:,:,:2] == 0))
+        np.testing.assert_almost_equal(calpar[:,:,2], np.zeros((10,20)), 10)
+        self.assertTrue(np.all(calpar[:,:,3:3+2*self.i.nAntenna] == 0))
+        self.assertTrue(np.all(calpar[:,:,3:3+2*self.i.nAntenna] == 0)) # not great to be checking an initialization state
+        self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna::2] == 0))
+        self.assertTrue(np.all(calpar[:,:,3+2*self.i.nAntenna+1::2] == 0))
+        self.assertTrue(np.all(additiveout == 0))
+
+    def test_redcal_lin_inplace(self):
+        data = np.ones((10,20,32*33/2), dtype=np.complex64)
+        additivein = np.zeros_like(data)
+        additiveout = np.zeros_like(data) + 1 + 1j
+        calpar = np.zeros((10,20,3+2*(self.i.nAntenna+self.i.ublcount.size)),dtype='float32')
+        _O.redcal(data, calpar, self.i, additivein, additiveout, uselogcal=0)
         #print calpar[0,0,:3+2*self.i.nAntenna]
         self.assertTrue(np.all(calpar[:,:,:2] == 0))
         np.testing.assert_almost_equal(calpar[:,:,2], np.zeros((10,20)), 10)
