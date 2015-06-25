@@ -122,27 +122,25 @@ def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, usel
     np_rawCalpar.shape=(data.shape[0], data.shape[1], len(rawCalpar) / data.shape[0] / data.shape[1])
     np_additive_out = np.frombuffer(additive_out, dtype=np.complex64)
     np_additive_out.shape = data.shape
-    # XXX why is this redcal2 and not redcal?
-    # JHZ: Redcal and 2 have different argument formats, one of them facilitates the multiprocessing
-    # XXX see if redcal and redcal2 can be merged
-    _O.redcal2(data, np_rawCalpar, Info, additivein, np_additive_out, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
+    # XXX Why is np_additive_out used here instead of additive_out?
+    _O.redcal(data, np_rawCalpar, Info, additivein, np_additive_out, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
 
     #np_additive_out = _O.redcal(data, np_rawCalpar, Info, additivein, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
     #additive_out[:len(additive_out)/2] = np.real(np_additive_out.flatten())
     #additive_out[len(additive_out)/2:] = np.imag(np_additive_out.flatten())
 
 
-#  ___        _              _          _    ___      _ _ _             _           
-# | _ \___ __| |_  _ _ _  __| |__ _ _ _| |_ / __|__ _| (_) |__ _ _ __ _| |_ ___ _ _ 
+#  ___        _              _          _    ___      _ _ _             _
+# | _ \___ __| |_  _ _ _  __| |__ _ _ _| |_ / __|__ _| (_) |__ _ _ __ _| |_ ___ _ _
 # |   / -_) _` | || | ' \/ _` / _` | ' \  _| (__/ _` | | | '_ \ '_/ _` |  _/ _ \ '_|
-# |_|_\___\__,_|\_,_|_||_\__,_\__,_|_||_\__|\___\__,_|_|_|_.__/_| \__,_|\__\___/_|  
+# |_|_\___\__,_|\_,_|_||_\__,_\__,_|_||_\__|\___\__,_|_|_|_.__/_| \__,_|\__\___/_|
 
 class RedundantCalibrator:
-    '''This class is the main tool for performing redundant calibration on data sets. 
-    For a given redundant configuration, say 32 antennas with 3 bad antennas, the 
-    user should create one instance of Redundant calibrator and reuse it for all data 
-    collected from that array. In general, upon creating an instance, the user need 
-    to create the info field of the instance by either computing it or reading it 
+    '''This class is the main tool for performing redundant calibration on data sets.
+    For a given redundant configuration, say 32 antennas with 3 bad antennas, the
+    user should create one instance of Redundant calibrator and reuse it for all data
+    collected from that array. In general, upon creating an instance, the user need
+    to create the info field of the instance by either computing it or reading it
     from a text file.'''
     def __init__(self, nTotalAnt, info=None):
         self.arrayinfo = ArrayInfoLegacy(nTotalAnt) # XXX if works, clean up
@@ -166,7 +164,7 @@ class RedundantCalibrator:
             if type(info) == str: self.read_redundantinfo(info)
             else: self.Info = info
     def read_redundantinfo(self, filename, txtmode=False, verbose=False):
-        '''redundantinfo is necessary for running redundant calibration. The text file 
+        '''redundantinfo is necessary for running redundant calibration. The text file
         should contain 29 lines each describes one item in the info.'''
         self.Info = RedundantInfo(filename=filename, txtmode=txtmode, verbose=verbose)
         self.totalVisibilityId = self.Info.totalVisibilityId # XXX might this raise an exception?
@@ -187,9 +185,9 @@ class RedundantCalibrator:
         assert(self.rawCalpar.shape == (self.nTime,self.nFrequency, 3+2*(self.Info.nAntenna+nUBL)))
         if nthread is None: nthread = min(mp.cpu_count() - 1, self.nFrequency)
         if nthread >= 2: return self._redcal_multithread(data, additivein, 0, nthread, verbose=verbose)
-        return _O.redcal(data, self.rawCalpar, self.Info, 
-            additivein, removedegen=int(self.removeDegeneracy), uselogcal=uselogcal, 
-            maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize), 
+        return _O.redcal(data, self.rawCalpar, self.Info,
+            additivein, removedegen=int(self.removeDegeneracy), uselogcal=uselogcal,
+            maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize),
             computeUBLFit=int(self.computeUBLFit), trust_period=self.trust_period)
     def lincal(self, data, additivein, nthread=None, verbose=False):
         '''XXX DOCSTRING'''
@@ -1009,8 +1007,8 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
 
 # XXX utility function belongs elsewhere
 def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
-    '''solve for the solution vector x such that mod(A.x, 2pi) = b, 
-    where the values range from -p to p. solution will be seeked 
+    '''solve for the solution vector x such that mod(A.x, 2pi) = b,
+    where the values range from -p to p. solution will be seeked
     on the first axis of b'''
     p = np.pi
     A = np.array(A_in)
@@ -1212,8 +1210,8 @@ def extract_crosspol_ubl(data, info):
 
 # XXX data compression stuff belongs in another file
 def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):
-    '''solve for band_limit * 2 -1 bins, returns the deconvolved solution and 
-    the norm of fitting error. All fft will be along first axis of spectra. 
+    '''solve for band_limit * 2 -1 bins, returns the deconvolved solution and
+    the norm of fitting error. All fft will be along first axis of spectra.
     Input and outputs are in fourier space, window in real space'''
     if len(spectra) != len(window):
         raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
@@ -1233,8 +1231,8 @@ def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):
 
 # XXX data compression stuff belongs in another file
 def deconvolve_spectra2(spectra, window, band_limit, var=None, correction_weight=1e-15, correction_weight2=1e6):
-    '''solve for band_limit * 2 -1 bins, returns the deconvolved solution 
-    and the norm of fitting error. All fft will be along first axis of 
+    '''solve for band_limit * 2 -1 bins, returns the deconvolved solution
+    and the norm of fitting error. All fft will be along first axis of
     spectra. Input and outputs are in real space, window also in real space'''
     if len(spectra) != len(window):
         raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
