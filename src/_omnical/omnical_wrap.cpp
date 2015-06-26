@@ -681,8 +681,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
     npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
     npy_intp nint, nfreq, nbls;
     RedInfoObject *redinfo;
-    PyArrayObject *data, *additivein, *calpar, *additiveout; // input arrays
-    additiveout = (PyArrayObject *) PyArray_SimpleNew(0, {}, PyArray_CFLOAT);
+    PyArrayObject *data, *additivein, *calpar, *additiveout = NULL; // input arrays
     PyObject *rv;
     static char *kwlist[] = {"data", "calpar", "info", "additivein", "additiveout", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "computeUBLFit", "trust_period", "dummy"};
     if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!|O!iiiffiii", kwlist,
@@ -707,8 +706,8 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
         PyErr_Format(PyExc_ValueError, "additivein must be of the same type and shape as data");
         return NULL;
     }
-    // This not in place if an empty array is given for additiveout.
-    if (!PyArray_NDIM(additiveout)){
+    // redcal is not done in place if an empty array is given for additiveout.
+    if (additiveout == NULL){
         return_additiveout = 1;
         additiveout = (PyArrayObject *) PyArray_SimpleNew(3, dims, PyArray_CFLOAT);
         CHK_NULL(additiveout);
@@ -726,10 +725,6 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
     // allocate output additiveout array
     calmemmodule module;////memory module to be reused in order to avoid redeclaring all sorts of long vectors
     initcalmodule(&module, &(redinfo->info));
-
-    // resize additiveout to the proper size determined by the data.
-    if (return_additiveout){
-    }
 
     for (int t = 0; t < nint; t++){
         for (int f = 0; f < nfreq; f++){
@@ -810,7 +805,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
     if (return_additiveout){
         rv = Py_BuildValue("O", PyArray_Return(additiveout));
         Py_DECREF(additiveout);
-    return rv;
+        return rv;
     } else {
         return Py_BuildValue("");
     }
