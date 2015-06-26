@@ -2,9 +2,8 @@
 # XXX lots of imports... are all necessary?  can code be separated into files with smaller dependency lists?
 # XXX clean house on commented code?
 # XXX obey python style conventions
-import math, ephem, resource, time
+import math, ephem, time
 import multiprocessing as mp
-import aipy as ap
 import struct
 import numpy as np
 import os, sys
@@ -15,11 +14,8 @@ import warnings
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import scipy as sp
-    import scipy.sparse as sps
     import scipy.linalg as la
-    import scipy.signal as ss
     import scipy.ndimage.filters as sfil
-    from scipy import interpolate
     try:
         from numpy import nanmedian as nanmedian
     except:
