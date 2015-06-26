@@ -681,8 +681,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
     npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
     npy_intp nint, nfreq, nbls;
     RedInfoObject *redinfo;
-    PyArrayObject *data, *additivein, *calpar, *additiveout = NULL; // input arrays
-    PyObject *rv;
+    PyArrayObject *data, *additivein, *calpar, *additiveout=NULL; // input arrays
     static char *kwlist[] = {"data", "calpar", "info", "additivein", "additiveout", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "computeUBLFit", "trust_period", "dummy"};
     if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!|O!iiiffiii", kwlist,
             &PyArray_Type, &data, &PyArray_Type, &calpar, &RedInfoType, &redinfo, &PyArray_Type, &additivein, &PyArray_Type, &additiveout,
@@ -798,17 +797,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
             }
         }
     }
-    //for (unsigned int b = 0; b < 5; b++) {
-        //cout << ((float *) PyArray_GETPTR3(calpar,0,10,b))[0] << " ";
-    //}
-    //cout << endl << flush;
-    if (return_additiveout){
-        rv = Py_BuildValue("O", PyArray_Return(additiveout));
-        Py_DECREF(additiveout);
-        return rv;
-    } else {
-        return Py_BuildValue("");
-    }
+    return PyArray_Return(additiveout);
 }
 
 PyObject *gaincal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in place version like redcal2
