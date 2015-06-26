@@ -650,7 +650,8 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
     npy_intp dims[3] = {0, 0, 0}; // time, fq, bl
     npy_intp nint, nfreq, nbls;
     RedInfoObject *redinfo;
-    PyArrayObject *data, *additivein, *calpar, *additiveout=NULL; // input arrays
+    PyArrayObject *data, *additivein, *calpar, *additiveout = NULL; // input arrays
+    PyObject *rv;
     static char *kwlist[] = {"data", "calpar", "info", "additivein", "additiveout", "uselogcal", "removedegen", "maxiter", "stepsize", "conv", "computeUBLFit", "trust_period", "dummy"};
     if (!PyArg_ParseTupleAndKeywords(args, kwds,"O!O!O!O!|O!iiiffiii", kwlist,
             &PyArray_Type, &data, &PyArray_Type, &calpar, &RedInfoType, &redinfo, &PyArray_Type, &additivein, &PyArray_Type, &additiveout,
@@ -683,7 +684,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
             || PyArray_DIM(additiveout,0) != nint || PyArray_DIM(additiveout,1) != nfreq || PyArray_DIM(additiveout,2) != nbls) {
         PyErr_Format(PyExc_ValueError, "additiveout must be of the same type and shape as data");
         return NULL;
-    }
+    } else Py_INCREF(additiveout);
     if (PyArray_NDIM(calpar) != 3 || PyArray_TYPE(calpar) != PyArray_FLOAT
             || PyArray_DIM(calpar,0) != nint || PyArray_DIM(calpar,1) != nfreq || (uint)PyArray_DIM(calpar,2) != calpar_v.size()) {
         PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data and the third being 3+2(nAnt+nUBL).");
@@ -766,6 +767,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
             }
         }
     }
+
     return PyArray_Return(additiveout);
 }
 
