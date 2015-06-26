@@ -118,7 +118,8 @@ class RedundantInfo(_O.RedundantInfo):
         for i,ant in enumerate(self.subsetant): antpos[ant] = self.antloc[i]
         return antpos
     def get_xy_AB(self):
-        '''return xyA, xyB, yxA, yxB for logcal cross polarizations'''
+        '''XXX need to define where/how this function is used.
+        return xyA, xyB, yxA, yxB for logcal cross polarizations'''
         na = self.nAntenna
         nu = len(self.ublcount)
         A = self.At.T.todense()
