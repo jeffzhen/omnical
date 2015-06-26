@@ -11,7 +11,28 @@ with warnings.catch_warnings():
 # |_|_\___\__,_|\_,_|_||_\__,_\__,_|_||_\__|___|_||_|_| \___/
 
 class RedundantInfo(_O.RedundantInfo):
-    '''Container for metadata used by redundant calibrator, which is eventually passed into C++ routines.'''
+    '''Metadata used by _omnical.redcal which is passed into C++ routines.  Fields are as follows:
+    'nAntenna', number of usable ants (not total number)
+    'nBaseline', number of bls, matches first dim of bltoubl/bl2d, now python only
+    'subsetant', (nAntenna,) antenna numbers used; index i corresponds to antenna number ai
+    'antloc', (nAntenna,3) float, antpos from which degeneracies (unsolvable cal params) are determined
+    'bltoubl', (nBaseline,) for each bl in bl2d, the index of corresponding unique bl in ubl/ublcount/ublindex
+    'bl2d', (nBaseline,2) the i,j indices of ants in subsetant for each bl
+    'ublcount', (nUBL,) number of bls contributing to each ubl
+    'ublindex', (nBaseline,) bl2d index for each bl contributing to each ubl
+    'bl1dmatrix', (nAntenna,nAntenna) for each i,j antenna pair, the bl2d index of that bl 
+    'degenM', (nAntenna+nUBL,nAntenna) matrix projecting out degenerate cal params
+    'At', (ncross,nAntenna+nUBL), sparse, matrix containing amp cal equations
+    'Bt', (ncross,nAntenna+nUBL), sparse, matrix containing phs cal equations
+    'AtAi', precomputed matrix [At A]^-1 used to weight measurements
+    'BtBi', precomputed matrix [Bt B]^-1 used to weight measurements
+    ------------------------------------------------------------------------
+    'nUBL', number of unique bls; XXX legacy only
+    'subsetbl', (nBaseline,) for each bl in bl2d, the index in totalVisibilityId; XXX legacy only
+    'ubl', (nUBL,3) float, sep vector for each unique baseline; XXX unused?
+    'reversed', for each bl in crossindex, -1 if flipped wrt corresponding ubl, otherwise 1; XXX legacy only
+    'crossindex', indices in bl2d in totVisibilityId; XXX legacy only
+    'totalVisibilityId', (nBaselines, 2) i,j for every bl; defines data order into omnical; XXX legacy only'''
     def __init__(self, filename=None):
         _O.RedundantInfo.__init__(self)
         if filename: self.from_npz(filename)
@@ -118,7 +139,8 @@ class RedundantInfo(_O.RedundantInfo):
         for i,ant in enumerate(self.subsetant): antpos[ant] = self.antloc[i]
         return antpos
     def get_xy_AB(self):
-        '''return xyA, xyB, yxA, yxB for logcal cross polarizations'''
+        '''XXX need to define where/how this function is used.
+        return xyA, xyB, yxA, yxB for logcal cross polarizations'''
         na = self.nAntenna
         nu = len(self.ublcount)
         A = self.At.T.todense()

@@ -2,9 +2,8 @@
 # XXX lots of imports... are all necessary?  can code be separated into files with smaller dependency lists?
 # XXX clean house on commented code?
 # XXX obey python style conventions
-import math, ephem, resource, time
+import math, ephem, time
 import multiprocessing as mp
-import aipy as ap
 import struct
 import numpy as np
 import os, sys
@@ -15,11 +14,8 @@ import warnings
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import scipy as sp
-    import scipy.sparse as sps
     import scipy.linalg as la
-    import scipy.signal as ss
     import scipy.ndimage.filters as sfil
-    from scipy import interpolate
     try:
         from numpy import nanmedian as nanmedian
     except:
@@ -31,6 +27,23 @@ __version__ = '4.0.4'
 julDelta = 2415020.# =julian date - pyephem's Observer date
 PI = np.pi
 
+# calpar inside of _omnical is a flat array of calibration solutions as follows:
+# calpar[...,0] = # iterations
+# calpar[...,1] = additiveout**2 # XXX don't understand point of this.  maybe how much of chisq is additiveout?
+# calpar[...,2] = chisq # XXX maybe break this down by antenna someday
+# calpar[...,3:3+nant] = log10(abs(g_i)) # g_i is gain of ant i, where i is internal indexing order in subsetant
+# calpar[...,3+nant:3+2*nant] = phase(g_a)
+# calpar[...,3+2*nant:3+2*nant+2*nubl] = real,imag component of avg solution for each ubl
+# Any other dimensions of the array (which precede the final axis) 
+# will be over time and frequency, as in the input data array
+# XXX is the omnical baseline convention conjugated wrt aipy?  I think so
+
+# TODO: wrap _O._redcal to return calpar parsed up sensibly
+# considerations: _redcal starts with calpar as a starting place.  Do we need the ability to go
+# from parsed solutions back to calpar?  if so, might want an object that holds calpar and parses accordingly
+
+
+# XXX if calpar is parsed into a sensible format, then apply_calpar functions should not be necessary.
 def apply_calpar(data, calpar, visibilityID):
     '''apply complex calpar for all antennas onto all bls, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq'''
     assert(calpar.shape[-1] > np.amax(visibilityID) and data.shape[-1] == len(visibilityID))
@@ -117,6 +130,7 @@ def apply_calpar2(data, calpar, calpar2, visibilityID):
 #    opomnifit.tofile(outputPath + '.omnifit')
 
 def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit=1, trust_period=1):
+    # XXX with merge of _omnical.redcal and _omnical.redcal2, is this function still necessary?
     '''same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container.  this is the target of RedundantCalibrator._redcal_multithread'''
     np_rawCalpar = np.frombuffer(rawCalpar, dtype=np.float32)
     np_rawCalpar.shape=(data.shape[0], data.shape[1], len(rawCalpar) / data.shape[0] / data.shape[1])
@@ -136,6 +150,7 @@ def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, usel
 # |_|_\___\__,_|\_,_|_||_\__,_\__,_|_||_\__|\___\__,_|_|_|_.__/_| \__,_|\__\___/_|
 
 class RedundantCalibrator:
+    # XXX is this class necessary, or could it be replaced by a sensible wrapper around redcal?
     '''This class is the main tool for performing redundant calibration on data sets.
     For a given redundant configuration, say 32 antennas with 3 bad antennas, the
     user should create one instance of Redundant calibrator and reuse it for all data
@@ -313,6 +328,7 @@ class RedundantCalibrator:
         omnifit[:, :, 7::2] = self.rawCalpar[:, :, 3 + 2 * self.Info.nAntenna + 1::2].transpose((0,2,1))
         return omnifit
     def diagnose(self, data = None, additiveout = None, flag = None, verbose = True, healthbar = 2, ubl_healthbar = 50, warn_low_redun = False, ouput_txt = False):
+        # XXX what does this function do?
         '''XXX DOCSTRING'''
         errstate = np.geterr()
         np.seterr(invalid = 'ignore')
@@ -383,6 +399,7 @@ class RedundantCalibrator:
             return txt
     def flag(self, mode='12', twindow=5, fwindow=5, nsigma=4, _dbg_plotter=None, _niter=3):
         '''return true if flagged False if good and unflagged'''
+        # XXX what does this function do?
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
         chisq = np.copy(self.rawCalpar[:,:,2])
@@ -517,6 +534,7 @@ class RedundantCalibrator_X5(RedundantCalibrator):
 
         self.badAntenna = range(16) + range(56,60) + [16,19,50]
 
+# XXX omnical should not be in charge of storing these quantities to disk.  this should be up to the user
 def load_omnichisq(path):
     '''XXX DOCSTRING'''
     path = os.path.expanduser(path)
