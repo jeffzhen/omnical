@@ -432,13 +432,13 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
             calibrators[pol].computeUBLFit = False
             additiveout = calibrators[pol].lincal(data[p], additivein, nthread = nthread, verbose=True)
 
-    if needrawcal:#restore original data's phase. Since we are "changing data" here, ublfits in rawCalpar dont have to change accordingly
-        #calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
-        calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] + np.angle(crude_calpar[pol][:, calibrators[pol].subsetant])
-        #data[p] = np.copy(original_data)
-        data[p] = omni.apply_calpar(data[p], np.exp(-1j * np.angle(crude_calpar[pol])), calibrators[pol].totalVisibilityId)
-        additivein = omni.apply_calpar(additivein, np.exp(-1j * np.angle(crude_calpar[pol])), calibrators[pol].totalVisibilityId)
-        #del original_data
+    #if needrawcal:#restore original data's phase. Since we are "changing data" here, ublfits in rawCalpar dont have to change accordingly
+        ##calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
+        #calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] + np.angle(crude_calpar[pol][:, calibrators[pol].subsetant])
+        ##data[p] = np.copy(original_data)
+        #data[p] = omni.apply_calpar(data[p], np.exp(-1j * np.angle(crude_calpar[pol])), calibrators[pol].totalVisibilityId)
+        #additivein = omni.apply_calpar(additivein, np.exp(-1j * np.angle(crude_calpar[pol])), calibrators[pol].totalVisibilityId)
+        ##del original_data
 
     #####################flag bad data part 1#########################
     #####################need to flag before absolute calibration, bc absolutecal supresses high chisq caused by rfi
@@ -460,6 +460,7 @@ for p, pol in zip(range(len(data)), wantpols.keys()):
 
     #omni.omniview([data[0,0,110], calibrators['xx'].get_calibrated_data(data[0])[0,110]], info = calibrators['xx'].get_info())
     if have_model_treasure and (sunpos[:,0] < -.1).all():
+        raise Exception("Model treasure temporarily disabled.")
         #print np.nanmean(np.linalg.norm((data[0]-calibrators[pol].get_modeled_data())[..., calibrators[pol].subsetbl[calibrators[pol].crossindex]], axis = -1)**2 / calibrators[pol].rawCalpar[...,2])
         amp_cal, phs_cal = calibrators[pol].absolutecal_w_treasure(model_treasure, pol, np.array(lst)*TPI/24., tolerance = 2.)
         #print np.nanmean(np.linalg.norm((data[0]-calibrators[pol].get_modeled_data())[..., calibrators[pol].subsetbl[calibrators[pol].crossindex]], axis = -1)**2 / calibrators[pol].rawCalpar[...,2])
@@ -644,7 +645,7 @@ apply_pol = crosspols.keys()[0][1] + crosspols.keys()[0][1]
 #gain
 calibrators[apply_pol].rawCalpar[..., 3+c.nAntenna:3+2*c.nAntenna] = (calibrators[apply_pol].rawCalpar[..., 3+c.nAntenna:3+2*c.nAntenna] + c.antloc[:,:2].dot(sol.transpose(1,0,2)).transpose(1,2,0) + overall_angle[..., None] + PI)%TPI -PI
 
-###use gain phase to try to fix pi jump for a second time
+###use gain phase to try to fix pi jump for a second time: doesnt do anything  at the moment
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=RuntimeWarning)
     median_calpar_angle = omni.medianAngle(omni.medianAngle(calibrators[apply_pol].rawCalpar[..., 3+c.nAntenna:3+2*c.nAntenna], axis = 0), axis = -1)
@@ -660,7 +661,7 @@ with warnings.catch_warnings():
             offset = -PI/2
         median_calpar_angle[i] = (median_calpar_angle[i] - offset)%(PI) + offset
     pi_jump = median_calpar_angle - omni.medianAngle(omni.medianAngle(calibrators[apply_pol].rawCalpar[..., 3+c.nAntenna:3+2*c.nAntenna], axis = 0), axis = -1)
-    
+
 
 
 #ubl fits
@@ -672,6 +673,15 @@ calibrators[apply_pol].rawCalpar[..., 3+2*c.nAntenna+1::2] = np.imag(new_ubl_fit
 crossextract[0] = crossextract[0] / np.exp(1.j * overall_angle[..., None])
 crossextract[1] = crossextract[1] * np.exp(1.j * overall_angle[..., None])
 #========================End of cross-pol==============================#
+
+if needrawcal:#restore original data's phase. Since we are "changing data" here, ublfits in rawCalpar dont have to change accordingly
+    for p, pol in enumerate(calibrators.keys()):
+        #calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3:3 + calibrators[pol].nAntenna] + np.log10(np.abs(crude_calpar[pol][:, calibrators[pol].subsetant]))
+        calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] = calibrators[pol].rawCalpar[:, :, 3 + calibrators[pol].nAntenna:3 + 2 * calibrators[pol].nAntenna] + np.angle(crude_calpar[pol][:, calibrators[pol].subsetant])
+        #data[p] = np.copy(original_data)
+        data[p] = omni.apply_calpar(data[p], np.exp(-1j * np.angle(crude_calpar[pol])), calibrators[pol].totalVisibilityId)
+        additivein = omni.apply_calpar(additivein, np.exp(-1j * np.angle(crude_calpar[pol])), calibrators[pol].totalVisibilityId)
+        #del original_data
 
 
 #todo: flagging using cross_chisq

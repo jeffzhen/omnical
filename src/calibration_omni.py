@@ -24,7 +24,7 @@ with warnings.catch_warnings():
         print "WARNING: using scipy's nanmedian function with is much slower than numpy.nanmedian. Consider numpy 1.9+."
         from scipy.stats import nanmedian
 
-__version__ = '4.0.5'
+__version__ = '4.0.6'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
