@@ -248,7 +248,7 @@ trials = 0
 calibrators = {}
 data = {}
 flags = {}
-while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) < nant / 2:
+while new_bad_ant != [] and trials < max_try:# and len(badAntenna + new_bad_ant) < nant / 2:
     trials = trials + 1
     if trials > 1:
         print "##########################################################################"
@@ -271,7 +271,7 @@ while new_bad_ant != [] and trials < max_try and len(badAntenna + new_bad_ant) <
         if input_type == 'uv':
             calibrators[pol] = omni.RedundantCalibrator_PAPER(aa)
         elif input_type == 'odf':
-            calibrators[pol] = omni.RedundantCalibrator_X5(header_antloc)
+            calibrators[pol] = omni.RedundantCalibrator_X5All(header_antloc)
 
         calibrators[pol].nTime = len(timing)
         calibrators[pol].nFrequency = nfreq

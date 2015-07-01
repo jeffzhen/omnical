@@ -24,7 +24,7 @@ with warnings.catch_warnings():
         print "WARNING: using scipy's nanmedian function with is much slower than numpy.nanmedian. Consider numpy 1.9+."
         from scipy.stats import nanmedian
 
-__version__ = '4.0.4'
+__version__ = '4.0.5'
 
 FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
@@ -893,6 +893,8 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, oppath, 
     ftotal = int(omnigains[omnigains.keys()[0]][0,0,3])
 
     newflag = np.zeros((ttotal, ftotal), dtype=bool)
+    for key in omnigains.keys():
+        newflag = newflag|np.isnan(omnigains[key][:, 4:])|np.isinf(omnigains[key][:, 4:])
     if flags is not None:
         for pol in flags.keys():
             if flags[pol].shape != (ttotal, ftotal):
@@ -2548,13 +2550,16 @@ class RedundantCalibrator_PAPER(RedundantCalibrator):
         self.antennaLocation[self._goodAntenna] = self.antennaLocationAtom[self._goodAntenna].dot(la.pinv(A.transpose().dot(A)).dot(A.transpose().dot(self.preciseAntennaLocation[self._goodAntenna]))[:3])##The overall constant is so large that it screws all the matrix inversion up. so im not including the over all 1e8 level shift
         self.antennaLocation[self._goodAntenna, ::2] = self.antennaLocation[self._goodAntenna, ::2].dot(np.array([[np.cos(PI/2+aa.lat), np.sin(PI/2+aa.lat)],[-np.sin(PI/2+aa.lat), np.cos(PI/2+aa.lat)]]).transpose())###rotate into local coordinates
 
-class RedundantCalibrator_X5(RedundantCalibrator):
+class RedundantCalibrator_X5All(RedundantCalibrator):
     def __init__(self, antennaLocation):
         nant = len(antennaLocation)
         RedundantCalibrator.__init__(self, nant)
         self.antennaLocation = antennaLocation
         self.totalVisibilityId = np.concatenate([[[i,j] for j in range(i, nant)] for i in range(nant)])
 
+class RedundantCalibrator_X5(RedundantCalibrator_X5All):
+    def __init__(self, antennaLocation):
+        RedundantCalibrator_X5All.__init__(self, antennaLocation)
         self.badAntenna = range(16) + range(56,60) + [16,19,50]
 
 ##########################################################################################
