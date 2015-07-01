@@ -14,19 +14,25 @@ sa.lat = uv['latitud']
 sun = ephem.Sun()
 del(uv)
 
+tag = 'feb2015'#'march2015v6'#'feb2015'#
+script_ver = '2'
 #get data for all freq and lst, only care abt first time slice of each file
 NT = 100
 NF = 203
 CEILING = 2.e8
-
+MIN_FILTER_SIZE = (1, 1)
+HEAVY_FILTER_FREQ_RANGE = [60, 150]
+HEAVY_MIN_FILTER_SIZE = (1,1)#(1, 15)
+MEDIAN_FILTER_SIZE = (6,3)
 for POL in ['xx', 'yy']:
-    chisqfiles=sorted(glob.glob('/data4/paper/hz2ug/2015PSA64/*%s.omnichisq'%POL))
+    chisqfiles=sorted(glob.glob('/data4/paper/hz2ug/2015PSA64/zen*%s*%s.omnichisq'%(tag, POL)))
 
     data = np.zeros((NT, NF)) + CEILING
 
     print "WARNING! assuming same dof for all chisqs"
     dof = omni.read_redundantinfo(chisqfiles[0].replace('.omnichisq','.binfo'), DoF_only=True)
     for i, chisqfile in enumerate(chisqfiles):
+        #print '.',
         rawd = np.fromfile(chisqfile,dtype='float32')
         
         sa.date = struct.unpack('d', struct.pack('ff', *rawd[:2].tolist()))[0] - julDelta
@@ -34,11 +40,12 @@ for POL in ['xx', 'yy']:
         sun.compute(sa)
         if sun.alt < -0.1:
             nf = rawd[2]
+            nt = len(rawd)/(3 + nf)
+            rawd.shape = (nt, 3 + nf)
             
-            d = rawd[3:3+nf:int(np.floor(nf/NF))][:NF]/dof
-            flag = np.fromfile(chisqfile.replace('.omnichisq','.omniflag'),dtype='bool')[:nf:int(np.floor(nf/NF))][:NF]
-            
-            
+            flag = np.fromfile(chisqfile.replace('.omnichisq','.omniflag'),dtype='bool').reshape((nt,nf))[:, ::int(np.floor(nf/NF))][:,:NF].all(axis=0)
+
+            d = np.min(rawd[:, 3::int(np.floor(nf/NF))][:, :NF], axis = 0)/dof
             #print flag.dtype, (d==0).dtype
             flag = flag|(d==0)
             update_t = int(np.floor(lst/(2*np.pi)*NT))
@@ -46,9 +53,15 @@ for POL in ['xx', 'yy']:
 
 
     #model = np.outer(np.median(data, axis = 1), np.median(data, axis = 0))
-    model = sfil.minimum_filter(data, size = 3)
-
-    model = model * np.median(data/model)
+    no_model = (data==CEILING)
+    no_model_freq = (np.sum(no_model, axis = 0) > NT/3)
+    no_model = no_model | no_model_freq[None, :]
+    data[no_model] = CEILING
+    model = sfil.minimum_filter(data, size = MIN_FILTER_SIZE)
+    model[:, HEAVY_FILTER_FREQ_RANGE[0]:HEAVY_FILTER_FREQ_RANGE[1]] = sfil.minimum_filter(data, size = HEAVY_MIN_FILTER_SIZE)[:, HEAVY_FILTER_FREQ_RANGE[0]:HEAVY_FILTER_FREQ_RANGE[1]]
+    model = sfil.median_filter(model, size = MEDIAN_FILTER_SIZE)
+    
+    model = model * np.median(data[~no_model]/model[~no_model])
     plt.subplot('211');plt.imshow(np.log10(data), vmin = 4, vmax = 5);
     plt.subplot('212');plt.imshow(np.log10(model), vmin = 4, vmax = 5);
     opmodel = np.zeros((len(model), NF + 3), dtype='float32')
@@ -57,12 +70,13 @@ for POL in ['xx', 'yy']:
         opmodel[i, 0:2] = struct.unpack('ff', struct.pack('d', i * 2*np.pi/NT))
     opmodel[:, 2] = NF
     opmodel[:, 3:] = model
-    opmodel.tofile('/data4/paper/hz2ug/2015PSA64/PSA64_chisq_model_%s.omnichisq'%POL)
+    opmodel.tofile('/data4/paper/hz2ug/2015PSA64/PSA64_chisq_model_%s_v%s_%s.omnichisq'%(tag, script_ver, POL))
     plt.show()
 
     #plotting for one frequency
-    for j,wantbin in enumerate([40, 80, 110, 165]):
-        data = np.zeros(len(chisqfiles), dtype='float32')
+    data = {}
+    for j,wantbin in enumerate([40, 82, 110, 165]):
+        data[wantbin] = np.zeros(len(chisqfiles), dtype='float32')
         lst = np.zeros(len(chisqfiles), dtype='float32')
         sundown = np.zeros(len(chisqfiles), dtype='bool')
         for i, chisqfile in enumerate(chisqfiles):
@@ -76,11 +90,13 @@ for POL in ['xx', 'yy']:
             sundown[i] = sun.alt < -0.1
             d = rawd[wantbin + 3::nf+3]/dof
             try:
-                data[i] = np.min(d[~flag[wantbin::nf]])
+                data[wantbin][i] = np.min(d[~flag[wantbin::nf]])
+                if sundown[i] and 0 < lst[i] and lst[i] < 2 and abs(data[wantbin][i] - 8e4) < 2e4:
+                    print chisqfile
             except:
-                data[i] = np.nan
+                data[wantbin][i] = np.nan
 
-        plt.subplot('14%i'%(j+1));plt.scatter(lst[sundown], data[sundown]);plt.scatter(np.arange(0,2*np.pi,2*np.pi/NT), model[:,wantbin], color='green');plt.scatter(np.arange(0,2*np.pi,2*np.pi/NT), 4.e3 + 1.2*model[:,wantbin], color='cyan');plt.ylim([0,1e5]);plt.title(wantbin)
+        plt.subplot('14%i'%(j+1));plt.scatter(lst[sundown], data[wantbin][sundown]);plt.scatter(np.arange(0,2*np.pi,2*np.pi/NT), model[:,wantbin], color='green');plt.scatter(np.arange(0,2*np.pi,2*np.pi/NT), 1.5 * model[:,wantbin], color='cyan');plt.ylim([0,1e5]);plt.title(wantbin)
 
     plt.show()
 exit()
