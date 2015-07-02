@@ -894,7 +894,7 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, oppath, 
 
     newflag = np.zeros((ttotal, ftotal), dtype=bool)
     for key in omnigains.keys():
-        newflag = newflag|np.isnan(omnigains[key][:, :, 4:]).any(axis=1)|np.isinf(omnigains[key][:, :, 4:]).any(axis=1)
+        newflag = newflag|np.isnan(omnigains[key][:, :, 4::2]).any(axis=1)|np.isinf(omnigains[key][:, :, 4::2]).any(axis=1)
     if flags is not None:
         for pol in flags.keys():
             if flags[pol].shape != (ttotal, ftotal):
