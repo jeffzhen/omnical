@@ -293,7 +293,7 @@ class RedundantInfoLegacy(RedundantInfo):
         #self.bl2d = d[12].reshape(self.nBaseline,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
         bl2d = d[12].reshape(-1,2).astype(np.int32) # 1d bl index to (i,j) antenna pair
         bl2dc = bl2d[crossindex]
-        if False: # XXX I worry from_array, particularly this block, has not been effectively tested since removing reversed
+        if True: # XXX I worry from_array, particularly this block, has not been effectively tested since removing reversed
             bl2dc0 = np.where(reverse == 1, bl2dc[:,0], bl2dc[:,1])
             bl2dc1 = np.where(reverse == 1, bl2dc[:,1], bl2dc[:,0])
             bl2dc[:,0],bl2dc[:,1] = bl2dc0,bl2dc1
