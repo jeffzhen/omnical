@@ -1,8 +1,60 @@
 import numpy as np
-import numpy.linalg as la
-import scipy.sparse as sps
 import itertools
 from info import RedundantInfo
+
+def filter_reds(reds, bls=None, ex_bls=None, ants=None, ex_ants=None, ubls=None, ex_ubls=None):
+    '''Filter redundancies to include/exclude the specified bls, antennas, and unique bl groups.'''
+    if ubls or ex_ubls:
+        bl2gp = {}
+        for i,gp in enumerate(reds):
+            for bl in gp: bl2gp[bl] = bl2gp[bl[::-1]] = i
+        if ubls: ubls = [bl2gp[bl] for bl in ubls if bl2gp.has_key(bl)]
+        else: ubls = range(len(reds))
+        if ex_ubls: ex_ubls = [bl2gp[bl] for bl in ex_ubls if bl2gp.has_key(bl)]
+        else: ex_ubls = []
+        reds = [gp for i,gp in enumerate(reds) if i in ubls and i not in ex_ubls]
+    if bls is None: bls = [bl for gp in reds for bl in gp]
+    if ex_bls: bls = [(i,j) for i,j in bls if (i,j) not in ex_bls and (j,i) not in ex_bls]
+    if ants: bls = [(i,j) for i,j in bls if i in ants and j in ants]
+    if ex_ants: bls = [(i,j) for i,j in bls if i not in ex_ants and j not in ex_ants]
+    bld = {}
+    for bl in bls: bld[bl] = bld[bl[::-1]] = None
+    reds = [[bl for bl in gp if bld.has_key(bl)] for gp in reds]
+    return [gp for gp in reds if len(gp) > 1]
+
+def compute_reds(antpos, tol=0.1):
+    '''Return redundancies on the basis of antenna positions.  As in RedundantInfo.init_from_reds, each
+    list element consists of a list of (i,j) antenna indices whose separation vectors (pos[j]-pos[i])
+    fall within the specified tolerance of each other.  'antpos' is a (nant,3) array of antenna positions.'''
+    bls = [(i,j) for i in xrange(antpos.shape[0]) for j in xrange(i+1,antpos.shape[0])]
+    # Coarsely sort bls using absolute grid (i.e. not relative separations); some groups may have several uids
+    def sep(i,j): return antpos[j] - antpos[i]
+    def uid(s): return tuple(map(int,np.around(s/tol)))
+    ublgp,ubl_v = {},{}
+    for bl in bls:
+        s = sep(*bl); u = uid(s)
+        ubl_v[u] = ubl_v.get(u,0) + s
+        ublgp[u] = ublgp.get(u,[]) + [bl]
+    for u in ubl_v: ubl_v[u] /= len(ublgp[u])
+    # Now combine neighbors and Hermitian neighbors if within tol
+    def neighbors(u):
+        for du in itertools.product((-1,0,1),(-1,0,1),(-1,0,1)): yield (u[0]+du[0],u[1]+du[1],u[2]+du[2])
+    for u in ubl_v.keys(): # Using 'keys' here allows dicts to be modified, but results in missing keys
+        if not ubl_v.has_key(u): continue # bail if this has been popped already
+        for nu in neighbors(u):
+            if not ubl_v.has_key(nu): continue # bail if nonexistant
+            if u == nu: continue
+            if np.linalg.norm(ubl_v[u] - ubl_v[nu]) < tol:
+                ubl_v[u] = ubl_v[u] * len(ublgp[u]) + ubl_v.pop(nu) * len(ublgp[nu])
+                ublgp[u] += ublgp.pop(nu)
+                ubl_v[u] /= len(ublgp[u]) # final step in weighted avg of ubl vectors
+        for nu in neighbors((-u[0],-u[1],-u[2])): # Find Hermitian neighbors
+            if not ubl_v.has_key(nu): continue # bail if nonexistant
+            if np.linalg.norm(ubl_v[u] + ubl_v[nu]) < tol: # note sign reversal
+                ubl_v[u] = ubl_v[u] * len(ublgp[u]) - ubl_v.pop(nu) * len(ublgp[nu]) # note sign reversal
+                ublgp[u] += [(j,i) for i,j in ublgp.pop(nu)]
+                ubl_v[u] /= len(ublgp[u]) # final step in weighted avg of ubl vectors
+    return [v for v in ublgp.values() if len(v) > 1] # no such thing as redundancy of one
 
 class ArrayInfo:
     '''Store information about an antenna array needed for computing redundancy and indexing matrices.'''
@@ -19,57 +71,12 @@ class ArrayInfo:
         self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j+1)] for j in range(nTotalAnt)])
     def filter_reds(self, reds, bls=None, ex_bls=None, ants=None, ex_ants=None, ubls=None, ex_ubls=None):
         '''Filter redundancies to include/exclude the specified bls, antennas, and unique bl groups.'''
-        if ubls or ex_ubls:
-            bl2gp = {}
-            for i,gp in enumerate(reds):
-                for bl in gp: bl2gp[bl] = bl2gp[bl[::-1]] = i
-            if ubls: ubls = [bl2gp[bl] for bl in ubls if bl2gp.has_key(bl)]
-            else: ubls = range(len(reds))
-            if ex_ubls: ex_ubls = [bl2gp[bl] for bl in ex_ubls if bl2gp.has_key(bl)]
-            else: ex_ubls = []
-            reds = [gp for i,gp in enumerate(reds) if i in ubls and i not in ex_ubls]
-        if bls is None: bls = [bl for gp in reds for bl in gp]
-        if ex_bls: bls = [(i,j) for i,j in bls if (i,j) not in ex_bls and (j,i) not in ex_bls]
-        if ants: bls = [(i,j) for i,j in bls if i in ants and j in ants]
-        if ex_ants: bls = [(i,j) for i,j in bls if i not in ex_ants and j not in ex_ants]
-        bld = {}
-        for bl in bls: bld[bl] = bld[bl[::-1]] = None
-        reds = [[bl for bl in gp if bld.has_key(bl)] for gp in reds]
-        return [gp for gp in reds if len(gp) > 1]
+        filter_reds(reds, bls=bls, ex_bls=ex_bls, ants=ants, ex_ants=ex_ants, ubls=ubls, ex_ubls=ex_ubls)
     def compute_reds(self, tol=0.1):
         '''Return redundancies on the basis of antenna positions.  As in RedundantInfo.init_from_reds, each
         list element consists of a list of (i,j) antenna indices whose separation vectors (pos[j]-pos[i])
         fall within the specified tolerance of each other.'''
-        bls = [(i,j) for i in xrange(self.nTotalAnt) for j in xrange(i+1,self.nTotalAnt)]
-        # Coarsely sort bls using absolute grid (i.e. not relative separations); some groups may have several uids
-        def sep(i,j): return self.antennaLocation[j] - self.antennaLocation[i]
-        def uid(s): return tuple(map(int,np.around(s/tol)))
-        ublgp,ubl_v = {},{}
-        for bl in bls:
-            s = sep(*bl); u = uid(s)
-            ubl_v[u] = ubl_v.get(u,0) + s
-            ublgp[u] = ublgp.get(u,[]) + [bl]
-        for u in ubl_v: ubl_v[u] /= len(ublgp[u])
-        # Now combine neighbors and Hermitian neighbors if within tol
-        def neighbors(u):
-            #for du in itertools.product((-1,0,1),(-1,0,1)): yield (u[0]+du[0],u[1]+du[1])
-            for du in itertools.product((-1,0,1),(-1,0,1),(-1,0,1)): yield (u[0]+du[0],u[1]+du[1],u[2]+du[2])
-        for u in ubl_v.keys(): # Using 'keys' here allows dicts to be modified, but results in missing keys
-            if not ubl_v.has_key(u): continue # bail if this has been popped already
-            for nu in neighbors(u):
-                if not ubl_v.has_key(nu): continue # bail if nonexistant
-                if u == nu: continue
-                if np.linalg.norm(ubl_v[u] - ubl_v[nu]) < tol:
-                    ubl_v[u] = ubl_v[u] * len(ublgp[u]) + ubl_v.pop(nu) * len(ublgp[nu])
-                    ublgp[u] += ublgp.pop(nu)
-                    ubl_v[u] /= len(ublgp[u]) # final step in weighted avg of ubl vectors
-            for nu in neighbors((-u[0],-u[1],-u[2])): # Find Hermitian neighbors
-                if not ubl_v.has_key(nu): continue # bail if nonexistant
-                if np.linalg.norm(ubl_v[u] + ubl_v[nu]) < tol: # note sign reversal
-                    ubl_v[u] = ubl_v[u] * len(ublgp[u]) - ubl_v.pop(nu) * len(ublgp[nu]) # note sign reversal
-                    ublgp[u] += [(j,i) for i,j in ublgp.pop(nu)]
-                    ubl_v[u] /= len(ublgp[u]) # final step in weighted avg of ubl vectors
-        return [v for v in ublgp.values() if len(v) > 1] # no such thing as redundancy of one
+        return compute_reds(self.antennaLocation, tol=tol)
     def compute_redundantinfo(self, tol=1e-6):
         '''Use provided antenna locations (in arrayinfoPath) to derive redundancy equations'''
         reds = self.compute_reds(tol=tol)
@@ -78,6 +85,9 @@ class ArrayInfo:
         info = RedundantInfo()
         info.init_from_reds(reds, self.antennaLocation)
         return info
+
+import scipy.sparse as sps
+import numpy.linalg as la
 
 class ArrayInfoLegacy(ArrayInfo):
     '''Legacy interface/mechanism for ArrayInfo.  Deprecated.'''
