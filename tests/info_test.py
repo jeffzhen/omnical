@@ -97,25 +97,25 @@ class TestRedInfo(unittest.TestCase):
     #    i2 = Oi.RedundantInfo()
     #    i2.fromfile_txt(redinfo_psa32)
     #    self.assertTrue(i2.compare(i1,verbose=VERBOSE))
-    def test_tofromarray(self):
-        i1 = Oi.RedundantInfoLegacy()
-        i1.fromfile_txt(redinfo_psa32)
-        i2 = Oi.RedundantInfoLegacy()
-        d = i1.to_array(verbose=VERBOSE)
-        # XXX yuck
-        d = np.array(d)
-        markerindex = np.where(d == Oi.MARKER)[0]
-        d = np.array([np.array(d[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
-        i2.from_array(d)
-        i2.update()
-        self.assertTrue(i1.compare(i2, verbose=VERBOSE))
-    def test_tofromfile(self):
-        i1 = Oi.RedundantInfoLegacy()
-        i1.fromfile_txt(redinfo_psa32)
-        i2 = Oi.RedundantInfoLegacy()
-        i1.tofile(tmpfile)
-        i2.fromfile(tmpfile)
-        self.assertTrue(i1.compare(i2, verbose=VERBOSE))
+    #def test_tofromarray(self):
+    #    i1 = Oi.RedundantInfoLegacy()
+    #    i1.fromfile_txt(redinfo_psa32)
+    #    i2 = Oi.RedundantInfoLegacy()
+    #    d = i1.to_array(verbose=VERBOSE)
+    #    # XXX yuck
+    #    d = np.array(d)
+    #    markerindex = np.where(d == Oi.MARKER)[0]
+    #    d = np.array([np.array(d[markerindex[i]+1:markerindex[i+1]]) for i in range(len(markerindex)-1)])
+    #    i2.from_array(d)
+    #    i2.update()
+    #    self.assertTrue(i1.compare(i2, verbose=VERBOSE))
+    #def test_tofromfile(self):
+    #    i1 = Oi.RedundantInfoLegacy()
+    #    i1.fromfile_txt(redinfo_psa32)
+    #    i2 = Oi.RedundantInfoLegacy()
+    #    i1.tofile(tmpfile)
+    #    i2.fromfile(tmpfile)
+    #    self.assertTrue(i1.compare(i2, verbose=VERBOSE))
     def test_tofromnpz(self):
         i1 = Oi.RedundantInfoLegacy()
         i1.fromfile_txt(redinfo_psa32)
