@@ -202,7 +202,7 @@ class RedundantInfoLegacy(RedundantInfo):
         RedundantInfo.__init__(self, filename=None)
         self.threshold = threshold 
         if filename:
-            if txtmode: self.fromfile_txt(filename, verbose=verbose, preview_only=preview_only)
+            if txtmode: self.fromfile_txt(filename, verbose=verbose)
             else: self.fromfile(filename, verbose=verbose, preview_only=preview_only)
         self.totalVisibilityId = np.zeros_like(self.bl2d) # XXX placeholder for now
     def make_dd(self, data):

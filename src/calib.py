@@ -27,6 +27,8 @@ __version__ = '4.0.4'
 julDelta = 2415020.# =julian date - pyephem's Observer date
 PI = np.pi
 
+# XXX maybe omnical should only solve one time at a time, so that prev sol can be used as starting point for next time
+
 # calpar inside of _omnical is a flat array of calibration solutions as follows:
 # calpar[...,0] = # iterations
 # calpar[...,1] = additiveout**2 # XXX don't understand point of this.  maybe how much of chisq is additiveout?
@@ -37,6 +39,72 @@ PI = np.pi
 # Any other dimensions of the array (which precede the final axis) 
 # will be over time and frequency, as in the input data array
 # XXX is the omnical baseline convention conjugated wrt aipy?  I think so
+
+def pack_calpar(info, calpar, gains=None, vis=None):
+    '''Pack gain solutions and/or model visibilities for baseline types into a 'calpar' array that follows
+    the internal data order used by omnical.  This function facilitates wrapping _omnical.redcal to
+    abstract away internal data ordering when providing initial guesses for antenna gains and
+    visibilities for ubls.  
+    info: a RedundantInfo object
+    calpar: the appropriately (time,freq,3+2*(nant+nubl)) shaped array into which gains/vis will be copied
+    gains: dictionary of antenna number: gain solution (vs time,freq) 
+    vis: dictionary of baseline: model visibility (vs time,freq).  baseline is cross-indexed to the appropriate
+        unique baseline, so only one representative of each ubl type should be provided.'''
+    assert(calpar.shape[-1] == 3+2*(info.nAntenna+len(info.ublcount)))
+    nant = info.nAntenna
+    if gains is not None:
+        for i,ai in enumerate(info.subsetant):
+            if not gains.has_key(ai): continue
+            amp = np.log10(np.abs(gains[ai])); amp.shape = ((1,) + amp.shape)[-2:]
+            # XXX does phs need to be conjugated b/c omnical & aipy don't have same conj convention?
+            phs = np.angle(gains[ai]); phs.shape = ((1,) + phs.shape)[-2:]
+            calpar[...,3+i], calpar[...,3+nant+i] = amp, phs
+    if vis is not None:
+        for (i,j),v in vis.iteritems():
+            n = info.bl1dmatrix[i,j] # index of this bl in info.bl2d
+            u = info.bltoubl[n] # index of ubl that this bl corresponds to
+            if tuple(info.bl2d[n]) != (i,j): # check if bl reversed wrt ubl
+                assert(tuple(info.bl2d[n]) == (j,i))
+                v = v.conj()
+            # XXX possible that frombuffer might do this a bit more efficiently
+            calpar[...,3+2*nant+2*u] = v.real # interleave real/imag
+            calpar[...,3+2*nant+2*u+1] = v.imag
+    return calpar
+
+def unpack_calpar(info, calpar):
+    '''Parse the calpar result from omnical (complementary to pack_calpar).
+    Result is parsed into meta, gains, and vis dicts which are returned.  meta has keys 'iter' and
+    'chisq', gains as keys of antenna number, and vis has unique baseline solutions, indexed by a
+    representative baseline.'''
+    meta, gains, vis = {}, {}, {}
+    meta['iter'],_,meta['chisq'] = calpar[...,0], calpar[...,1], calpar[...,2] # XXX do we need "1"?
+    for i,ai in enumerate(info.subsetant):
+        gains[ai] = 10**calpar[...,3+i] * np.exp(1j*calpar[...,3+info.nAntenna+i])
+    for u in xrange(len(info.ublcount)):
+        # XXX possible that frombuffer might do this a bit more efficiently
+        v = calpar[...,3+2*info.nAntenna+2*u] + 1j*calpar[...,3+2*info.nAntenna+2*u+1]
+        n = info.ublindex[np.sum(info.ublcount[:u])]
+        i,j = info.bl2d[n]
+        vis[(i,j)] = v
+    return meta, gains, vis
+
+def redcal(data, info, xtalk=None, gains=None, vis=None,
+        removedegen=False, uselogcal=True, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit=True, trust_period=1):
+    '''Perform redundant calibration, parsing results into meta, gains, and vis dicts which are returned.  This
+    function wraps _omnical.redcal to abstract away internal data ordering.  'data' is a dict of measured visibilities,
+    indexed by baseline.  Initial guesses for xtalk, antenna gains,
+    and unique baselines may be passed in through xtalk, gains, and vis dictionaries, respectively.'''
+    data = info.order_data(data) # put data into 
+    calpar = np.zeros((data.shape[0],data.shape[1],3+2*(info.nAntenna+len(info.ublcount))), dtype=np.float32)
+    pack_calpar(info, calpar, gains=gains, vis=vis)
+    if xtalk is None: xtalk = np.zeros_like(data) # crosstalk (aka "additivein/out") will be overwritten
+    xtalk = _O.redcal(data, calpar, info, xtalk, 
+        removedegen=int(removedegen), uselogcal=int(uselogcal), maxiter=int(maxiter), 
+        conv=float(conv), stepsize=float(stepsize), computeUBLFit=int(computeUBLFit), 
+        trust_period=int(trust_period))
+    meta, gains, vis = unpack_calpar(info, calpar)
+    meta['res'] = xtalk
+    return meta, gains, vis
 
 # TODO: wrap _O._redcal to return calpar parsed up sensibly
 # considerations: _redcal starts with calpar as a starting place.  Do we need the ability to go

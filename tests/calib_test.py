@@ -10,6 +10,70 @@ testdata = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/calib_test_d
 
 VERBOSE = False
 
+class TestMethods(unittest.TestCase):
+    def setUp(self):
+        self.info = Oi.RedundantInfoLegacy(filename=redinfo_psa32, txtmode=True)
+    def test_pack_calpar(self):
+        calpar = np.zeros((2,3,3+2*(self.info.nAntenna+len(self.info.ublcount))), dtype=np.float32)
+        self.assertTrue(np.all(Oc.pack_calpar(self.info,calpar) == 0))
+        self.assertRaises(AssertionError, Oc.pack_calpar, self.info, calpar[...,:-1])
+        bp = np.array([[1+2j,3+4j,5+6j],[2+1j,4+3j,6+5j]])
+        amp,phs = np.log10(np.abs(bp)), np.angle(bp)
+        gains = {0:bp}
+        Oc.pack_calpar(self.info,calpar,gains=gains)
+        self.assertTrue(np.allclose(calpar[...,3+0], amp))
+        self.assertTrue(np.allclose(calpar[...,32+3+0],phs))
+        calpar *= 0
+        gains = {1:bp[0]}
+        Oc.pack_calpar(self.info,calpar,gains=gains)
+        self.assertTrue(np.allclose(calpar[0,:,3+1], amp[0]))
+        self.assertTrue(np.allclose(calpar[1,:,3+1], amp[0]))
+        self.assertTrue(np.allclose(calpar[0,:,32+3+1],phs[0]))
+        self.assertTrue(np.allclose(calpar[1,:,32+3+1],phs[0]))
+        vis = {(0,16):bp}
+        Oc.pack_calpar(self.info,calpar,vis=vis)
+        self.assertTrue(np.allclose(calpar[...,3+2*32+2*12], bp.real))
+        self.assertTrue(np.allclose(calpar[...,3+2*32+2*12+1], bp.imag))
+    def test_unpack_calpar(self):
+        calpar = np.zeros((2,3,3+2*(self.info.nAntenna+len(self.info.ublcount))), dtype=np.float32)
+        m,g,v = Oc.unpack_calpar(self.info,calpar)
+        self.assertEqual(m['iter'].shape, (2,3))
+        self.assertTrue(np.all(m['iter'] == 0))
+        self.assertTrue(np.all(m['chisq'] == 0))
+        self.assertEqual(len(g), 32)
+        for i in xrange(32):
+            self.assertTrue(np.all(g[i] == 1)) # 1 b/c 10**0 = 1
+        self.assertEqual(len(v), len(self.info.ublcount))
+        ubls = {}
+        for i,j in v:
+            n = self.info.bl1dmatrix[i,j]
+            ubls[self.info.bltoubl[n]] = n
+        for u in xrange(len(self.info.ublcount)):
+            self.assertTrue(ubls.has_key(u))
+    def test_redcal(self):
+        #check that logcal give 0 chi2 for all 20 testinfos
+        for index in xrange(20):
+            arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(index+1)+'_array_info.txt'
+            c = Oc.RedundantCalibrator(56)
+            c.compute_redundantinfo(arrayinfopath, tol=.1)
+            info = c.Info
+            npz = np.load(testdata % index)
+            bls = [tuple(bl) for bl in npz['bls']]
+            dd = dict(zip(bls, npz['vis']))
+            m,g,v = Oc.redcal(dd, info, removedegen=True,maxiter=50,stepsize=.2,computeUBLFit=True,conv=1e-5,uselogcal=True)
+            calparpath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(index+1)+'_calpar.txt'
+            with open(calparpath) as f:
+                rawinfo = [[float(x) for x in line.split()] for line in f]
+            temp = np.array(rawinfo[:-1])
+            correctcalpar = (np.array(temp[:,0]) + 1.0j*np.array(temp[:,1]))
+            i = g.keys()[0]
+            scalar = correctcalpar[i].real / g[i].real
+            for i in xrange(56):
+                if not g.has_key(i): continue
+                self.assertAlmostEqual(np.abs(correctcalpar[i] - g[i] * scalar), 0, 4)
+
+        
+
 class TestRedCal(unittest.TestCase):
     #def setUp(self):
     #    self.i = Oi.RedundantInfo()
