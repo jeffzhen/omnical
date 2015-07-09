@@ -71,7 +71,7 @@ class ArrayInfo:
         self.totalVisibilityId = np.concatenate([[[i,j] for i in range(j+1)] for j in range(nTotalAnt)])
     def filter_reds(self, reds, bls=None, ex_bls=None, ants=None, ex_ants=None, ubls=None, ex_ubls=None):
         '''Filter redundancies to include/exclude the specified bls, antennas, and unique bl groups.'''
-        filter_reds(reds, bls=bls, ex_bls=ex_bls, ants=ants, ex_ants=ex_ants, ubls=ubls, ex_ubls=ex_ubls)
+        return filter_reds(reds, bls=bls, ex_bls=ex_bls, ants=ants, ex_ants=ex_ants, ubls=ubls, ex_ubls=ex_ubls)
     def compute_reds(self, tol=0.1):
         '''Return redundancies on the basis of antenna positions.  As in RedundantInfo.init_from_reds, each
         list element consists of a list of (i,j) antenna indices whose separation vectors (pos[j]-pos[i])
