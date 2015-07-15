@@ -71,6 +71,7 @@ class TestMethods(unittest.TestCase):
             for i in xrange(56):
                 if not g.has_key(i): continue
                 self.assertAlmostEqual(np.abs(correctcalpar[i] - g[i] * scalar), 0, 4)
+    # XXX write unittest for xtalk parameter in redcal
 
         
 

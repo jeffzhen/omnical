@@ -98,12 +98,14 @@ def redcal(data, info, xtalk=None, gains=None, vis=None,
     calpar = np.zeros((data.shape[0],data.shape[1],3+2*(info.nAntenna+len(info.ublcount))), dtype=np.float32)
     pack_calpar(info, calpar, gains=gains, vis=vis)
     if xtalk is None: xtalk = np.zeros_like(data) # crosstalk (aka "additivein/out") will be overwritten
-    xtalk = _O.redcal(data, calpar, info, xtalk, 
+    else: xtalk = info.order_data(xtalk)
+    res = _O.redcal(data, calpar, info, xtalk, 
         removedegen=int(removedegen), uselogcal=int(uselogcal), maxiter=int(maxiter), 
         conv=float(conv), stepsize=float(stepsize), computeUBLFit=int(computeUBLFit), 
         trust_period=int(trust_period))
     meta, gains, vis = unpack_calpar(info, calpar)
-    meta['res'] = xtalk
+    res = dict(zip(map(tuple,info.bl2d), res))
+    meta['res'] = res
     return meta, gains, vis
 
 # TODO: wrap _O._redcal to return calpar parsed up sensibly
