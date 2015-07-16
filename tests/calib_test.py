@@ -71,7 +71,16 @@ class TestMethods(unittest.TestCase):
             for i in xrange(56):
                 if not g.has_key(i): continue
                 self.assertAlmostEqual(np.abs(correctcalpar[i] - g[i] * scalar), 0, 4)
-    # XXX write unittest for xtalk parameter in redcal
+    def test_redcal_xtalk(self):
+        antpos = np.array([[0.,0,0],[1,0,0],[2,0,0],[3,0,0]])
+        d = {(1,2): np.array([[1.]], dtype=np.complex64), (2,3): np.array([[1.+1j]], dtype=np.complex64)}
+        x = {(1,2): np.array([[0.]], dtype=np.complex64), (2,3): np.array([[0.+1j]], dtype=np.complex64)}
+        reds = [[(1,2),(2,3)]]
+        info = Oi.RedundantInfo(); info.init_from_reds(reds, antpos)
+        m,g,v = Oc.redcal(d, info, xtalk=x, uselogcal=False)
+        self.assertEqual(g[1][0,0], 1.)
+        self.assertEqual(g[2][0,0], 1.)
+        self.assertEqual(g[3][0,0], 1.)
 
         
 
