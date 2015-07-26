@@ -943,6 +943,10 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, oppath, 
             badants[key][info[key]['subsetant']] = False
             calpars[key][:,info[key]['subsetant'],:] = omnigains[key][:,:,4::2] + 1.j * omnigains[key][:,:,5::2]
 
+    ##make sure there's no nan or inf in calpars######################
+    for key in calpars.keys():
+        calpars[key][np.isnan(calpars[key])|np.isinf(calpars[key])] = 1.
+
 
 
     #########start processing#######################
