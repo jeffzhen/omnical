@@ -81,7 +81,14 @@ class TestMethods(unittest.TestCase):
         self.assertEqual(g[1][0,0], 1.)
         self.assertEqual(g[2][0,0], 1.)
         self.assertEqual(g[3][0,0], 1.)
-
+        #2D array testing 
+        d = {(1,2): np.array([[1.,2],[3.,4]],dtype=np.complex64), (2,3): np.array([[1.+1j,2+2j],[3+3j,4+4j]],dtype=np.complex64)}
+        x = {(1,2): np.array([[0.,2],[2.,3]],dtype=np.complex64), (2,3): np.array([[0.+1j,1+2j],[2+3j,3+4j]],dtype=np.complex64)}
+        m,g,v = Oc.redcal(d, info, xtalk=x, uselogcal=False)
+        self.assertEqual(g[1][0,0], 1.)
+        self.assertEqual(g[2][0,0], 1.)
+        self.assertEqual(g[3][0,0], 1.)
+        self.assertEqual(m['res'][(2,3)][0][0],0.)
         
 
 class TestRedCal(unittest.TestCase):
