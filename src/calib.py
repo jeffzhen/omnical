@@ -104,8 +104,7 @@ def redcal(data, info, xtalk=None, gains=None, vis=None,
         conv=float(conv), stepsize=float(stepsize), computeUBLFit=int(computeUBLFit), 
         trust_period=int(trust_period))
     meta, gains, vis = unpack_calpar(info, calpar)
-    res.shape = (res.shape[2],res.shape[0],res.shape[1]) #edit by Carina
-    res = dict(zip(map(tuple,info.subsetant[info.bl2d]), res)) #edit by Carina
+    res = dict(zip(map(tuple,info.subsetant[info.bl2d]), res.transpose([2,0,1])))
     meta['res'] = res
     return meta, gains, vis
 
