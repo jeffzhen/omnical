@@ -49,6 +49,7 @@ class TestMethods(unittest.TestCase):
         #print calpar[0,0,:3+2*self.i.nAntenna]
         self.assertTrue(np.all(calpar[:,:,:2] == 0))
         np.testing.assert_almost_equal(calpar[:,:,2], np.zeros((10,20)), 10)
+        np.testing.assert_almost_equal(calpar[:,:,self.end_ubl:], np.zeros((10,20,32)), 10)
         self.assertTrue(np.all(calpar[:,:,3:self.start_ubl] == 0))
         self.assertTrue(np.all(calpar[:,:,3:self.start_ubl] == 0)) # not great to be checking an initialization state
         self.assertTrue(np.all(calpar[:,:,self.start_ubl:self.end_ubl:2] == 0))
@@ -64,6 +65,7 @@ class TestMethods(unittest.TestCase):
         #print calpar[0,0,:3+2*self.i.nAntenna]
         self.assertTrue(np.all(calpar[:,:,:2] == 0))
         np.testing.assert_almost_equal(calpar[:,:,2], np.zeros((10,20)), 10)
+        np.testing.assert_almost_equal(calpar[:,:,self.end_ubl:], np.zeros((10,20,32)), 10)
         self.assertTrue(np.all(calpar[:,:,3:self.start_ubl] == 0))
         self.assertTrue(np.all(calpar[:,:,3:self.start_ubl] == 0)) # not great to be checking an initialization state
         self.assertTrue(np.all(calpar[:,:,self.start_ubl:self.end_ubl:2] == 0))
