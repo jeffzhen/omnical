@@ -664,7 +664,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
     dims[1] = nfreq = PyArray_DIM(data,1);
     dims[2] = nbls = PyArray_DIM(data,2);
     vector<vector<float> > data_v(nbls, vector<float>(2, 0));
-    vector<float> calpar_v(3 + 2*(redinfo->info.ublindex.size() + redinfo->info.nAntenna), 0);
+    vector<float> calpar_v(3 + 2*(redinfo->info.ublindex.size() + redinfo->info.nAntenna) + redinfo->info.nAntenna, 0);
     vector<vector<float> >additivein_v(nbls, vector<float>(2, 0));
     vector<vector<float> >additiveout_v(nbls, vector<float>(2, 0));
     // check that dims of additivein and data match
@@ -686,7 +686,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
     }
     if (PyArray_NDIM(calpar) != 3 || PyArray_TYPE(calpar) != PyArray_FLOAT
             || PyArray_DIM(calpar,0) != nint || PyArray_DIM(calpar,1) != nfreq || (uint)PyArray_DIM(calpar,2) != calpar_v.size()) {
-        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data and the third being 3+2(nAnt+nUBL).");
+        PyErr_Format(PyExc_ValueError, "calpar is expected to be a 3D numpy array of float32 with the first 2 dimensions identical to those of data and the third being 3+2(nAnt+nUBL)+nAnt.");
         return NULL;
     }
 

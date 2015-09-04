@@ -14,7 +14,7 @@ class TestMethods(unittest.TestCase):
     def setUp(self):
         self.info = Oi.RedundantInfoLegacy(filename=redinfo_psa32, txtmode=True)
     def test_pack_calpar(self):
-        calpar = np.zeros((2,3,3+2*(self.info.nAntenna+len(self.info.ublcount))), dtype=np.float32)
+        calpar = np.zeros((2,3,Oc.calpar_size(self.info.nAntenna, len(self.info.ublcount))), dtype=np.float32)
         self.assertTrue(np.all(Oc.pack_calpar(self.info,calpar) == 0))
         self.assertRaises(AssertionError, Oc.pack_calpar, self.info, calpar[...,:-1])
         bp = np.array([[1+2j,3+4j,5+6j],[2+1j,4+3j,6+5j]])
@@ -35,7 +35,7 @@ class TestMethods(unittest.TestCase):
         self.assertTrue(np.allclose(calpar[...,3+2*32+2*12], bp.real))
         self.assertTrue(np.allclose(calpar[...,3+2*32+2*12+1], bp.imag))
     def test_unpack_calpar(self):
-        calpar = np.zeros((2,3,3+2*(self.info.nAntenna+len(self.info.ublcount))), dtype=np.float32)
+        calpar = np.zeros((2,3,Oc.calpar_size(self.info.nAntenna, len(self.info.ublcount))), dtype=np.float32)
         m,g,v = Oc.unpack_calpar(self.info,calpar)
         self.assertEqual(m['iter'].shape, (2,3))
         self.assertTrue(np.all(m['iter'] == 0))
@@ -81,7 +81,7 @@ class TestMethods(unittest.TestCase):
         self.assertEqual(g[1][0,0], 1.)
         self.assertEqual(g[2][0,0], 1.)
         self.assertEqual(g[3][0,0], 1.)
-        #2D array testing 
+        #2D array testing
         d = {(1,2): np.array([[1.,2],[3.,4]],dtype=np.complex64), (2,3): np.array([[1.+1j,2+2j],[3+3j,4+4j]],dtype=np.complex64)}
         x = {(1,2): np.array([[0.,2],[2.,3]],dtype=np.complex64), (2,3): np.array([[0.+1j,1+2j],[2+3j,3+4j]],dtype=np.complex64)}
         m,g,v = Oc.redcal(d, info, xtalk=x, uselogcal=False)
@@ -89,7 +89,7 @@ class TestMethods(unittest.TestCase):
         self.assertEqual(g[2][0,0], 1.)
         self.assertEqual(g[3][0,0], 1.)
         self.assertEqual(m['res'][(2,3)][0][0],0.)
-        
+
 
 class TestRedCal(unittest.TestCase):
     #def setUp(self):
@@ -144,7 +144,9 @@ class TestRedCal(unittest.TestCase):
             ampcal = log[0,0,3:info['nAntenna']+3]
             phasecal = log[0,0,info['nAntenna']+3: info['nAntenna']*2+3]
             calpar = 10**(ampcal)*np.exp(1.0j*phasecal)
-            ublfit = log[0,0,3+2*info['nAntenna']::2]+1.0j*log[0,0,3+2*info['nAntenna']+1::2]
+            start_ubl = 3 + 2*info['nAntenna']
+            end_ubl = start_ubl + 2*len(info.ublcount)
+            ublfit = log[0,0,start_ubl:end_ubl:2]+1.0j*log[0,0,start_ubl+1:end_ubl+1:2]
             ####import real calibration parameter
             calparpath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(index+1)+'_calpar.txt'
             with open(calparpath) as f:

@@ -134,10 +134,10 @@ vector<float> conjugate (vector<float> x){
 
 float phaseWrap (float x, float offset/*default -pi*/){
 	while ( x <= offset ){
-		x = x + 2 * PI;
+		x += 2 * PI;
 	}
 	while ( x > offset + 2 * PI ){
-		x = x - 2 * PI;
+		x -= 2 * PI;
 	}
 	return x;
 }
@@ -244,6 +244,7 @@ vector<float> stdevAngle(vector<float> *v){
 
 //Logcal functions
 
+//XXX linear algebra
 bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvAinv ){//Gauss–Jordan elimination
 	string METHODNAME = "invert";
 	//WARNING: PASSING OF ARGUMENT VALUES NOT TESTED !!!!!!!!!!!!
@@ -327,6 +328,7 @@ bool invert(vector<vector<int> > * AtNinvAori, vector<vector<double> > * AtNinvA
 	return true;
 }
 
+//XXX linear algebra
 bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNinvAinv ){//Gauss–Jordan elimination
 	string METHODNAME = "invert";
 	//WARNING: PASSING OF ARGUMENT VALUES NOT TESTED !!!!!!!!!!!!
@@ -418,6 +420,7 @@ bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNin
 
 /******************************************************/
 /******************************************************/
+//XXX linear algebra
 void vecmatmul(vector<vector<double> > * Afitting, vector<float> * v, vector<float> * ampfit){
 	int i, j;
 	double sum;
@@ -433,6 +436,7 @@ void vecmatmul(vector<vector<double> > * Afitting, vector<float> * v, vector<flo
 	return;
 }
 
+//XXX linear algebra
 void vecmatmul(vector<vector<float> > * Afitting, vector<float> * v, vector<float> * ampfit){
 	int i, j;
 	double sum;
@@ -448,6 +452,7 @@ void vecmatmul(vector<vector<float> > * Afitting, vector<float> * v, vector<floa
 	return;
 }
 
+//XXX linear algebra
 void vecmatmul(vector<vector<int> > * A, vector<float> * v, vector<float> * yfit){
 	int i, j;
 	double sum;
@@ -488,8 +493,8 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 		module->pha1[b] = phase(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1]);// * info->reversed[b];
 	}
 	////rewrap args
-	for(int i = 0; i < nubl; i ++){
-		for (uint j = 0; j < (module->ublgrp1)[i].size(); j ++){
+	for(int i = 0; i < nubl; i++){
+		for (uint j = 0; j < (module->ublgrp1)[i].size(); j++){
 			(module->ublgrp1)[i][j] = module->pha1[info->ublindex[i][j]];
 		}
 	}
@@ -594,7 +599,7 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 	}
 
 	float gre, gim, starting_chisq, chisq, chisq2, delta;
-	int a1, a2;
+	int a1, a2; // antenna indices
 	chisq = 0;
 	for (unsigned int b = 0; b < (module->cdata2).size(); b++){
 		a1 = info->bl2d[b][0];
@@ -763,6 +768,20 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		calpar->at(0) += 0;
 		calpar->at(2) = starting_chisq;
 	}
+
+	// Create a chisq for each antenna. Right now, this is done at every time and
+	// frequency, since that's how lincal is called, but that can be summed later
+	// over all times and frequencies to get a chisq for each antenna.
+	int chisq_ant = 3 + 2*(info -> nAntenna + nubl);
+	for (int b = 0; b < (module -> cdata2).size(); b++){
+		delta  = pow(module->cdata2[b][0] - module->cdata1[b][0], 2);
+		delta += pow(module->cdata2[b][1] - module->cdata1[b][1], 2);
+		a1 = info->bl2d[b][0];
+		a2 = info->bl2d[b][1];
+		calpar -> at(chisq_ant + a1) += delta;
+		calpar -> at(chisq_ant + a2) += delta;
+    }
+	
 	//cout << "lincal DBG v "  << module->cdata1[DBGbl][0] << " " << module->cdata1[DBGbl][1] << endl<<flush;
 	//cout << "lincal DBG c0g0g0 "  << module->cdata2[DBGbl][0] << " " << module->cdata2[DBGbl][1] << endl<<flush;
 	return;

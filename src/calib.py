@@ -36,21 +36,27 @@ PI = np.pi
 # calpar[...,3:3+nant] = log10(abs(g_i)) # g_i is gain of ant i, where i is internal indexing order in subsetant
 # calpar[...,3+nant:3+2*nant] = phase(g_a)
 # calpar[...,3+2*nant:3+2*nant+2*nubl] = real,imag component of avg solution for each ubl
-# Any other dimensions of the array (which precede the final axis) 
+# Any other dimensions of the array (which precede the final axis)
 # will be over time and frequency, as in the input data array
 # XXX is the omnical baseline convention conjugated wrt aipy?  I think so
+
+def calpar_size(nant, nubl):
+    """
+    Quickly compute the size of the calpar array.
+    """
+    return 3 + 2*(nant+nubl) + nant
 
 def pack_calpar(info, calpar, gains=None, vis=None):
     '''Pack gain solutions and/or model visibilities for baseline types into a 'calpar' array that follows
     the internal data order used by omnical.  This function facilitates wrapping _omnical.redcal to
     abstract away internal data ordering when providing initial guesses for antenna gains and
-    visibilities for ubls.  
+    visibilities for ubls.
     info: a RedundantInfo object
-    calpar: the appropriately (time,freq,3+2*(nant+nubl)) shaped array into which gains/vis will be copied
-    gains: dictionary of antenna number: gain solution (vs time,freq) 
+    calpar: the appropriately (time,freq,3+2*(nant+nubl)+nant) shaped array into which gains/vis will be copied
+    gains: dictionary of antenna number: gain solution (vs time,freq)
     vis: dictionary of baseline: model visibility (vs time,freq).  baseline is cross-indexed to the appropriate
         unique baseline, so only one representative of each ubl type should be provided.'''
-    assert(calpar.shape[-1] == 3+2*(info.nAntenna+len(info.ublcount)))
+    assert(calpar.shape[-1] == calpar_size(info.nAntenna, len(info.ublcount)))
     nant = info.nAntenna
     if gains is not None:
         for i,ai in enumerate(info.subsetant):
@@ -94,14 +100,14 @@ def redcal(data, info, xtalk=None, gains=None, vis=None,
     function wraps _omnical.redcal to abstract away internal data ordering.  'data' is a dict of measured visibilities,
     indexed by baseline.  Initial guesses for xtalk, antenna gains,
     and unique baselines may be passed in through xtalk, gains, and vis dictionaries, respectively.'''
-    data = info.order_data(data) # put data into 
-    calpar = np.zeros((data.shape[0],data.shape[1],3+2*(info.nAntenna+len(info.ublcount))), dtype=np.float32)
+    data = info.order_data(data) # put data into
+    calpar = np.zeros((data.shape[0],data.shape[1], calpar_size(info.nAntenna, len(info.ublcount))), dtype=np.float32)
     pack_calpar(info, calpar, gains=gains, vis=vis)
     if xtalk is None: xtalk = np.zeros_like(data) # crosstalk (aka "additivein/out") will be overwritten
     else: xtalk = info.order_data(xtalk)
-    res = _O.redcal(data, calpar, info, xtalk, 
-        removedegen=int(removedegen), uselogcal=int(uselogcal), maxiter=int(maxiter), 
-        conv=float(conv), stepsize=float(stepsize), computeUBLFit=int(computeUBLFit), 
+    res = _O.redcal(data, calpar, info, xtalk,
+        removedegen=int(removedegen), uselogcal=int(uselogcal), maxiter=int(maxiter),
+        conv=float(conv), stepsize=float(stepsize), computeUBLFit=int(computeUBLFit),
         trust_period=int(trust_period))
     meta, gains, vis = unpack_calpar(info, calpar)
     res = dict(zip(map(tuple,info.subsetant[info.bl2d]), res.transpose([2,0,1])))
@@ -266,8 +272,8 @@ class RedundantCalibrator:
         self.nTime, self.nFrequency = data.shape[:2]
         nUBL = len(self.Info.ublcount)
         if uselogcal or self.rawCalpar is None:
-            self.rawCalpar = np.zeros((self.nTime, self.nFrequency, 3+2*(self.Info.nAntenna+nUBL)), dtype=np.float32)
-        assert(self.rawCalpar.shape == (self.nTime,self.nFrequency, 3+2*(self.Info.nAntenna+nUBL)))
+            self.rawCalpar = np.zeros((self.nTime, self.nFrequency, calpar_size(self.Info.nAntenna, nUBL)), dtype=np.float32)
+        assert(self.rawCalpar.shape == (self.nTime,self.nFrequency, calpar_size(self.Info.nAntenna, nUBL)))
         if nthread is None: nthread = min(mp.cpu_count() - 1, self.nFrequency)
         if nthread >= 2: return self._redcal_multithread(data, additivein, 0, nthread, verbose=verbose)
         return _O.redcal(data, self.rawCalpar, self.Info,
