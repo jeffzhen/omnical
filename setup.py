@@ -42,8 +42,9 @@ setup(name = 'omnical',
     packages = ['omnical'],
     ext_modules = [
         Extension('omnical._omnical',
-            globdir('src/_omnical/',
-                ['*.cpp', '*.c', '*.cc']),
+            ['src/_omnical/omnical_wrap.cpp','src/_omnical/omnical_redcal.cc'],
+            #globdir('src/_omnical/',
+            #    ['*.cpp', '*.c', '*.cc']),
             include_dirs = ['src/_omnical/include', numpy.get_include()],
             extra_compile_args=['-Wno-write-strings', '-O3']
         )

@@ -1,1 +1,2 @@
-import _omnical, calibration_omni
+import _omnical, info, calib, arrayinfo
+#import calibration_omni

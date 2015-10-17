@@ -1,3 +1,8 @@
+'''XXX DOCSTRING'''
+# XXX lots of imports... are all necessary?  can code be separated into files with smaller dependency lists?
+# XXX this file has gotten huge. need to break into smaller files
+# XXX clean house on commented code?
+# XXX obey python style conventions
 import datetime
 import socket, math, random, traceback, ephem, string, commands, datetime, shutil, resource, threading, time
 import multiprocessing as mp
@@ -30,6 +35,8 @@ FILENAME = "calibration_omni.py"
 julDelta = 2415020.# =julian date - pyephem's Observer date
 PI = np.pi
 TPI = 2 * np.pi
+
+# XXX all this meta stuff about "info" almost assuredly means info needs to be a class
 infokeys = ['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B','At','Bt','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
 infokeys_optional = ['totalVisibilityId']
 binaryinfokeys=['nAntenna','nUBL','nBaseline','subsetant','antloc','subsetbl','ubl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','ublindex','bl1dmatrix','degenM','A','B']
@@ -40,7 +47,9 @@ intarray_infokeys = ['subsetant','subsetbl','bltoubl','reversed','reversedauto',
 intarray_infokeys_optional = ['totalVisibilityId']
 
 float_infokeys = ['antloc','ubl','degenM','AtAi','BtBi']#,'AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
+
 def read_redundantinfo_txt(infopath, verbose = False):
+    '''XXX DOCSTRING'''
     METHODNAME = "read_redundantinfo_txt"
     if not os.path.isfile(infopath):
         raise Exception('Error: file %s does not exist!'%infopath)
@@ -130,6 +139,7 @@ def read_redundantinfo_txt(infopath, verbose = False):
 
 
 def write_redundantinfo_txt(info, infopath, overwrite = False, verbose = False):
+    '''XXX DOCSTRING'''
     METHODNAME = "*write_redundantinfo_txt*"
     timer = time.time()
     if (not overwrite) and os.path.isfile(infopath):
@@ -161,6 +171,7 @@ def write_redundantinfo_txt(info, infopath, overwrite = False, verbose = False):
 
 
 def write_redundantinfo_old(info, infopath, overwrite = False, verbose = False):
+    '''XXX DOCSTRING'''
     METHODNAME = "*write_redundantinfo*"
     timer = time.time()
     if (not overwrite) and os.path.isfile(infopath):
@@ -211,6 +222,7 @@ def write_redundantinfo_old(info, infopath, overwrite = False, verbose = False):
     return
 
 def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
+    '''XXX DOCSTRING'''
     METHODNAME = "*write_redundantinfo*"
     timer = time.time()
     infopath = os.path.expanduser(infopath)
@@ -278,6 +290,7 @@ def write_redundantinfo(info, infopath, overwrite = False, verbose = False):
     return
 
 def read_redundantinfo_old(infopath, verbose = False):
+    '''XXX DOCSTRING'''
     METHODNAME = "read_redundantinfo"
     timer = time.time()
     if not os.path.isfile(infopath):
@@ -364,7 +377,9 @@ def read_redundantinfo_old(infopath, verbose = False):
     return info
 
 
+# XXX all these different read/writes should be subclasses of Info
 def read_redundantinfo(infopath, verbose = False, DoF_only = False):
+    '''XXX DOCSTRING'''
     METHODNAME = "read_redundantinfo"
     timer = time.time()
     infopath = os.path.expanduser(infopath)
@@ -477,7 +492,8 @@ def read_redundantinfo(infopath, verbose = False, DoF_only = False):
         print "done. nAntenna, nUBL, nBaseline = %i, %i, %i. Time taken: %f minutes."%(len(info['subsetant']), info['nUBL'], info['nBaseline'], (time.time()-timer)/60.)
     return info
 
-def get_xy_AB(info):#return xyA, xyB, yxA, yxB for logcal cross polarizations
+def get_xy_AB(info):
+    '''return xyA, xyB, yxA, yxB for logcal cross polarizations'''
     na = info['nAntenna']
     nu = info['nUBL']
     A = info['A'].todense()
@@ -505,7 +521,9 @@ def get_xy_AB(info):#return xyA, xyB, yxA, yxB for logcal cross polarizations
 
     return xyA, xyB, yxA, yxB
 
-def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, lat = None, lon = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):#tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files. return lst in sidereal hour
+# XXX this probably belongs in a different file; it's not omnical, it's fileio.
+def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = None, lat = None, lon = None, timingTolerance = math.pi/12/3600/100, init_mem = 4.e9, verbose = False):
+    '''tolerance of timing in radians in lst. init_mem is the initial memory it allocates for reading uv files. return lst in sidereal hour'''
 
     METHODNAME = "*importuvs*"
 
@@ -656,7 +674,8 @@ def importuvs(uvfilenames, wantpols, totalVisibilityId = None, nTotalAntenna = N
     reorder = (1, 0, 3, 2)
     return np.transpose(data[:len(t)],reorder), t, timing, lst, np.transpose(flags[:len(t)],reorder)
 
-def pick_slice_uvs(uvfilenames, pol_str_or_num, t_index_lst_jd, findex, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = 100, verbose = False):#tolerance of timing in radians in lst.
+def pick_slice_uvs(uvfilenames, pol_str_or_num, t_index_lst_jd, findex, totalVisibilityId = None, nTotalAntenna = None, timingTolerance = 100, verbose = False):
+    '''tolerance of timing in radians in lst.'''
     METHODNAME = "*pick_slice_uvs*"
 
     ###############sanitize inputs################################
@@ -760,7 +779,9 @@ def pick_slice_uvs(uvfilenames, pol_str_or_num, t_index_lst_jd, findex, totalVis
         raise IOError("FATAL ERROR: no data pulled. Total of %i time slices read from UV files. Please check polarization information."%len(t))
     return data
 
-def exportuv(uv_path, data, flags, pols, jds, inttime, sfreq, sdf, latitude, longitude, totalVisibilityId = None, comment='none', overwrite = False):#flags true when bad, lat lon radians, frequency GHz, jd days, inttime seconds, pols in -5~-8 miriad convention
+# XXX also doesn't belong in this file.  it's fileio
+def exportuv(uv_path, data, flags, pols, jds, inttime, sfreq, sdf, latitude, longitude, totalVisibilityId = None, comment='none', overwrite = False):
+    '''flags true when bad, lat lon radians, frequency GHz, jd days, inttime seconds, pols in -5~-8 miriad convention'''
     uv_path = os.path.expanduser(uv_path)
     if os.path.isdir(uv_path):
         if overwrite:
@@ -835,7 +856,8 @@ def exportuv(uv_path, data, flags, pols, jds, inttime, sfreq, sdf, latitude, lon
     del(uv)
     return
 
-def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq
+def apply_calpar(data, calpar, visibilityID):
+    '''apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq'''
     METHODNAME = "*apply_calpar*"
     if calpar.shape[-1] <= np.amax(visibilityID) or data.shape[-1] != len(visibilityID):
         raise Exception("Dimension mismatch! Either number of antennas in calpar " + str(calpar.shape[-1]) + " is less than implied in visibility ID "  + str(1 + np.amax(visibilityID)) + ", or the length of the last axis of data "  + str(data.shape[-1]) + " is not equal to length of visibilityID "  + str(len(visibilityID)) + ".")
@@ -848,7 +870,8 @@ def apply_calpar(data, calpar, visibilityID):#apply complex calpar for all anten
     else:
         raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
-def apply_calpar2(data, calpar, calpar2, visibilityID):#apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq
+def apply_calpar2(data, calpar, calpar2, visibilityID):
+    '''apply complex calpar for all antennas onto all baselines, calpar's dimension will be assumed to mean: 1D: constant over time and freq; 2D: constant over time; 3D: change over time and freq'''
     METHODNAME = "*apply_calpar2*"
     if calpar.shape[-1] <= np.amax(visibilityID) or data.shape[-1] != len(visibilityID) or calpar.shape != calpar2.shape:
         raise Exception("Dimension mismatch! Either number of antennas in calpar " + str(calpar.shape[-1]) + " is less than implied in visibility ID "  + str(1 + np.amax(visibilityID)) + ", or the length of the last axis of data "  + str(data.shape[-1]) + " is not equal to length of visibilityID "  + str(len(visibilityID)) + ", or calpars have different dimensions:" + str(calpar.shape) + str(calpar.shape) + '.')
@@ -861,7 +884,9 @@ def apply_calpar2(data, calpar, calpar2, visibilityID):#apply complex calpar for
     else:
         raise Exception("Dimension mismatch! I don't know how to interpret data dimension of " + str(data.shape) + " and calpar dimension of " + str(calpar.shape) + ".")
 
+# XXX fileio
 def get_uv_pols(uvi):
+    '''XXX DOCSTRING'''
     input_is_str = (type(uvi) == type('a'))
     if input_is_str:
         uvi = ap.miriad.UV(uvi)
@@ -882,7 +907,9 @@ def get_uv_pols(uvi):
         del(uvi)
     return [ap.miriad.pol2str[p] for p in uvpols]
 
+# XXX fileio
 def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, oppath, ano, adds={}, flags=None, nTotalAntenna = None, overwrite = False, comment = '', verbose = False):
+    '''XXX DOCSTRING'''
     METHODNAME = "*apply_omnigain_uvs*"
 
     for key in omnigains.keys():
@@ -1031,8 +1058,9 @@ def apply_omnigain_uvs(uvfilenames, omnigains, totalVisibilityId, info, oppath, 
     return
 
 
-
+# XXX fileio
 def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wantpols, oppath, ano, additivefilenames = None, nTotalAntenna = None, comment = '', overwrite= False):
+    '''XXX DOCSTRING'''
     METHODNAME = "*apply_omnical_uvs*"
     if len(additivefilenames) != len(calparfilenames) and additivefilenames is not None:
         raise Exception("Error: additivefilenames and calparfilenames have different lengths!")
@@ -1140,13 +1168,16 @@ def apply_omnical_uvs(uvfilenames, calparfilenames, totalVisibilityId, info, wan
     return
 
 
-def stdmatrix(length, polydegree):#to find out the error in fitting y by a polynomial poly(x), one compute error vector by (I-A.(At.A)^-1 At).y, where Aij = i^j. This function returns (I-A.(At.A)^-1 At)
+# XXX utility function, should be separate file
+def stdmatrix(length, polydegree):
+    '''to find out the error in fitting y by a polynomial poly(x), one compute error vector by (I-A.(At.A)^-1 At).y, where Aij = i^j. This function returns (I-A.(At.A)^-1 At)'''
     A = np.array([[i**j for j in range(polydegree + 1)] for i in range(length)], dtype='int')
     At = A.transpose()
     return np.identity(length) - A.dot(la.pinv(At.dot(A), cond = 10**(-6)).dot(At))
 
-#input two different redundant info, output True if they are the same and False if they are different
+# XXX part of Info class?
 def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
+    '''input two different redundant info, output True if they are the same and False if they are different'''
     try:
         floatkeys=float_infokeys#['antloc','ubl','AtAi','BtBi','AtAiAt','BtBiBt','PA','PB','ImPA','ImPB']
         intkeys = ['nAntenna','nUBL','nBaseline','subsetant','subsetbl','bltoubl','reversed','reversedauto','autoindex','crossindex','bl2d','ublcount','bl1dmatrix']
@@ -1190,7 +1221,8 @@ def compare_info(info1,info2, verbose=True, tolerance = 10**(-5)):
         print "info doesn't have the same shape"
         return False
 
-def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputPath should be a path without extensions like .omnigain which will be appended
+def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):
+    '''outputPath should be a path without extensions like .omnigain which will be appended'''
     if outputPath is None:
         outputPath = omnicalPath.replace('.omnical', '')
 
@@ -1241,7 +1273,13 @@ def omnical2omnigain(omnicalPath, utctimePath, info, outputPath = None):#outputP
     opomnigain.tofile(outputPath + '.omnigain')
     opomnifit.tofile(outputPath + '.omnifit')
 
-class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibration information that should only be passed into C++
+#  ___        _              _          _   ___       __     
+# | _ \___ __| |_  _ _ _  __| |__ _ _ _| |_|_ _|_ _  / _|___ 
+# |   / -_) _` | || | ' \/ _` / _` | ' \  _|| || ' \|  _/ _ \
+# |_|_\___\__,_|\_,_|_||_\__,_\__,_|_||_\__|___|_||_|_| \___/
+
+class RedundantInfo(_O.RedundantInfo):
+    '''a class that contains redundant calibration information that should only be passed into C++'''
     def __init__(self, info, verbose=False):
         _O.RedundantInfo.__init__(self)
         if type(info) == type('a'):
@@ -1269,11 +1307,12 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
                 elif key in ['A','B']:
                     self.__setattr__(key, info[key].todense().astype('int32'))
                 elif key in ['ublindex']:
-                    tmp = []
-                    for i in range(len(info[key])):
-                        for j in range(len(info[key][i])):
-                            tmp += [[i, j, info[key][i][j][0], info[key][i][j][1], info[key][i][j][2]]]
-                    self.__setattr__(key, np.array(tmp, dtype='int32'))
+                    #tmp = []
+                    #for i in range(len(info[key])):
+                    #    for j in range(len(info[key][i])):
+                    #        tmp += [[i, j, info[key][i][j][0], info[key][i][j][1], info[key][i][j][2]]]
+                    #self.__setattr__(key, np.array(tmp, dtype='int32'))
+                    self.__setattr__(key, np.concatenate(info[key]).astype(np.int32))
                 elif key in int_infokeys:
                     self.__setattr__(key, int(info[key]))
                 elif key in intarray_infokeys and key != 'ublindex':
@@ -1290,7 +1329,7 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
         if verbose:
             print "Done."
             sys.stdout.flush()
-
+    def __getitem__(self,k): return self.__getattribute__(k)
     def __getattribute__(self, key):
         try:
             if key in ['A','B']:
@@ -1332,7 +1371,8 @@ class RedundantInfo(_O.RedundantInfo):#a class that contains redundant calibrati
                 pass
         return info
 
-def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit = 1, trust_period = 1):#####same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container
+def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit = 1, trust_period = 1):
+    '''same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container'''
 
     np_rawCalpar = np.frombuffer(rawCalpar, dtype='float32')
     np_rawCalpar.shape=(data.shape[0], data.shape[1], len(rawCalpar) / data.shape[0] / data.shape[1])
@@ -1347,13 +1387,19 @@ def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, usel
     #additive_out[len(additive_out)/2:] = np.imag(np_additive_out.flatten())
 
 
-##########################################################################################
-##########################################################################################
-##################      RedundantCalibrator    ###########################################
-##########################################################################################
-##########################################################################################
+#  ___        _              _          _    ___      _ _ _             _           
+# | _ \___ __| |_  _ _ _  __| |__ _ _ _| |_ / __|__ _| (_) |__ _ _ __ _| |_ ___ _ _ 
+# |   / -_) _` | || | ' \/ _` / _` | ' \  _| (__/ _` | | | '_ \ '_/ _` |  _/ _ \ '_|
+# |_|_\___\__,_|\_,_|_||_\__,_\__,_|_||_\__|\___\__,_|_|_|_.__/_| \__,_|\__\___/_|  
+
 class RedundantCalibrator:
-#This class is the main tool for performing redundant calibration on data sets. For a given redundant configuration, say 32 antennas with 3 bad antennas, the user should create one instance of Redundant calibrator and reuse it for all data collected from that array. In general, upon creating an instance, the user need to create the info field of the instance by either computing it or reading it from a text file. readyForCpp(verbose = True) should be a very helpful function to provide information on what information is missing for running the calibration.
+    '''This class is the main tool for performing redundant calibration on data sets. 
+    For a given redundant configuration, say 32 antennas with 3 bad antennas, the 
+    user should create one instance of Redundant calibrator and reuse it for all data 
+    collected from that array. In general, upon creating an instance, the user need 
+    to create the info field of the instance by either computing it or reading it 
+    from a text file. readyForCpp(verbose = True) should be a very helpful function 
+    to provide information on what information is missing for running the calibration.'''
     def __init__(self, nTotalAnt, info = None):
         methodName = '.__init__.'
         self.className = '.RedundantCalibrator.'
@@ -1415,7 +1461,9 @@ class RedundantCalibrator:
         except:
             raise AttributeError("RedundantCalibrator has no attribute named %s"%name)
 
-    def read_redundantinfo(self, infopath, verbose = False):#redundantinfo is necessary for running redundant calibration. The text file should contain 29 lines each describes one item in the info.
+    def read_redundantinfo(self, infopath, verbose = False):
+        '''redundantinfo is necessary for running redundant calibration. The text file 
+        should contain 29 lines each describes one item in the info.'''
         info = read_redundantinfo(infopath, verbose = verbose)
         try:
             self.totalVisibilityId = info['totalVisibilityId']
@@ -1427,7 +1475,13 @@ class RedundantCalibrator:
         methodName = '.write_redundantinfo.'
         write_redundantinfo(self.Info.get_info(), infoPath, overwrite = overwrite, verbose = verbose)
 
-    def read_arrayinfo(self, arrayinfopath, verbose = False):#array info is the minimum set of information to uniquely describe a redundant array, and is needed to compute redundant info. It includes, in each line, bad antenna indices, bad unique baseline indices, tolerance of error when checking redundancy, antenna locations, and visibility's antenna pairing conventions. Unlike redundant info which is a self-contained dictionary, items in array info each have their own fields in the instance.
+    def read_arrayinfo(self, arrayinfopath, verbose = False):
+        '''array info is the minimum set of information to uniquely describe a 
+        redundant array, and is needed to compute redundant info. It includes, 
+        in each line, bad antenna indices, bad unique baseline indices, tolerance 
+        of error when checking redundancy, antenna locations, and visibility's 
+        antenna pairing conventions. Unlike redundant info which is a self-contained 
+        dictionary, items in array info each have their own fields in the instance.'''
         methodName = ".read_arrayinfo."
         if not os.path.isfile(arrayinfopath):
             raise IOError(self.className + methodName + "Error: Array info file " + arrayinfopath + " doesn't exist!")
@@ -1479,7 +1533,8 @@ class RedundantCalibrator:
             print "Bad UBL indices:", self.badUBLpair
 
 
-    def lincal(self, data, additivein, nthread = None, verbose = False):#for best performance, try setting nthread to larger than number of cores.
+    def lincal(self, data, additivein, nthread = None, verbose = False):
+        '''for best performance, try setting nthread to larger than number of cores.'''
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
             raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
@@ -1501,6 +1556,7 @@ class RedundantCalibrator:
         ##self.bestfit = self.rawCalpar[:, :, (3 + 2 * self.Info.nAntenna):: 2] + 1.j * self.rawCalpar[:, :, (4 + 2 * self.Info.nAntenna):: 2]
 
     def logcal(self, data, additivein, nthread = None, verbose = False):
+        '''XXX DOCSTRING'''
         if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
             raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         if data.shape != additivein.shape:
@@ -1517,6 +1573,7 @@ class RedundantCalibrator:
             return self._redcal_multithread(data, additivein, 1, nthread, verbose = verbose)
 
     def _redcal_multithread(self, data, additivein, uselogcal, nthread, verbose = False):
+        '''XXX DOCSTRING'''
         #if data.ndim != 3 or data.shape[-1] != len(self.totalVisibilityId):
             #raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline(%i)"%len(self.totalVisibilityId))
         #if data.shape != additivein.shape:
@@ -1577,6 +1634,7 @@ class RedundantCalibrator:
         return np.concatenate([np_additiveouts[i] for i in range(nthread)],axis=1)
 
     def get_calibrated_data(self, data, additivein = None):
+        '''XXX DOCSTRING'''
         if data.ndim != 3 or data.shape != (self.nTime, self.nFrequency, len(self.totalVisibilityId)):
             raise ValueError("Data shape error: it must be a 3D numpy array of dimensions time * frequency * baseline (%i, %i, %i)"%(self.nTime, self.nFrequency, len(self.totalVisibilityId)))
         if additivein is not None and data.shape != additivein.shape:
@@ -1592,6 +1650,7 @@ class RedundantCalibrator:
             return apply_calpar(data - additivein, calpar, self.totalVisibilityId)
 
     def get_modeled_data(self):
+        '''XXX DOCSTRING'''
         if self.rawCalpar is None:
             raise ValueError("self.rawCalpar doesn't exist. Please calibrate first using logcal() or lincal().")
         if len(self.totalVisibilityId) <= np.max(self.Info.subsetbl):
@@ -1603,6 +1662,7 @@ class RedundantCalibrator:
 
 
     def get_omnichisq(self):
+        '''XXX DOCSTRING'''
         if self.utctimes is None or self.rawCalpar is None:
             raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
         if len(self.utctimes) != len(self.rawCalpar):
@@ -1620,6 +1680,7 @@ class RedundantCalibrator:
         return omnichisq
 
     def get_omnigain(self):
+        '''XXX DOCSTRING'''
         if self.utctimes is None or self.rawCalpar is None:
             raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
         if len(self.utctimes) != len(self.rawCalpar):
@@ -1639,6 +1700,7 @@ class RedundantCalibrator:
         return omnigain
 
     def get_omnifit(self):
+        '''XXX DOCSTRING'''
         if self.utctimes is None or self.rawCalpar is None:
             raise Exception("Error: either self.utctimes or self.rawCalpar does not exist.")
         if len(self.utctimes) != len(self.rawCalpar):
@@ -1657,6 +1719,7 @@ class RedundantCalibrator:
         return omnifit
 
     def set_badUBL(self, badUBL):
+        '''XXX DOCSTRING'''
         if np.array(badUBL).shape[-1] != 3 or len(np.array(badUBL).shape) != 2:
             raise Exception("ERROR: badUBL need to be a list of coordinates each with 3 numbers.")
         badindex = []
@@ -1674,6 +1737,7 @@ class RedundantCalibrator:
 
 
     def diagnose(self, data = None, additiveout = None, flag = None, verbose = True, healthbar = 2, ubl_healthbar = 50, warn_low_redun = False, ouput_txt = False):
+        '''XXX DOCSTRING'''
         errstate = np.geterr()
         np.seterr(invalid = 'ignore')
 
@@ -1763,7 +1827,8 @@ class RedundantCalibrator:
                         txt += "index #%i, vector = %s, redundancy = %i, badness = %i\n"%(a, self.Info.ubl[a], self.Info.ublcount[a], bad_ubl_count[a])
             return txt
 
-    def flag(self, mode = '12', twindow = 5, fwindow = 5, nsigma = 4, _dbg_plotter = None, _niter = 3):#return true if flagged False if good and unflagged
+    def flag(self, mode = '12', twindow = 5, fwindow = 5, nsigma = 4, _dbg_plotter = None, _niter = 3):
+        '''return true if flagged False if good and unflagged'''
         if self.rawCalpar is None or (self.rawCalpar[:,:,2] == 0).all():
             raise Exception("flag cannot be run before lincal.")
 
@@ -1838,7 +1903,9 @@ class RedundantCalibrator:
         return_flag = (nan_flag|spike_flag|ubl_flag)
         return return_flag
 
+    # XXX treasure stuff is not necessary for core functionality.  make a subclass that adds treasure capability and move all treasure stuff to another file
     def absolutecal_w_treasure(self, treasure, pol, lsts, tolerance = None, MIN_UBL_COUNT = 50, static_treasure = True):#phase not yet implemented
+        '''XXX DOCSTRING'''
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore",category=RuntimeWarning)
 
@@ -1954,7 +2021,9 @@ class RedundantCalibrator:
             else:
                 return ubl_overlap
 
+    # XXX treasure stuff is not necessary for core functionality.  make a subclass that adds treasure capability and move all treasure stuff to another file
     def update_treasure(self, treasure, lsts, flags, pol, nsigma_cut = 5, verbose = False):#lsts in radians
+        '''XXX DOCSTRING'''
         if type(treasure) == type('aa'):
             treasure = Treasure(treasure)
         if len(lsts) != self.nTime:
@@ -1972,6 +2041,7 @@ class RedundantCalibrator:
             treasure.update_coin((pol, ublvec), lsts, visibilities, self.rawCalpar[..., 2]/2./abscal_factor/dof/self.ublcount[i], nsigma_cut = nsigma_cut,verbose=verbose)#divide by 2 because epsilon^2 should be for real/imag separately
 
     def compute_redundantinfo(self, arrayinfoPath = None, verbose = False, badAntenna = [], badUBLpair = [], antennaLocationTolerance = 1e-6):
+        '''XXX DOCSTRING'''
         self.antennaLocationTolerance = antennaLocationTolerance
         self.badAntenna += badAntenna
         self.badUBLpair += badUBLpair
@@ -2307,8 +2377,9 @@ class RedundantCalibrator:
             timer.tick('n')
 
 
-    #inverse function of totalVisibilityId, calculate the baseline index from the antenna pair. It allows flipping of a1 and a2, will return same result
     def get_baseline(self,pair):
+        '''inverse function of totalVisibilityId, calculate the baseline index from 
+        the antenna pair. It allows flipping of a1 and a2, will return same result'''
         if not (type(pair) == list or type(pair) == np.ndarray or type(pair) == tuple):
             raise Exception("input needs to be a list of two numbers")
             return
@@ -2338,8 +2409,8 @@ class RedundantCalibrator:
             return None
 
 
-    #compute_UBL returns the average of all baselines in that ubl group
     def compute_UBL_old2(self,tolerance = 0.1):
+        '''compute_UBL returns the average of all baselines in that ubl group'''
         #check if the tolerance is not a string
         if type(tolerance) == str:
             raise Exception("tolerance needs to be number not string")
@@ -2375,8 +2446,8 @@ class RedundantCalibrator:
         return ublall
 
 
-    #compute_UBL returns the average of all baselines in that ubl group
     def compute_UBL_old(self,tolerance = 0.1):
+        '''compute_UBL returns the average of all baselines in that ubl group'''
         #check if the tolerance is not a string
         if type(tolerance) == str:
             raise Exception("tolerance needs to be number not string")
@@ -2407,6 +2478,7 @@ class RedundantCalibrator:
         return ublall
 
     def compute_UBL(self,tolerance = 0.1):
+        '''XXX DOCSTRING'''
         if tolerance == 0:
             tolerance = np.min(np.linalg.norm(np.array(self.antennaLocation) - self.antennaLocation[0], axis = 1)) / 1.e6
         ubl = {}
@@ -2471,9 +2543,9 @@ class RedundantCalibrator:
         return ubl_vec
 
 
-    #need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
-    #input the antenna pair(as a list of two numbers), return the corresponding ubl index
     def get_ublindex(self,antpair):
+        '''need to do compute_redundantinfo first for this function to work (needs 'bl1dmatrix')
+        input the antenna pair(as a list of two numbers), return the corresponding ubl index'''
         #check if the input is a list, tuple, np.array of two numbers
         if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
             raise Exception("input needs to be a list of two numbers")
@@ -2499,9 +2571,9 @@ class RedundantCalibrator:
         return self.Info.bltoubl[crossblindex]
 
 
-    #need to do compute_redundantinfo first
-    #input the antenna pair, return -1 if it is a reversed baseline and 1 if it is not reversed
     def get_reversed(self,antpair):
+        '''need to do compute_redundantinfo first
+        input the antenna pair, return -1 if it is a reversed baseline and 1 if it is not reversed'''
         #check if the input is a list, tuple, np.array of two numbers
         if not (type(antpair) == list or type(antpair) == np.ndarray or type(antpair) == tuple):
             raise Exception("input needs to be a list of two numbers")
@@ -2527,7 +2599,9 @@ class RedundantCalibrator:
         return self.Info.reversed[crossblindex]
 
 ##########################Sub-class#############################
+# XXX application to PAPER should be in another file
 class RedundantCalibrator_PAPER(RedundantCalibrator):
+    '''XXX DOCSTRING'''
     def __init__(self, aa):
         nTotalAnt = len(aa)
         RedundantCalibrator.__init__(self, nTotalAnt)
@@ -2566,13 +2640,14 @@ class RedundantCalibrator_X5(RedundantCalibrator_X5All):
         RedundantCalibrator_X5All.__init__(self, antennaLocation)
         self.badAntenna = range(16) + range(56,60) + [16,19,50]
 
-##########################################################################################
-##########################################################################################
-##################           Treasure          ###########################################
-##########################################################################################
-##########################################################################################
+#  _____                             
+# |_   _| _ ___ __ _ ____  _ _ _ ___ 
+#   | || '_/ -_) _` (_-< || | '_/ -_)
+#   |_||_| \___\__,_/__/\_,_|_| \___|
 
+# XXX treasure stuff is not necessary for core functionality.  make a subclass that adds treasure capability and move all treasure stuff to another file
 class Treasure:
+    '''XXX DOCSTRING'''
     def __init__(self, folder_path, nlst = int(TPI/1e-3), nfreq = 1024, tolerance = .1):
         folder_path = os.path.expanduser(folder_path) + '/'
         if os.path.isdir(folder_path):
@@ -2619,6 +2694,7 @@ class Treasure:
         return self.__repr__()
 
     def coin_name(self, polvec):
+        '''XXX DOCSTRING'''
         pol, ublvec = polvec
         if pol in self.ubls.keys():
             match_flag = np.linalg.norm(self.ubls[pol] - ublvec, axis = 1) <= self.tolerance
@@ -2627,6 +2703,8 @@ class Treasure:
         return None
 
     def seal_name(self, polvec):
+        '''XXX DOCSTRING'''
+        pol, ublvec = polvec
         coinname = self.coin_name(polvec)
         if coinname is None:
             return None
@@ -2634,9 +2712,13 @@ class Treasure:
             return coinname.replace('coin', 'seal')
 
     def have_coin(self, polvec):
+        '''XXX DOCSTRING'''
+        pol, ublvec = polvec
         return (self.coin_name(polvec) is not None)
 
     def duplicate_treasure(self, folder_path):
+        '''XXX DOCSTRING'''
+        pol, ublvec = polvec
         folder_path = os.path.expanduser(folder_path)
         if os.path.exists(folder_path):
             raise IOError("Requested folder path %s already exists."%folder_path)
@@ -2665,7 +2747,11 @@ class Treasure:
         new_treasure = Treasure(folder_path)
         return new_treasure
 
-    def update_coin(self, polvec, lsts, visibilities, epsilonsqs, nsigma_cut = None, verbose=False):#lsts should be [0,TPI); visibilities should be 2D np array nTime by nFrequency, epsilonsqs should be for real/imag parts seperately (should be same though); to flag any data point make either visibilities or epsilonsqs np.nan, or make epsilonsqs 0
+    def update_coin(self, polvec, lsts, visibilities, epsilonsqs, nsigma_cut = None, verbose=False):
+        '''lsts should be [0,TPI); visibilities should be 2D np array nTime by 
+        nFrequency, epsilonsqs should be for real/imag parts seperately (should 
+        be same though); to flag any data point make either visibilities or epsilonsqs 
+        np.nan, or make epsilonsqs 0'''
         lsts = np.array(lsts)
         if visibilities.shape != (len(lsts), self.nFrequency):
             raise ValueError("visibilities array has wrong shape %s that does not agree with %s."%(visibilities.shape, (len(lsts), self.nFrequency)))
@@ -2746,6 +2832,7 @@ class Treasure:
             #return None
 
     def add_coin(self, polvec, coin_data=None):
+        '''XXX DOCSTRING'''
         pol, ublvec = polvec
         if len(ublvec) != 3:
             raise ValueError("ublvec %s is not a 3D vector."%ublvec)
@@ -2768,7 +2855,8 @@ class Treasure:
                 f.write('%f %f %f %s\n'%(ublvec[0], ublvec[1], ublvec[2], pol))
         return
 
-    def get_coin(self, polvec, ranges=None, retry_wait = 1, max_wait = 30, static_treasure=False):#ranges is index range [incl, exc)
+    def get_coin(self, polvec, ranges=None, retry_wait = 1, max_wait = 30, static_treasure=False):
+        '''ranges is index range [incl, exc)'''
         if ranges is not None:
             if len(ranges) != 2 or ranges[0] < 0 or ranges[1] > self.nTime:
                 raise ValueError("range specification %s is not allowed."%ranges)
@@ -2784,7 +2872,8 @@ class Treasure:
         else:
             return None
 
-    def get_interpolated_coin(self, polvec, lsts, retry_wait = 1, max_wait = 10, static_treasure = False):#lsts in [0, 2pi)
+    def get_interpolated_coin(self, polvec, lsts, retry_wait = 1, max_wait = 10, static_treasure = False):
+        '''lsts in [0, 2pi)'''
         if not self.have_coin(polvec):
             return None
         lsts = np.array(lsts)
@@ -2821,14 +2910,17 @@ class Treasure:
         return interp_coin
 
     def seal_all(self):
+        '''XXX DOCSTRING'''
         for pol in self.ubls.keys():
             for u in self.ubls[pol]:
                 np.zeros(self.sealSize, dtype = self.sealDtype).tofile(self.seal_name((pol, u)))
 
     def get_coin_now(self, polvec, ranges=None):
+        '''XXX DOCSTRING'''
         return self.get_coin(polvec, ranges=ranges, retry_wait = 0.1, max_wait = .5 )
 
     def seize_coin(self, polvec, retry_wait = 1, max_wait = 30):
+        '''XXX DOCSTRING'''
         if self.sealPosition is not None:
             raise TypeError("Treasure class is trying to seize coin without properly release previous seizure.")
         if not self.have_coin(polvec):
@@ -2850,6 +2942,7 @@ class Treasure:
             return False
 
     def release_coin(self, polvec):
+        '''XXX DOCSTRING'''
         if self.sealPosition is None:
             raise TypeError("Treasure class is trying to release coin without a previous seizure.")
 
@@ -2857,14 +2950,22 @@ class Treasure:
         self.sealPosition = None
 
     def try_coin(self, polvec):
+        '''XXX DOCSTRING'''
         if not self.have_coin(polvec):
             self.add_coin(polvec)
         return np.sum(np.fromfile(self.seal_name(polvec), dtype=self.sealDtype)) == 0
 
     def burn(self):
+        '''XXX DOCSTRING'''
         shutil.rmtree(self.folderPath)
 
+#   ___     _      
+#  / __|___(_)_ _  
+# | (__/ _ \ | ' \ 
+#  \___\___/_|_||_|
+
 class Coin:
+    '''XXX DOCSTRING'''
     #def __init__(self, path, shape, dtype):
         #if not os.path.isfile(path):
             #raise IOError("%s doesnt exist."%path)
@@ -2908,9 +3009,12 @@ class Coin:
         return self.__repr__()
 
 class FakeCoin:
+    '''XXX DOCSTRING'''
     pass
 
-def read_ndarray(path, shape, dtype, ranges):#read middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)
+# XXX utility function belongs in another file
+def read_ndarray(path, shape, dtype, ranges):
+    '''read middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)'''
     if not os.path.isfile(path):
         raise IOError(path + 'doesnt exist.')
     if len(ranges) != 2 or ranges[0] < 0 or ranges[0] >= ranges[1] or ranges[1] > shape[0]:
@@ -2930,7 +3034,9 @@ def read_ndarray(path, shape, dtype, ranges):#read middle part of binary file of
     #print result.shape,tuple(new_shape)
     return result.reshape(tuple(new_shape))
 
-def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3, task = 'unkown'):#write middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)
+# XXX utility function belongs in another file
+def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3, task = 'unkown'):
+    '''write middle part of binary file of shape and dtype specified by ranges of the first dimension. ranges is [inclusive, exclusive)'''
     if not os.path.isfile(path):
         raise IOError(path + 'doesnt exist.')
     if len(ranges) != 2 or ranges[0] < 0 or ranges[0] >= ranges[1] or ranges[1] > shape[0]:
@@ -2958,6 +3064,7 @@ def write_ndarray(path, shape, dtype, ranges, data, check = True, max_retry = 3,
     return
 
 def load_omnichisq(path):
+    '''XXX DOCSTRING'''
     path = os.path.expanduser(path)
     if not os.path.isfile(path):
         raise IOError("Path %s does not exist."%path)
@@ -2968,6 +3075,7 @@ def load_omnichisq(path):
     return omnichisq
 
 def load_omnigain(path, info=None):
+    '''XXX DOCSTRING'''
     path = os.path.expanduser(path)
     if not os.path.isfile(path):
         raise IOError("Path %s does not exist."%path)
@@ -2982,6 +3090,7 @@ def load_omnigain(path, info=None):
     return omnigain
 
 def load_omnifit(path, info=None):
+    '''XXX DOCSTRING'''
     path = os.path.expanduser(path)
     if not os.path.isfile(path):
         raise IOError("Path %s does not exist."%path)
@@ -2996,6 +3105,7 @@ def load_omnifit(path, info=None):
     return omnifit
 
 def get_omnitime(omnistuff):
+    '''XXX DOCSTRING'''
     if len(omnistuff.shape) == 2:
         return np.array([struct.unpack('d', struct.pack('ff', *(pair.tolist())))[0] for pair in omnistuff[:, :2]])
     elif len(omnistuff.shape) == 3:
@@ -3003,7 +3113,9 @@ def get_omnitime(omnistuff):
     else:
         raise ValueError('get_omnitime does not know how to deal with array of shape %s.'%omnistuff.shape)
 
-def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False, plot_3 = False, plot_1 = -1):#plot_3: only plot the 3 most redundant ones. plot_1: counting start from 0 the most redundant baseline
+# XXX utility function belongs in another file
+def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, title = '', plot_single_ubl = False, plot_3 = False, plot_1 = -1):
+    '''plot_3: only plot the 3 most redundant ones. plot_1: counting start from 0 the most redundant baseline'''
     import matplotlib.pyplot as plt
     data = np.array(data_in)
     try:#in case info is Info class
@@ -3077,14 +3189,18 @@ def omniview(data_in, info, plotrange = None, oppath = None, suppress = False, t
         plt.close()
     return outputdata
 
-def lin_depend(v1, v2, tol = 0):#whether v1 and v2 are linearly dependent
+# XXX utility function belongs in another file
+def lin_depend(v1, v2, tol = 0):
+    '''whether v1 and v2 are linearly dependent'''
     if len(v1) != len(v2):
         raise Exception("Length mismatch %i vs %i."%(len(v1), len(v2)))
     if la.norm(v1) == 0:
         return True
     return la.norm(np.dot(v1, v2)/np.dot(v1, v1) * v1 - v2) <= tol
 
-def _f(rawcal_ubl=[], verbose=False):#run this function twice in a row and its christmas
+# XXX utility function belongs in another file
+def _f(rawcal_ubl=[], verbose=False):
+    '''run this function twice in a row and its christmas'''
     if verbose and rawcal_ubl != []:
         print "Starting ubl:", rawcal_ubl
     if rawcal_ubl == []:
@@ -3092,7 +3208,13 @@ def _f(rawcal_ubl=[], verbose=False):#run this function twice in a row and its c
     if verbose:
         print "ubl:", rawcal_ubl
 
-def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):#return (intialantenna, solution_path) for raw calibration. solution path contains a list of [(a0, a1, crossubl), a] = [(ublindex entry), (which ant is solved, 0 or 1)]. When raw calibrating, initialize calpar to have [0] at initial antenna, then simply iterate along the solution_path, use crossubl and a0 or a1 specified by a to solve for the other a1 or a0 and append it to calpar. Afterwards, use mean angle on calpars
+def find_solution_path(info, input_rawcal_ubl=[], tol = 0.0, verbose=False):
+    '''return (intialantenna, solution_path) for raw calibration. solution path
+    contains a list of [(a0, a1, crossubl), a] = [(ublindex entry), (which ant is
+    solved, 0 or 1)]. When raw calibrating, initialize calpar to have [0] at
+    initial antenna, then simply iterate along the solution_path, use crossubl and
+    a0 or a1 specified by a to solve for the other a1 or a0 and append it to
+    calpar. Afterwards, use mean angle on calpars'''
     ###select 2 ubl for calibration
     rawcal_ubl = list(input_rawcal_ubl)
     if verbose and rawcal_ubl != []:
@@ -3294,7 +3416,9 @@ def medianAngle(a, axis = -1):
     #np_result[:] = medianAngle(data, axis = axis).reshape(result_shape)
     #return
 
+# XXX utility function belongs in another file
 def collapse_shape(shape, axis):
+    '''XXX DOCSTRING'''
     if axis == 0 or axis == -len(shape):
         return tuple(list(shape)[1:])
     elif axis == -1 or axis == len(shape) - 1:
@@ -3367,6 +3491,7 @@ def collapse_shape(shape, axis):
         #return np.concatenate([np_results[i] for i in range(nthread)],axis=parallel_axis2)
 
 def raw_calibrate(data, info, initant, solution_path, additional_solution_path, degeneracy_remove):
+    '''XXX DOCSTRING'''
     result = np.ones(int(math.floor((len(data)*2.)**.5)), dtype='complex64')
     calpar = np.array([[]]*info['nAntenna']).tolist()
     calpar[initant] = [0]
@@ -3398,7 +3523,13 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
     result[info['subsetant']] = np.exp(1.j*calpar)# * result[info['subsetant']]
     return result
 
-class InverseCholeskyMatrix:#for a positive definite matrix, Cholesky decomposition is M = L.Lt, where L lower triangular. This decomposition helps computing inv(M).v faster, by avoiding calculating inv(M). Once we have L, the product is simply inv(Lt).inv(L).v, and inverse of triangular matrices multiplying a vector is fast. sla.solve_triangular(M, v) = inv(M).v
+# XXX utility class belongs in another file
+class InverseCholeskyMatrix:
+    '''for a positive definite matrix, Cholesky decomposition is M = L.Lt, where L
+    lower triangular. This decomposition helps computing inv(M).v faster, by
+    avoiding calculating inv(M). Once we have L, the product is simply
+    inv(Lt).inv(L).v, and inverse of triangular matrices multiplying a vector is
+    fast. sla.solve_triangular(M, v) = inv(M).v'''
     def __init__(self, matrix):
         if type(matrix).__module__ != np.__name__ or len(matrix.shape) != 2:
             raise TypeError("matrix must be a 2D numpy array");
@@ -3441,7 +3572,11 @@ class InverseCholeskyMatrix:#for a positive definite matrix, Cholesky decomposit
             raise IOError("%s file exists!"%filename)
         self.L.tofile(filename)
 
-def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):#solve for the solution vector x such that mod(A.x, 2pi) = b, where the values range from -p to p. solution will be seeked on the first axis of b
+# XXX utility function belongs elsewhere
+def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
+    '''solve for the solution vector x such that mod(A.x, 2pi) = b, 
+    where the values range from -p to p. solution will be seeked 
+    on the first axis of b'''
     timer = Timer()
     p = np.pi
     A = np.array(A_in)
@@ -3651,7 +3786,8 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):#solve for the
 
     #return result
 
-def extract_crosspol_ubl(data, info):#input data should be xy/yx (2,...,bl)
+def extract_crosspol_ubl(data, info):
+    '''input data should be xy/yx (2,...,bl)'''
     if len(data) != 2:
         raise AttributeError('Datas first demension need to have length 2 corresponding to xy/yx. Current input shape %s.'%data.shape)
 
@@ -3675,7 +3811,11 @@ def extract_crosspol_ubl(data, info):#input data should be xy/yx (2,...,bl)
             chisq += np.linalg.norm(output[..., u][...,None] - data[..., blindex[~ureversed]], axis=-1)**2 + np.linalg.norm(output[..., u][...,None] - np.conjugate(data[::-1, ..., blindex[ureversed]]), axis=-1)**2
     return output, chisq
 
-def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error. All fft will be along first axis of spectra. Input and outputs are in fourier space, window in real space
+# XXX data compression stuff belongs in another file
+def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):
+    '''solve for band_limit * 2 -1 bins, returns the deconvolved solution and 
+    the norm of fitting error. All fft will be along first axis of spectra. 
+    Input and outputs are in fourier space, window in real space'''
     if len(spectra) != len(window):
         raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
     #if np.sum(window) <= 2* band_limit - 1:
@@ -3692,7 +3832,11 @@ def deconvolve_spectra(spectra, window, band_limit, correction_weight=1e-15):#so
     model_fdata = m.dot(deconv_fdata)
     return deconv_fdata, np.linalg.norm(model_fdata-spectra, axis = 0)
 
-def deconvolve_spectra2(spectra, window, band_limit, var = None, correction_weight=1e-15, correction_weight2=1e6):#solve for band_limit * 2 -1 bins, returns the deconvolved solution and the norm of fitting error. All fft will be along first axis of spectra. Input and outputs are in real space, window also in real space
+# XXX data compression stuff belongs in another file
+def deconvolve_spectra2(spectra, window, band_limit, var=None, correction_weight=1e-15, correction_weight2=1e6):
+    '''solve for band_limit * 2 -1 bins, returns the deconvolved solution 
+    and the norm of fitting error. All fft will be along first axis of 
+    spectra. Input and outputs are in real space, window also in real space'''
     if len(spectra) != len(window):
         raise ValueError("Input spectra and window function have unequal lengths %i %i."%(len(spectra), len(window)))
     #if np.sum(window) <= 2* band_limit - 1:
@@ -3723,12 +3867,15 @@ def deconvolve_spectra2(spectra, window, band_limit, var = None, correction_weig
     deconv_fdata = (mmi.dot(m.transpose().conjugate()) * Ni).dot(spectra*mult_window)
     model_fdata = m.dot(deconv_fdata)
     return deconv_fdata, np.linalg.norm(model_fdata-spectra*mult_window, axis = 0), model_fdata-spectra*mult_window, mmi
-##########################################################################################
-##########################################################################################
-##################           Timer             ###########################################
-##########################################################################################
-##########################################################################################
+
+#  _____ _               
+# |_   _(_)_ __  ___ _ _ 
+#   | | | | '  \/ -_) '_|
+#   |_| |_|_|_|_\___|_|  
+
+# XXX utility stuff belongs in another file
 class Timer:
+    '''XXX DOCSTRING'''
     def __init__(self):
         self.time = time.time()
         self.start_time = self.time
@@ -3736,6 +3883,7 @@ class Timer:
         self.repeat_msg = 0
 
     def tick(self, msg='', mute=False):
+        '''XXX DOCSTRING'''
         msg = str(msg)
         t = (float(time.time() - self.time)/60.)
         m = (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
@@ -3754,7 +3902,10 @@ class Timer:
         self.time = time.time()
         return t, m
 
+# XXX should be a method of Info class
 def remove_one_antenna(Info,badant):
+    '''XXX DOCSTRING'''
+    # XXX this is never called anywhere, as far as I can tell
     info = Info.get_info()
     #nAntenna and antloc
     nAntenna = info['nAntenna']-1

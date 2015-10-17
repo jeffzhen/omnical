@@ -5,6 +5,6 @@
 #include <numpy/arrayobject.h>
 #include <math.h>
 #include "python_api_macros.h"
-#include "calibration_omni.h"
+#include "omnical_redcal.h"
 
 #endif
