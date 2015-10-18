@@ -562,7 +562,7 @@ vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >*
 	return sum1;
 }
 
-void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
+void lincal(vector<vector<float> >* data, vector<float>* stdev, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
 	int nubl = info->ublindex.size();
     int ai, aj; // antenna indices
 	////initialize data and g0 ubl0
@@ -588,10 +588,10 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 				cbl = info->ublindex[u][i];
                 ai = info->bl2d[cbl][0]; aj = info->bl2d[cbl][1];
-				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
-				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1];
-				module->ubl2dgrp2[u][i][0] = module->g0[ai][0] * module->g0[aj][0] + module->g0[ai][1] * module->g0[aj][1];
-				module->ubl2dgrp2[u][i][1] = (module->g0[ai][0] * module->g0[aj][1] - module->g0[ai][1] * module->g0[aj][0]);
+				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0] / stdev->at(cbl);
+				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] / stdev->at(cbl);
+				module->ubl2dgrp2[u][i][0] = (module->g0[ai][0] * module->g0[aj][0] + module->g0[ai][1] * module->g0[aj][1]) / stdev->at(cbl);
+				module->ubl2dgrp2[u][i][1] = (module->g0[ai][0] * module->g0[aj][1] - module->g0[ai][1] * module->g0[aj][0]) / stdev->at(cbl);
 			}
 
 			module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
@@ -638,18 +638,19 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 					module->g1[a] = vector<float>(2,0);
 					module->g2[a] = vector<float>(2,0);
 				}else if(info->bl2d[cbl][1] == a3){
-					module->g1[a] = module->cdata1[cbl];
+					module->g1[a][0] = module->cdata1[cbl][0] / stdev->at(cbl);
+					module->g1[a][1] = module->cdata1[cbl][1] / stdev->at(cbl);
 					//module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl]);
-					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1]);
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1]) / stdev->at(cbl);
 					//module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * info->reversed[cbl] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
-					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]) / stdev->at(cbl);
 				}else{
-					module->g1[a][0] = module->cdata1[cbl][0];
-					module->g1[a][1] = -module->cdata1[cbl][1];////vij needs to be conjugated
+					module->g1[a][0] = module->cdata1[cbl][0] / stdev->at(cbl);
+					module->g1[a][1] = -module->cdata1[cbl][1] / stdev->at(cbl);////vij needs to be conjugated
 					//module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]));////Mi-j needs to be conjugated
-					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-1));////Mi-j needs to be conjugated
+					module->g2[a][0] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][0] + module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][1] * (-1)) / stdev->at(cbl);////Mi-j needs to be conjugated
 					//module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-info->reversed[cbl]) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
-					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-1) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]);
+					module->g2[a][1] = (module->g0[a][0] * module->ubl0[info->bltoubl[cbl]][1] * (-1) - module->g0[a][1] * module->ubl0[info->bltoubl[cbl]][0]) / stdev->at(cbl);
 				}
 			}
 			//(module->g1)[a3] = vector<float>(2,0);
@@ -674,10 +675,10 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 				cbl = info->ublindex[u][i];
                 ai = info->bl2d[cbl][0]; aj = info->bl2d[cbl][1];
-				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
-				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] ;
-				module->ubl2dgrp2[u][i][0] = module->g0[ai][0] * module->g0[aj][0] + module->g0[ai][1] * module->g0[aj][1];
-				module->ubl2dgrp2[u][i][1] = (module->g0[ai][0] * module->g0[aj][1] - module->g0[ai][1] * module->g0[aj][0]);
+				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0] / stdev->at(cbl);
+				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] / stdev->at(cbl);
+				module->ubl2dgrp2[u][i][0] = (module->g0[ai][0] * module->g0[aj][0] + module->g0[ai][1] * module->g0[aj][1]) / stdev->at(cbl);
+				module->ubl2dgrp2[u][i][1] = (module->g0[ai][0] * module->g0[aj][1] - module->g0[ai][1] * module->g0[aj][0]) / stdev->at(cbl);
 			}
 
 			module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
@@ -720,10 +721,10 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 				for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 					cbl = info->ublindex[u][i];
                     ai = info->bl2d[cbl][0]; aj = info->bl2d[cbl][1];
-					module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
-					module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1];
-					module->ubl2dgrp2[u][i][0] = module->g0[ai][0] * module->g0[aj][0] + module->g0[ai][1] * module->g0[aj][1];
-					module->ubl2dgrp2[u][i][1] = (module->g0[ai][0] * module->g0[aj][1] - module->g0[ai][1] * module->g0[aj][0]);
+					module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0] / stdev->at(cbl);
+					module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1] / stdev->at(cbl);
+					module->ubl2dgrp2[u][i][0] = (module->g0[ai][0] * module->g0[aj][0] + module->g0[ai][1] * module->g0[aj][1]) / stdev->at(cbl);
+					module->ubl2dgrp2[u][i][1] = (module->g0[ai][0] * module->g0[aj][1] - module->g0[ai][1] * module->g0[aj][0]) / stdev->at(cbl);
 				}
 				module->ubl3[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
 				module->ubl0[u][0] = module->ubl3[u][0];
