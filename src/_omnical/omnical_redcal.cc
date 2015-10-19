@@ -466,15 +466,61 @@ void vecmatmul(vector<vector<int> > * A, vector<float> * v, vector<float> * yfit
 
 /******************************************************/
 /******************************************************/
+vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >* b){//A*c = B where A and B complex vecs, c complex number, solve for c
+	vector<float> sum1(2, 0);
+	for (uint i =0; i < a->size(); i++){
+		sum1[0] += a->at(i)[0] * b->at(i)[0] + a->at(i)[1] * b->at(i)[1];
+		sum1[1] += a->at(i)[1] * b->at(i)[0] - a->at(i)[0] * b->at(i)[1];
+	}
+	float sum2 = pow(norm(b), 2);
+	sum1[0] = sum1[0] / sum2;
+	sum1[1] = sum1[1] / sum2;
+	return sum1;
+}
 
-
-void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module){
-	int nant = info->nAntenna;
+void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int computeUBLFit, int compute_calpar, calmemmodule* module){//if computeUBLFit is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input
 	int nubl = info->ublindex.size();
+    int ai, aj; // antenna indices
+	////initialize data and g0 ubl0
+	for (unsigned int b = 0; b < (module->cdata1).size(); b++){
+		module->cdata1[b][0] = data->at(b)[0] - additivein->at(b)[0];
+		module->cdata1[b][1] = data->at(b)[1] - additivein->at(b)[1];
+	}
+	float amptmp;
+	unsigned int cbl;
+	for (int a = 0; a < info->nAntenna; a++){
+		amptmp = pow(10, calpar->at(3 + a));
+		module->g0[a][0] = amptmp * cos(calpar->at(3 + info->nAntenna + a));
+		module->g0[a][1] = amptmp * sin(calpar->at(3 + info->nAntenna + a));
+	}
+	if (computeUBLFit != 1){
+		for (int u = 0; u < nubl; u++){
+			module->ubl0[u][0] = calpar->at(3 + 2 * info->nAntenna + 2 * u);
+			module->ubl0[u][1] = calpar->at(3 + 2 * info->nAntenna + 2 * u + 1);
+		}
+	} else{//if computeUBLFit is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input
+		for (int u = 0; u < nubl; u++){
+			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
+				cbl = info->ublindex[u][i];
+                ai = info->bl2d[cbl][0]; aj = info->bl2d[cbl][1];
+				module->ubl2dgrp1[u][i][0] = module->cdata1[cbl][0];
+				module->ubl2dgrp1[u][i][1] = module->cdata1[cbl][1];
+				module->ubl2dgrp2[u][i][0] = module->g0[ai][0] * module->g0[aj][0] + module->g0[ai][1] * module->g0[aj][1];
+				module->ubl2dgrp2[u][i][1] = (module->g0[ai][0] * module->g0[aj][1] - module->g0[ai][1] * module->g0[aj][0]);
+			}
+
+			module->ubl0[u] = minimizecomplex(&(module->ubl2dgrp1[u]), &(module->ubl2dgrp2[u]));
+		}
+	}
+
+
+
+	int nant = info->nAntenna;
 	int ncross = info->bl2d.size();
 	////read in amp and args
 	for (int b = 0; b < ncross; b++){
-
+		ai = info->bl2d[b][0];
+		aj = info->bl2d[b][1];
 		if ((data->at(b)[0] - additivein->at(b)[0] == 0) and (data->at(b)[1] - additivein->at(b)[1] == 0)){//got 0, quit
 			for(int i = 3; i < 3 + 2 * nant + 2 * nubl; i++){
 				calpar->at(i) = 0;
@@ -483,11 +529,12 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 			return;
 		}
 
-		module->amp1[b] = log10(amp(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1]));
+		module->amp1[b] = log10(amp(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1])) - calpar->at(3 + ai) - calpar->at(3 + aj);
 		//module->pha1[b] = phase(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1]) * info->reversed[b];
-		module->pha1[b] = phase(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1]);// * info->reversed[b];
+		module->pha1[b] = phaseWrap(phase(data->at(b)[0] - additivein->at(b)[0], data->at(b)[1] - additivein->at(b)[1]) + calpar->at(3 + nant + ai) - calpar->at(3 + nant + aj));
 	}
-	////rewrap args
+
+	////rewrap args//TODO: use module->ubl0
 	for(int i = 0; i < nubl; i ++){
 		for (uint j = 0; j < (module->ublgrp1)[i].size(); j ++){
 			(module->ublgrp1)[i][j] = module->pha1[info->ublindex[i][j]];
@@ -521,20 +568,21 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 
 
 	for(int b = 0; b < ncross; b++) {
-		float amp = pow(10, module->x1[nant + info->bltoubl[b]] + module->x1[info->bl2d[b][0]] + module->x1[info->bl2d[b][1]]);
-		//float phase =  module->x2[nant + info->bltoubl[b]] * info->reversed[b] - module->x2[info->bl2d[b][0]] + module->x2[info->bl2d[b][1]];
-		float phase =  module->x2[nant + info->bltoubl[b]] - module->x2[info->bl2d[b][0]] + module->x2[info->bl2d[b][1]];
-		additiveout->at(b)[0] = data->at(b)[0] - additivein->at(b)[0] - amp * cos(phase);
-		additiveout->at(b)[1] = data->at(b)[1] - additivein->at(b)[1] - amp * sin(phase);
+		ai = info->bl2d[b][0];
+		aj = info->bl2d[b][1];
+		float amp = pow(10, module->x1[nant + info->bltoubl[b]] + module->x1[ai] + module->x1[aj] + calpar->at(3 + ai) + calpar->at(3 + aj));
+		float phase =  module->x2[nant + info->bltoubl[b]] - module->x2[ai] + module->x2[aj] - calpar->at(3 + nant + ai) + calpar->at(3 + nant + aj);
+		additiveout->at(b)[0] = data->at(b)[0] - amp * cos(phase);
+		additiveout->at(b)[1] = data->at(b)[1] - amp * sin(phase);
 	}
-	if(command == 0){////compute additive term only
+	if(compute_calpar == 0){////compute additive term only
 		calpar->at(1) = pow(norm(additiveout), 2);
 		//cout << norm(additiveout) << endl;
 		return;
-	} else if(command == 1){////compute full set of calpars
+	} else if(compute_calpar == 1){////compute full set of calpars
 		for(int a = 0; a < nant; a++){
-			calpar->at(3 + a) = module->x1[a];
-			calpar->at(3 + nant + a) = module->x2[a];
+			calpar->at(3 + a) += module->x1[a];
+			calpar->at(3 + nant + a) += module->x2[a];
 		}
 		for(int u = 0; u < nubl; u++){
 			calpar->at(3 + 2 * nant + 2 * u) = pow(10, module->x1[nant + u]) * cos(module->x2[nant + u]);
@@ -545,19 +593,9 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 	return;
 }
 
-vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >* b){
-	vector<float> sum1(2, 0);
-	for (uint i =0; i < a->size(); i++){
-		sum1[0] += a->at(i)[0] * b->at(i)[0] + a->at(i)[1] * b->at(i)[1];
-		sum1[1] += a->at(i)[1] * b->at(i)[0] - a->at(i)[0] * b->at(i)[1];
-	}
-	float sum2 = pow(norm(b), 2);
-	sum1[0] = sum1[0] / sum2;
-	sum1[1] = sum1[1] / sum2;
-	return sum1;
-}
 
-void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int command, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
+
+void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int computeUBLFit, calmemmodule* module, float convergethresh, int maxiter, float stepsize){
 	int nubl = info->ublindex.size();
     int ai, aj; // antenna indices
 	////initialize data and g0 ubl0
@@ -573,12 +611,12 @@ void lincal(vector<vector<float> >* data, vector<vector<float> >* additivein, re
 		module->g0[a][0] = amptmp * cos(calpar->at(3 + info->nAntenna + a));
 		module->g0[a][1] = amptmp * sin(calpar->at(3 + info->nAntenna + a));
 	}
-	if (command != 1){
+	if (computeUBLFit != 1){
 		for (int u = 0; u < nubl; u++){
 			module->ubl0[u][0] = calpar->at(3 + 2 * info->nAntenna + 2 * u);
 			module->ubl0[u][1] = calpar->at(3 + 2 * info->nAntenna + 2 * u + 1);
 		}
-	} else{//if command is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input
+	} else{//if computeUBLFit is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input
 		for (int u = 0; u < nubl; u++){
 			for (unsigned int i = 0; i < module->ubl2dgrp1[u].size(); i++){
 				cbl = info->ublindex[u][i];

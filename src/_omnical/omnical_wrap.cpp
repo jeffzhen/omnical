@@ -705,12 +705,16 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
             }
 
             if (uselogcal) {
+                for (unsigned int n = 0; n < calpar_v.size(); n ++){
+                    calpar_v[n] = ((float *) PyArray_GETPTR2(calpar, t, f))[n];
+                }
                 logcaladd(
                     &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
                     &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0),
                     &(redinfo->info),
                     &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0),
                     &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0),
+                    computeUBLFit,
                     1,
                     &module
                 );
