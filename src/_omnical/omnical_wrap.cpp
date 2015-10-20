@@ -691,12 +691,29 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
         Py_INCREF(additiveout);
     }
 
-    // check stdev shape if given
+    // check stdev shape if given. can be 3D txfxb or 1D over b. if 1d copy into stdev_v.
+    bool threed_stdev = false;
     if (stdev != NULL){
-        if (PyArray_NDIM(stdev) != 3 || PyArray_TYPE(stdev) != PyArray_FLOAT
-            || PyArray_DIM(stdev,0) != nint || PyArray_DIM(stdev,1) != nfreq || PyArray_DIM(stdev,2) != nbls) {
-        PyErr_Format(PyExc_ValueError, "stdev must be of the same shape as data and float");
-        return NULL;
+        if (PyArray_TYPE(stdev) != PyArray_FLOAT){
+            PyErr_Format(PyExc_ValueError, "stdev must be of type float");
+            return NULL;
+        }
+
+        if (PyArray_NDIM(stdev) == 3){
+            if (PyArray_DIM(stdev,0) != nint || PyArray_DIM(stdev,1) != nfreq || PyArray_DIM(stdev,2) != nbls) {
+                PyErr_Format(PyExc_ValueError, "3D stdev must be of the same shape as data");
+                return NULL;
+            }
+            threed_stdev = true;
+        } else if (PyArray_NDIM(stdev) == 1){
+            if (PyArray_DIM(stdev,0) != nbls) {
+                PyErr_Format(PyExc_ValueError, "1D stdev must have the same number of baseline as data");
+                return NULL;
+            }
+            for (int b = 0; b < nbls; b++) stdev_v[b] = ((float *) PyArray_GETPTR1(stdev,b))[0];
+        } else {
+            PyErr_Format(PyExc_ValueError, "stdev must be 1D or 3D");
+            return NULL;
         }
     }
 
@@ -722,19 +739,26 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
                 additivein_v[b][0] = ((float *) PyArray_GETPTR3(additivein,t,f,b))[0];
                 additivein_v[b][1] = ((float *) PyArray_GETPTR3(additivein,t,f,b))[1];
             }
-            if (stdev != NULL){
+
+
+
+            if (threed_stdev){
                 for (int b = 0; b < nbls; b++) {
                     stdev_v[b] = ((float *) PyArray_GETPTR3(stdev,t,f,b))[0];
                 }
             }
 
             if (uselogcal) {
+                for (unsigned int n = 0; n < calpar_v.size(); n ++){
+                    calpar_v[n] = ((float *) PyArray_GETPTR2(calpar, t, f))[n];
+                }
                 logcaladd(
                     &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
                     &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0),
                     &(redinfo->info),
                     &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0),
                     &additiveout_v, //(vector<vector<float> > *) PyArray_GETPTR3(additiveout,t,f,0),
+                    computeUBLFit,
                     1,
                     &module
                 );
