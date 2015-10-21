@@ -494,6 +494,9 @@ vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >*
 }
 
 void logcaladd(vector<vector<float> >* data, vector<float>* stdev, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int computeUBLFit, int compute_calpar, calmemmodule* module){//if computeUBLFit is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input
+	//NOTE: logcal currently is not taking advantage of stdev.
+    //To add that we need to add stdev into th calculation of At and AtAi and B counterparts in info calculation. No need to touch C++ code.
+
 	int nubl = info->ublindex.size();
     int ai, aj; // antenna indices
 	////initialize data and g0 ubl0

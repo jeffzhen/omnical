@@ -102,6 +102,9 @@ def redcal(data, info, stdev=None, xtalk=None, gains=None, vis=None,
     function wraps _omnical.redcal to abstract away internal data ordering.  'data' is a dict of measured visibilities,
     indexed by baseline.  Initial guesses for xtalk, antenna gains,
     and unique baselines may be passed in through xtalk, gains, and vis dictionaries, respectively.'''
+    #NOTE: logcal currently is not taking advantage of stdev.
+    #To add that we need to add stdev into th calculation of At and AtAi and B counterparts in info calculation. No need to touch C++ code.
+
     data = info.order_data(data) # put data into
     calpar = np.zeros((data.shape[0],data.shape[1], calpar_size(info.nAntenna, len(info.ublcount))), dtype=np.float32)
     pack_calpar(info, calpar, gains=gains, vis=vis)
@@ -292,6 +295,8 @@ class RedundantCalibrator:
         '''XXX DOCSTRING'''
         return self._redcal(data, additivein, stdev=stdev, nthread=nthread, verbose=verbose, uselogcal=0)
     def logcal(self, data, additivein, stdev=None, nthread=None, verbose=False):
+    #NOTE: logcal currently is not taking advantage of stdev.
+    #To add that we need to add stdev into th calculation of At and AtAi and B counterparts in info calculation. No need to touch C++ code.
         '''XXX DOCSTRING'''
         return self._redcal(data, additivein, stdev=stdev, nthread=nthread, verbose=verbose, uselogcal=1)
     def _redcal_multithread(self, data, additivein, uselogcal, nthread, verbose = False):
