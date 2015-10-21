@@ -122,6 +122,16 @@ float norm(vector<vector<float> > * v){
 	return pow(res, 0.5);
 }
 
+float norm(vector<vector<float> > * v, vector<float> * stdev){
+	float res = 0;
+	for (unsigned int i = 0; i < v->size(); i++){
+		for (unsigned int j = 0; j < v->at(i).size(); j++){
+			res += pow(v->at(i)[j] / stdev->at(i), 2);
+		}
+	}
+	return pow(res, 0.5);
+}
+
 float phase(vector<float> * c){
 	return atan2(c->at(1), c->at(0));
 };
@@ -483,7 +493,7 @@ vector<float> minimizecomplex(vector<vector<float> >* a, vector<vector<float> >*
 	return sum1;
 }
 
-void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int computeUBLFit, int compute_calpar, calmemmodule* module){//if computeUBLFit is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input
+void logcaladd(vector<vector<float> >* data, vector<float>* stdev, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int computeUBLFit, int compute_calpar, calmemmodule* module){//if computeUBLFit is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input
 	int nubl = info->ublindex.size();
     int ai, aj; // antenna indices
 	////initialize data and g0 ubl0
@@ -585,8 +595,8 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 		additiveout->at(b)[1] = data->at(b)[1] - amp * sin(phase);
 	}
 	if(compute_calpar == 0){////compute additive term only
-		calpar->at(1) = pow(norm(additiveout), 2);
-		//cout << norm(additiveout) << endl;
+		calpar->at(1) = pow(norm(additiveout, stdev), 2);
+		//cout << norm(additiveout, stdev) << endl;
 		return;
 	} else if(compute_calpar == 1){////compute full set of calpars
 		for(int a = 0; a < nant; a++){
@@ -597,7 +607,7 @@ void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein,
 			calpar->at(3 + 2 * nant + 2 * u) = pow(10, module->x1[nant + u]) * cos(module->x2[nant + u]);
 			calpar->at(3 + 2 * nant + 2 * u + 1) = pow(10, module->x1[nant + u]) * sin(module->x2[nant + u]);
 		}
-		calpar->at(1) = pow(norm(additiveout), 2);
+		calpar->at(1) = pow(norm(additiveout, stdev), 2);
 	}
 	return;
 }
@@ -654,7 +664,7 @@ void lincal(vector<vector<float> >* data, vector<float>* stdev, vector<vector<fl
 		//module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] * info->reversed[b] + gim * module->ubl0[info->bltoubl[b]][0];
 		module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] + gim * module->ubl0[info->bltoubl[b]][0];
 		delta = (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
-		chisq += delta;
+		chisq += delta / pow(stdev->at(b), 2);
 		//if (delta != 0){
 			//cout << delta << " " << module->cdata2[b][0]-1 << " " << module->cdata2[b][1] << " " << module->ubl0[info->bltoubl[b]][0]-1 << " " << module->ubl0[info->bltoubl[b]][1] * info->reversed[b] << " " <<  a1 << " " <<  a2 << " " <<  b << " " << info->reversed[b] << endl;
 		//}
@@ -752,7 +762,7 @@ void lincal(vector<vector<float> >* data, vector<float>* stdev, vector<vector<fl
 				gim = module->g0[a1][0] * module->g0[a2][1] - module->g0[a1][1] * module->g0[a2][0];
 				module->cdata2[b][0] = gre * module->ubl0[info->bltoubl[b]][0] - gim * module->ubl0[info->bltoubl[b]][1];
 				module->cdata2[b][1] = gre * module->ubl0[info->bltoubl[b]][1] + gim * module->ubl0[info->bltoubl[b]][0];
-				chisq2 += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2));
+				chisq2 += (pow(module->cdata2[b][0] - module->cdata1[b][0], 2) + pow(module->cdata2[b][1] - module->cdata1[b][1], 2)) / pow(stdev->at(b), 2);
 			}
 		}
 		componentchange = (chisq - chisq2) / chisq;
@@ -820,6 +830,7 @@ void lincal(vector<vector<float> >* data, vector<float>* stdev, vector<vector<fl
 	for (int b = 0; b < (module -> cdata2).size(); b++){
 		delta  = pow(module->cdata2[b][0] - module->cdata1[b][0], 2);
 		delta += pow(module->cdata2[b][1] - module->cdata1[b][1], 2);
+		delta /= pow(stdev->at(b), 2);
 		a1 = info->bl2d[b][0];
 		a2 = info->bl2d[b][1];
 		calpar -> at(chisq_ant + a1) += delta;

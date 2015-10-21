@@ -110,7 +110,6 @@ class TestRedCal(unittest.TestCase):
 
     def test_logcal(self):
         #check that logcal give 0 chi2 for all 20 testinfos
-        diff = np.zeros(20)
         for index in range(20):
             arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(index+1)+'_array_info.txt'
             calibrator = Oc.RedundantCalibrator(56)
@@ -176,7 +175,6 @@ class TestRedCal(unittest.TestCase):
         data = info.order_data(dd)
 
         ####Config parameters###################################
-        needrawcal = True #if true, (generally true for raw data) you need to take care of having raw calibration parameters in float32 binary format freq x nant
         std = 0.1
 
         ####do calibration################
@@ -199,6 +197,99 @@ class TestRedCal(unittest.TestCase):
             logchi2 = (calibrator.rawCalpar[0,0,1]/(info['At'].shape[1] - info['At'].shape[0])/(2*std**2))**0.5
             linlist[i] = linchi2
             loglist[i] = logchi2
+        self.assertTrue(abs(np.mean(linlist)-1.0) < 0.01)        #check that chi2 of lincal is close enough to 1
+        self.assertTrue((linlist < loglist).all())     #chick that chi2 of lincal is smaller than chi2 of logcal
+
+    def test_loglincal_stdev1D(self):
+        fileindex = 3      #use the 3rd file to do the test, can also change this to any number from 1 to 20
+        length = 100
+        loglist = np.zeros(length)
+        linlist = np.zeros(length)
+
+        ####import arrayinfo################
+        arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_array_info.txt'
+        nant = 56
+        calibrator = Oc.RedundantCalibrator(nant)
+        calibrator.compute_redundantinfo(arrayinfopath)
+        info = calibrator.Info
+        npz = np.load(testdata % (fileindex-1))
+        bls = [tuple(bl) for bl in npz['bls']]
+        dd = dict(zip(bls, npz['vis']))
+        data = info.order_data(dd)
+
+        ####Config parameters###################################
+        std = 0.1
+        std_bl = np.random.uniform(.2, 1, size=data.shape[-1]).astype('float32')
+
+        ####do calibration################
+        calibrator.removeDegeneracy = True
+        calibrator.removeAdditive = False
+        calibrator.keepData = True
+        calibrator.keepCalpar = True
+        calibrator.convergePercent = 1e-5
+        calibrator.maxIteration = 50
+        calibrator.stepSize = .2
+        calibrator.computeUBLFit = True
+
+        for i in range(length):
+            noise = (std_bl * (np.random.normal(scale=std, size=data.shape) + 1.0j*np.random.normal(scale=std, size = data.shape))).astype('complex64')
+            ndata = data + noise
+            calibrator.logcal(ndata, np.zeros_like(ndata), stdev=std_bl, verbose=VERBOSE)
+            calibrator.lincal(ndata, np.zeros_like(ndata), stdev=std_bl, verbose=VERBOSE)
+
+            linchi2 = (calibrator.rawCalpar[0,0,2]/(info['At'].shape[1] - info['At'].shape[0])/(2*(std)**2))**0.5
+            logchi2 = (calibrator.rawCalpar[0,0,1]/(info['At'].shape[1] - info['At'].shape[0])/(2*(std)**2))**0.5
+            linlist[i] = linchi2
+            loglist[i] = logchi2
+        # print np.mean(loglist), np.std(loglist)
+        # print np.mean(linlist), np.std(linlist)
+        self.assertTrue(abs(np.mean(linlist)-1.0) < 0.01)        #check that chi2 of lincal is close enough to 1
+        self.assertTrue(np.mean(linlist) < np.mean(loglist))     #chick that chi2 of lincal is smaller than chi2 of logcal
+
+
+    def test_lincal_stdev3D(self):
+        fileindex = 3      #use the 3rd file to do the test, can also change this to any number from 1 to 20
+        length = 100
+        loglist = np.zeros(length)
+        linlist = np.zeros(length)
+
+        ####import arrayinfo################
+        arrayinfopath = os.path.dirname(os.path.realpath(__file__)) + '/testinfo/test'+str(fileindex)+'_array_info.txt'
+        nant = 56
+        calibrator = Oc.RedundantCalibrator(nant)
+        calibrator.compute_redundantinfo(arrayinfopath)
+        info = calibrator.Info
+        npz = np.load(testdata % (fileindex-1))
+        bls = [tuple(bl) for bl in npz['bls']]
+        dd = dict(zip(bls, npz['vis']))
+        data = info.order_data(dd)
+
+        ####Config parameters###################################
+        std = 0.1
+        std_bl = np.random.uniform(.2, 1, size=data.shape).astype('float32')
+
+        ####do calibration################
+        calibrator.removeDegeneracy = True
+        calibrator.removeAdditive = False
+        calibrator.keepData = True
+        calibrator.keepCalpar = True
+        calibrator.convergePercent = 1e-5
+        calibrator.maxIteration = 50
+        calibrator.stepSize = .2
+        calibrator.computeUBLFit = True
+
+        for i in range(length):
+            noise = (std_bl * (np.random.normal(scale=std, size=data.shape) + 1.0j*np.random.normal(scale=std, size = data.shape))).astype('complex64')
+            ndata = data + noise
+            calibrator.logcal(ndata, np.zeros_like(ndata), stdev=std_bl[0,0], verbose=VERBOSE) #3D stdev not allowed for logcal
+            calibrator.lincal(ndata, np.zeros_like(ndata), stdev=std_bl, verbose=VERBOSE)
+
+            linchi2 = (calibrator.rawCalpar[0,0,2]/(info['At'].shape[1] - info['At'].shape[0])/(2*(std)**2))**0.5
+            logchi2 = (calibrator.rawCalpar[0,0,1]/(info['At'].shape[1] - info['At'].shape[0])/(2*(std)**2))**0.5
+            linlist[i] = linchi2
+            loglist[i] = logchi2
+        # print np.mean(loglist), np.std(loglist)
+        # print np.mean(linlist), np.std(linlist)
         self.assertTrue(abs(np.mean(linlist)-1.0) < 0.01)        #check that chi2 of lincal is close enough to 1
         self.assertTrue(np.mean(linlist) < np.mean(loglist))     #chick that chi2 of lincal is smaller than chi2 of logcal
 

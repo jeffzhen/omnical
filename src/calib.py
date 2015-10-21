@@ -25,7 +25,9 @@ with warnings.catch_warnings():
 __version__ = '4.0.4'
 
 julDelta = 2415020.# =julian date - pyephem's Observer date
+cal_name = {0: "Lincal", 1: "Logcal"}
 PI = np.pi
+TPI = np.pi * 2
 
 # XXX maybe omnical should only solve one time at a time, so that prev sol can be used as starting point for next time
 
@@ -94,7 +96,7 @@ def unpack_calpar(info, calpar):
         vis[(i,j)] = v
     return meta, gains, vis
 
-def redcal(data, info, xtalk=None, gains=None, vis=None,
+def redcal(data, info, stdev=None, xtalk=None, gains=None, vis=None,
         removedegen=False, uselogcal=True, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit=True, trust_period=1):
     '''Perform redundant calibration, parsing results into meta, gains, and vis dicts which are returned.  This
     function wraps _omnical.redcal to abstract away internal data ordering.  'data' is a dict of measured visibilities,
@@ -105,8 +107,10 @@ def redcal(data, info, xtalk=None, gains=None, vis=None,
     pack_calpar(info, calpar, gains=gains, vis=vis)
     if xtalk is None: xtalk = np.zeros_like(data) # crosstalk (aka "additivein/out") will be overwritten
     else: xtalk = info.order_data(xtalk)
+    if stdev is None:
+        stdev = np.ones(data.shape[-1], dtype='float32')
     res = _O.redcal(data, calpar, info, xtalk,
-        removedegen=int(removedegen), uselogcal=int(uselogcal), maxiter=int(maxiter),
+        stdev=stdev, removedegen=int(removedegen), uselogcal=int(uselogcal), maxiter=int(maxiter),
         conv=float(conv), stepsize=float(stepsize), computeUBLFit=int(computeUBLFit),
         trust_period=int(trust_period))
     meta, gains, vis = unpack_calpar(info, calpar)
@@ -205,15 +209,17 @@ def apply_calpar2(data, calpar, calpar2, visibilityID):
 #    opomnigain.tofile(outputPath + '.omnigain')
 #    opomnifit.tofile(outputPath + '.omnifit')
 
-def _redcal(data, rawCalpar, Info, additivein, additive_out, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit=1, trust_period=1):
+def _redcal(data, rawCalpar, Info, additivein, additive_out, stdev=None, removedegen=0, uselogcal=1, maxiter=50, conv=1e-3, stepsize=.3, computeUBLFit=1, trust_period=1):
     # XXX with merge of _omnical.redcal and _omnical.redcal2, is this function still necessary?
     '''same as _O.redcal, but does not return additiveout. Rather it puts additiveout into an inputted container.  this is the target of RedundantCalibrator._redcal_multithread'''
     np_rawCalpar = np.frombuffer(rawCalpar, dtype=np.float32)
     np_rawCalpar.shape=(data.shape[0], data.shape[1], len(rawCalpar) / data.shape[0] / data.shape[1])
     np_additive_out = np.frombuffer(additive_out, dtype=np.complex64)
     np_additive_out.shape = data.shape
+    if stdev is None:
+        stdev = np.ones(data.shape[-1], dtype='float32')
     # XXX Why is np_additive_out used here instead of additive_out?
-    _O.redcal(data, np_rawCalpar, Info, additivein, np_additive_out, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
+    _O.redcal(data, np_rawCalpar, Info, additivein, np_additive_out, stdev=stdev, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
 
     #np_additive_out = _O.redcal(data, np_rawCalpar, Info, additivein, removedegen=removedegen, uselogcal=uselogcal, maxiter=int(maxiter), conv=float(conv), stepsize=float(stepsize), computeUBLFit = int(computeUBLFit), trust_period = int(trust_period))
     #additive_out[:len(additive_out)/2] = np.real(np_additive_out.flatten())
@@ -265,27 +271,29 @@ class RedundantCalibrator:
         self.Info.to_npz(filename)
     #def read_arrayinfo(self, arrayinfopath, verbose = False):
     #    return self.arrayinfo.read_arrayinfo(arrayinfopath,verbose=verbose) # XXX if works, clean up
-    def _redcal(self, data, additivein, nthread=None, verbose=False, uselogcal=0):
+    def _redcal(self, data, additivein, stdev=None, nthread=1, verbose=False, uselogcal=0):
         '''for best performance, try setting nthread to larger than number of cores.'''
         #assert(data.ndim == 3 and data.shape[-1] == len(self.arrayinfo.totalVisibilityId))
         #assert(data.shape == additivein.shape) # XXX is this taken care of in wrapper?
         self.nTime, self.nFrequency = data.shape[:2]
         nUBL = len(self.Info.ublcount)
-        if uselogcal or self.rawCalpar is None:
+        if self.rawCalpar is None:
             self.rawCalpar = np.zeros((self.nTime, self.nFrequency, calpar_size(self.Info.nAntenna, nUBL)), dtype=np.float32)
         assert(self.rawCalpar.shape == (self.nTime,self.nFrequency, calpar_size(self.Info.nAntenna, nUBL)))
         if nthread is None: nthread = min(mp.cpu_count() - 1, self.nFrequency)
         if nthread >= 2: return self._redcal_multithread(data, additivein, 0, nthread, verbose=verbose)
+        if stdev is None:
+            stdev = np.ones(data.shape[-1], dtype='float32')
         return _O.redcal(data, self.rawCalpar, self.Info,
-            additivein, removedegen=int(self.removeDegeneracy), uselogcal=uselogcal,
+            additivein, stdev=stdev, removedegen=int(self.removeDegeneracy), uselogcal=uselogcal,
             maxiter=int(self.maxIteration), conv=float(self.convergePercent), stepsize=float(self.stepSize),
             computeUBLFit=int(self.computeUBLFit), trust_period=self.trust_period)
-    def lincal(self, data, additivein, nthread=None, verbose=False):
+    def lincal(self, data, additivein, stdev=None, nthread=None, verbose=False):
         '''XXX DOCSTRING'''
-        return self._redcal(data, additivein, nthread=nthread, verbose=verbose, uselogcal=0)
-    def logcal(self, data, additivein, nthread=None, verbose=False):
+        return self._redcal(data, additivein, stdev=stdev, nthread=nthread, verbose=verbose, uselogcal=0)
+    def logcal(self, data, additivein, stdev=None, nthread=None, verbose=False):
         '''XXX DOCSTRING'''
-        return self._redcal(data, additivein, nthread=nthread, verbose=verbose, uselogcal=1)
+        return self._redcal(data, additivein, stdev=stdev, nthread=nthread, verbose=verbose, uselogcal=1)
     def _redcal_multithread(self, data, additivein, uselogcal, nthread, verbose = False):
         '''XXX DOCSTRING'''
         nthread = min(nthread, self.nFrequency)
@@ -1042,7 +1050,7 @@ def raw_calibrate(data, info, initant, solution_path, additional_solution_path, 
         #print solution[-1]
         #print calpar[solution[-1][solution[-1][-1]]][0], ((solution[-1][-1]-0.5)/-.5),d[solution[-1][2]] , ubl_phase * (solution[-1][-2]), calpar[solution[-1][1-solution[-1][-1]]]
 
-    calpar = (np.array(calpar).flatten() + np.pi) % (2 * np.pi) - np.pi
+    calpar = (np.array(calpar).flatten() + PI) % TPI - PI
     #remove the effect of enforcing the two bls to be 0, rather, set the first two linearly independent antennas w.r.t initant to be 0
 
     calpar = calpar - degeneracy_remove[2].dot([calpar[degeneracy_remove[0]],calpar[degeneracy_remove[1]]])
@@ -1104,9 +1112,8 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
     '''solve for the solution vector x such that mod(A.x, 2pi) = b,
     where the values range from -p to p. solution will be seeked
     on the first axis of b'''
-    p = np.pi
     A = np.array(A_in)
-    b = np.array(b_in + p) % (2*p) - p
+    b = np.array(b_in + PI) % TPI - PI
     if A.ndim != 2: raise TypeError("A matrix must be 2 dimensional. Input A is %i dimensional."%A.ndim)
     if A.shape[0] != b.shape[0]: raise TypeError("A and b has shape mismatch: %s and %s."%(A.shape, b.shape))
     if A.shape[1] != 2: raise TypeError("A matrix's second dimension must have size of 2. %i inputted."%A.shape[1])
@@ -1183,7 +1190,7 @@ def solve_slope(A_in, b_in, tol, niter=30, step=1, verbose=False):
         print coarseA
         print result
     for i in range(niter):
-        result = result + step * iA.dot(A.transpose().dot((b - A.dot(result) + p)%(2*p)-p))
+        result = result + step * iA.dot(A.transpose().dot((b - A.dot(result) + PI)%TPI - PI))
         if verbose: print result
     if extra_shape is not None: result.shape = tuple(np.concatenate(([2], extra_shape)))
     return result

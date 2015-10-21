@@ -691,7 +691,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
         Py_INCREF(additiveout);
     }
 
-    // check stdev shape if given. can be 3D txfxb or 1D over b. if 1d copy into stdev_v.
+    // check stdev shape if given. can be 3D txfxb or 1D over b. 3D not allowed for logcal; if 1d copy into stdev_v.
     bool threed_stdev = false;
     if (stdev != NULL){
         if (PyArray_TYPE(stdev) != PyArray_FLOAT){
@@ -702,6 +702,9 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
         if (PyArray_NDIM(stdev) == 3){
             if (PyArray_DIM(stdev,0) != nint || PyArray_DIM(stdev,1) != nfreq || PyArray_DIM(stdev,2) != nbls) {
                 PyErr_Format(PyExc_ValueError, "3D stdev must be of the same shape as data");
+                return NULL;
+            } else if (uselogcal){
+                PyErr_Format(PyExc_ValueError, "3D stdev not allowed for logcal, because logcal can only use the same AtNiAi matrices from info");
                 return NULL;
             }
             threed_stdev = true;
@@ -754,6 +757,7 @@ PyObject *redcal_wrap(PyObject *self, PyObject *args, PyObject *kwds) {//in plac
                 }
                 logcaladd(
                     &data_v, //(vector<vector<float> > *) PyArray_GETPTR3(data,t,f,0),
+                    &stdev_v,
                     &additivein_v, //(vector<vector<float> > *) PyArray_GETPTR3(additivein,t,f,0),
                     &(redinfo->info),
                     &calpar_v, //(vector<float> *) PyArray_GETPTR3(calpar,t,f,0),

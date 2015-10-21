@@ -110,6 +110,7 @@ float phase(float re, float im);
 float phase(vector<float> * c);
 
 float norm(vector<vector<float> > * v);
+float norm(vector<vector<float> > * v, vector<float>* stdev);
 
 vector<float> conjugate (vector<float> x);
 
@@ -146,7 +147,7 @@ bool invert(vector<vector<float> > * AtNinvAori, vector<vector<double> > * AtNin
 void vecmatmul(vector<vector<double> > * Afitting, vector<float> * v, vector<float> * ampfit);
 void vecmatmul(vector<vector<float> > * Afitting, vector<float> * v, vector<float> * ampfit);
 
-void logcaladd(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int computeUBLFit, int compute_calpar, calmemmodule* module);
+void logcaladd(vector<vector<float> >* data, vector<float>* stdev, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int computeUBLFit, int compute_calpar, calmemmodule* module);
 void lincal(vector<vector<float> >* data, vector<float>* stdev, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, int computeUBLFit, calmemmodule* module, float convergethresh, int maxiter, float stepsize);//if command is 1, compute the ubl estimates given data and calpars, rather than read ubl estimates from input; additive term will only be updated if lincal can achieve a lower chi^2
 
 void gaincal(vector<vector<float> >* data, vector<vector<float> >* additivein, redundantinfo* info, vector<float>* calpar, vector<vector<float> >* additiveout, calmemmodule* module, float convergethresh, int maxiter, float stepsize);
